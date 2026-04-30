@@ -1,0 +1,18 @@
+import { Stack } from 'expo-router';
+import { colors } from '@/constants/theme';
+
+export default function OnboardingLayout() {
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.bg },
+        animation: 'slide_from_right',
+        gestureEnabled: false,
+      }}
+    >
+      <Stack.Screen name="index" />
+      <Stack.Screen name="consent" />
+    </Stack>
+  );
+}

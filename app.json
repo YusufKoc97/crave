@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "CRAVE",
+    "slug": "crave",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "crave",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#020810"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.crave.app"
+    },
+    "android": {
+      "package": "com.crave.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#020810"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#020810"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
