@@ -121,6 +121,9 @@ export default function ActiveSession() {
   const [completedCycles, setCompletedCycles] = useState(0);
   const [bonusFlash, setBonusFlash] = useState<{ key: number; amount: number } | null>(null);
   const [quoteIdx, setQuoteIdx] = useState(0);
+  // Set after a successful "I Resisted" — replaces the action buttons with a
+  // celebratory share banner. Custom addictions skip share (preset only).
+  const [shareBanner, setShareBanner] = useState<{ points: number } | null>(null);
 
   // Wall-clock anchor — survives JS thread pauses (background/foreground).
   // For a resumed session we anchor to the ORIGINAL started_at so elapsed
@@ -297,9 +300,9 @@ export default function ActiveSession() {
 
   const finish = (outcome: 'resisted' | 'gave_in') => {
     const finalSeconds = Math.floor((Date.now() - startedAt.current) / 1000);
+    let pointsEarned = 0;
 
     if (params.id) {
-      // Local in-memory cache + momentum/streak (instant UI feedback).
       recordSession({
         addictionId: params.id,
         outcome,
@@ -308,16 +311,13 @@ export default function ActiveSession() {
         reachedCeiling: completedCycles > 0,
       });
 
-      // Compute the same point reward the context computes so the row matches.
       const minutes = finalSeconds / 60;
-      const pointsEarned =
+      pointsEarned =
         outcome === 'resisted'
           ? Math.max(1, Math.round(minutes * sensitivity)) +
             (completedCycles > 0 ? sensitivity * 5 * completedCycles : 0)
           : 0;
 
-      // Close out the active row on the server. Fire-and-forget so the user
-      // doesn't wait on the network to see the home screen again.
       if (sessionId.current && user) {
         supabase
           .from('craving_sessions')
@@ -333,9 +333,38 @@ export default function ActiveSession() {
           .then(() => {});
       }
     }
-    // Drop the persistence marker so a restart returns to the home screen.
     clearActiveSessionId();
+
+    // On a win, hold the user on this screen and offer to share the moment.
+    // On a loss, just bow out cleanly — no celebration prompt.
+    if (outcome === 'resisted') {
+      setShareBanner({ points: pointsEarned });
+      return;
+    }
     router.back();
+  };
+
+  const dismissAfterShareDecision = () => {
+    setShareBanner(null);
+    router.back();
+  };
+
+  const goShare = () => {
+    if (!params.id || !params.name) return;
+    // Custom addictions are not eligible — guard at the call site too.
+    if (params.id.startsWith('custom-')) {
+      dismissAfterShareDecision();
+      return;
+    }
+    // Replace this modal with the compose modal so closing compose returns
+    // straight to the home tab, not back to a now-finished active-session.
+    router.replace({
+      pathname: '/community-compose',
+      params: {
+        addictionId: params.id,
+        prefill: `Az önce ${params.name}'a karşı dayanıp kazandım. `,
+      },
+    });
   };
 
   return (
@@ -431,15 +460,45 @@ export default function ActiveSession() {
       </View>
 
       <View style={styles.btnArea}>
-        <Pressable
-          style={[styles.resistBtn, { borderColor: accentColor }]}
-          onPress={() => finish('resisted')}
-        >
-          <Text style={[styles.resistText, { color: accentColor }]}>I Resisted</Text>
-        </Pressable>
-        <Pressable style={styles.gaveInBtn} onPress={() => finish('gave_in')}>
-          <Text style={styles.gaveInText}>I gave in</Text>
-        </Pressable>
+        {shareBanner ? (
+          <View style={styles.shareBanner}>
+            <Text style={styles.shareTitle}>
+              <Text style={{ color: accentColor }}>+{shareBanner.points} </Text>
+              <Text style={{ color: '#F1F5F9' }}>puan kazandın</Text>
+            </Text>
+            <Text style={styles.shareSubtitle}>Bu anı toplulukla paylaşmak ister misin?</Text>
+            <View style={styles.shareBtnRow}>
+              <Pressable
+                style={[styles.dismissBtn]}
+                onPress={dismissAfterShareDecision}
+              >
+                <Text style={styles.dismissText}>Bitir</Text>
+              </Pressable>
+              {!params.id?.startsWith('custom-') && (
+                <Pressable
+                  style={[styles.shareBtn, { borderColor: accentColor, backgroundColor: hexWithAlpha(accentColor, 0.12) }]}
+                  onPress={goShare}
+                >
+                  <Text style={[styles.shareBtnText, { color: accentColor }]}>
+                    Bunu paylaş
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        ) : (
+          <>
+            <Pressable
+              style={[styles.resistBtn, { borderColor: accentColor }]}
+              onPress={() => finish('resisted')}
+            >
+              <Text style={[styles.resistText, { color: accentColor }]}>I Resisted</Text>
+            </Pressable>
+            <Pressable style={styles.gaveInBtn} onPress={() => finish('gave_in')}>
+              <Text style={styles.gaveInText}>I gave in</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );
@@ -624,5 +683,59 @@ const styles = StyleSheet.create({
     color: '#3D5470',
     fontSize: 14,
     fontWeight: '400',
+  },
+  shareBanner: {
+    backgroundColor: '#0A1628',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1A2A45',
+    paddingTop: 16,
+    paddingBottom: 14,
+    paddingHorizontal: 16,
+  },
+  shareTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  shareSubtitle: {
+    marginTop: 4,
+    color: '#94A3B8',
+    fontSize: 12.5,
+    fontWeight: '400',
+  },
+  shareBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  dismissBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: '#1A2A45',
+    backgroundColor: '#080F1C',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dismissText: {
+    color: '#7BA8C8',
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0.5,
+  },
+  shareBtn: {
+    flex: 1.4,
+    height: 44,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareBtnText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    letterSpacing: 0.4,
   },
 });

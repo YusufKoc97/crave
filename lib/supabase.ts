@@ -104,6 +104,37 @@ export type Database = {
         };
         Update: never;
       };
+      forum_posts: {
+        Row: {
+          id: string;
+          user_id: string;
+          addiction_id: string;
+          content: string;
+          like_count: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          addiction_id: string;
+          content: string;
+        };
+        Update: {
+          content?: string;
+        };
+      };
+      forum_likes: {
+        Row: {
+          post_id: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          post_id: string;
+          user_id: string;
+        };
+        Update: never;
+      };
     };
   };
 };

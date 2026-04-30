@@ -133,6 +133,13 @@ function RootStack() {
             animation: 'slide_from_bottom',
           }}
         />
+        <Stack.Screen
+          name="community-compose"
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+          }}
+        />
       </Stack>
     </>
   );
