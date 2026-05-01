@@ -1,9 +1,18 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import { colors } from '@/constants/theme';
 import { useSessions } from '@/context/SessionsContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function ProfileScreen() {
   const { totalPoints, wonToday, lostToday, momentum, streak } = useSessions();
+  const { user, signOut } = useAuth();
+
+  const onSignOut = async () => {
+    await signOut();
+    // After sign-out the root index will route us to /(auth)/sign-in.
+    router.replace('/');
+  };
 
   return (
     <View style={styles.root}>
@@ -41,6 +50,15 @@ export default function ProfileScreen() {
           </View>
         )}
       </View>
+
+      {user && (
+        <View style={styles.bottomSection}>
+          <Text style={styles.emailLabel}>{user.email}</Text>
+          <Pressable onPress={onSignOut} style={styles.signOutBtn} hitSlop={6}>
+            <Text style={styles.signOutText}>Çıkış yap</Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
@@ -73,6 +91,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#020810',
     paddingTop: 64,
     paddingHorizontal: 20,
+    paddingBottom: 110,
+    justifyContent: 'space-between',
   },
   topSection: {
     alignItems: 'center',
@@ -180,5 +200,28 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     fontWeight: '500',
     marginTop: 2,
+  },
+  bottomSection: {
+    alignItems: 'center',
+  },
+  emailLabel: {
+    color: '#6B8BA4',
+    fontSize: 11,
+    letterSpacing: 0.4,
+    marginBottom: 12,
+  },
+  signOutBtn: {
+    paddingHorizontal: 22,
+    paddingVertical: 11,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: '#1A2A45',
+    backgroundColor: '#0A1628',
+  },
+  signOutText: {
+    color: '#7BA8C8',
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
 });

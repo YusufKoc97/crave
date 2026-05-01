@@ -1,8 +1,9 @@
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { Pressable, StyleSheet, View, Platform } from 'react-native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
+import { useAuth } from '@/context/AuthContext';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -73,6 +74,14 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
 }
 
 export default function TabsLayout() {
+  // Bounce out of the tabs the moment the session disappears (e.g. user tapped
+  // "Çıkış yap" on the profile screen). The root index would also redirect on
+  // a fresh launch, but we want sign-out to feel instant without a reload.
+  const { session, loading } = useAuth();
+  if (!loading && !session) {
+    return <Redirect href="/(auth)/sign-in" />;
+  }
+
   return (
     <Tabs
       tabBar={(props) => <CustomTabBar {...props} />}

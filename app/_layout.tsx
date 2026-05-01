@@ -118,6 +118,7 @@ function RootStack() {
       >
         <Stack.Screen name="index" />
         <Stack.Screen name="(onboarding)" />
+        <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
           name="active-session"
