@@ -15,8 +15,6 @@ import {
   COMMUNITY_FILTER_ORDER,
   createPost,
   fetchPost,
-  getUsername,
-  setUsername as persistUsername,
   updatePost,
 } from '@/lib/community';
 
@@ -35,10 +33,7 @@ export default function CommunityCompose() {
 
   const isEditMode = !!params.editId;
 
-  const [hydrating, setHydrating] = useState(true);
-  const [needsUsername, setNeedsUsername] = useState(false);
-  const [usernameInput, setUsernameInput] = useState('');
-  const [savingUsername, setSavingUsername] = useState(false);
+  const [hydrating, setHydrating] = useState(isEditMode);
 
   const initialAddiction =
     params.addictionId && PRESETS_BY_ID[params.addictionId]
@@ -53,29 +48,16 @@ export default function CommunityCompose() {
   useEffect(() => {
     if (ranOnce.current) return;
     ranOnce.current = true;
-    if (!user) {
-      setHydrating(false);
-      return;
-    }
+    if (!user || !isEditMode || !params.editId) return;
     (async () => {
-      // Edit mode skips the username step — anyone with a post already
-      // had to set a username at create time.
-      if (isEditMode && params.editId) {
-        const post = await fetchPost(params.editId, user.id);
-        if (post && post.user_id === user.id) {
-          setContent(post.content);
-          setAddictionId(post.addiction_id);
-        } else {
-          // Post not found or not ours — drop back to the feed.
-          router.back();
-          return;
-        }
-        setHydrating(false);
+      const post = await fetchPost(params.editId!, user.id);
+      if (post && post.user_id === user.id) {
+        setContent(post.content);
+        setAddictionId(post.addiction_id);
+      } else {
+        // Post not found or not ours — drop back to the feed.
+        router.back();
         return;
-      }
-      const u = await getUsername(user.id);
-      if (!u || u.trim().length === 0) {
-        setNeedsUsername(true);
       }
       setHydrating(false);
     })();
@@ -86,7 +68,6 @@ export default function CommunityCompose() {
   const canSubmit =
     !!user &&
     !submitting &&
-    !needsUsername &&
     trimmedContent.length > 0 &&
     content.length <= MAX_LEN;
 
@@ -113,21 +94,6 @@ export default function CommunityCompose() {
     }
   };
 
-  const saveHandle = async () => {
-    if (!user) return;
-    const trimmed = usernameInput.trim();
-    if (trimmed.length < 3 || trimmed.length > 24) return;
-    setSavingUsername(true);
-    try {
-      await persistUsername(user.id, trimmed);
-      setNeedsUsername(false);
-    } catch {
-      /* noop */
-    } finally {
-      setSavingUsername(false);
-    }
-  };
-
   const accent = PRESETS_BY_ID[addictionId]?.color ?? '#3B82F6';
 
   if (hydrating) {
@@ -145,68 +111,6 @@ export default function CommunityCompose() {
         <Pressable onPress={() => router.back()} style={styles.dismissBtn}>
           <Text style={styles.dismissText}>Kapat</Text>
         </Pressable>
-      </View>
-    );
-  }
-
-  if (needsUsername) {
-    const handleValid =
-      usernameInput.trim().length >= 3 && usernameInput.trim().length <= 24;
-    return (
-      <View style={styles.root}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
-            <Text style={styles.iconBtnText}>✕</Text>
-          </Pressable>
-          <Text style={styles.headerTitle}>Kullanıcı Adı</Text>
-          <View style={styles.iconBtn} />
-        </View>
-        <View style={styles.body}>
-          <Text style={styles.kicker}>İLK PAYLAŞIM</Text>
-          <Text style={styles.title}>Toplulukta nasıl görünmek istersin?</Text>
-          <Text style={styles.subtitle}>
-            Bu isim tüm gönderilerinde görünür. Sonra profil ekranından değiştirebilirsin.
-          </Text>
-          <TextInput
-            value={usernameInput}
-            onChangeText={(v) =>
-              setUsernameInput(v.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24))
-            }
-            placeholder="ör. quiet_resister"
-            placeholderTextColor="#3D5470"
-            style={styles.handleInput}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoFocus
-            maxLength={24}
-          />
-          <Text style={styles.helper}>
-            3-24 karakter. Harf, rakam, _ ve - kullanılabilir.
-          </Text>
-        </View>
-        <View style={styles.footer}>
-          <Pressable
-            onPress={saveHandle}
-            disabled={!handleValid || savingUsername}
-            style={[
-              styles.submitBtn,
-              {
-                borderColor: handleValid ? '#3B82F6' : '#1A2A45',
-                backgroundColor: handleValid ? 'rgba(59,130,246,0.12)' : '#080F1C',
-                opacity: handleValid && !savingUsername ? 1 : 0.55,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.submitText,
-                { color: handleValid ? '#7DC3FF' : '#3D5470' },
-              ]}
-            >
-              {savingUsername ? 'Kaydediliyor...' : 'Devam et'}
-            </Text>
-          </Pressable>
-        </View>
       </View>
     );
   }
@@ -403,42 +307,6 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     paddingHorizontal: 18,
-  },
-  kicker: {
-    color: '#3D5470',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 3,
-    marginTop: 12,
-  },
-  title: {
-    marginTop: 8,
-    color: '#F1F5F9',
-    fontSize: 22,
-    fontWeight: '300',
-    letterSpacing: 0.5,
-  },
-  subtitle: {
-    marginTop: 12,
-    color: '#94A3B8',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  handleInput: {
-    marginTop: 24,
-    backgroundColor: '#0A1628',
-    borderWidth: 1,
-    borderColor: '#1A2A45',
-    borderRadius: 11,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: '#F1F5F9',
-    fontSize: 15,
-  },
-  helper: {
-    marginTop: 8,
-    color: '#6B8BA4',
-    fontSize: 11,
   },
   sectionLabel: {
     color: '#6B8BA4',

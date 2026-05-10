@@ -47,11 +47,13 @@ export default function SignUpScreen() {
       setSubmitting(false);
       return;
     }
-    // Push the session into AuthContext synchronously so the (tabs) gate
-    // sees a non-null session on the same render — onAuthStateChange would
-    // arrive a tick too late and bounce us back to sign-in.
+    // Push the session into AuthContext synchronously so the root index
+    // gate sees a non-null session on the same render — onAuthStateChange
+    // would arrive a tick too late and bounce us back to sign-in.
     applySession(data.session);
-    router.replace('/(tabs)');
+    // Brand-new accounts have no username yet; let the root index route
+    // them through /setup-username before landing in /(tabs).
+    router.replace('/');
   };
 
   return (

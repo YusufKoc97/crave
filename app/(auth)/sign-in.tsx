@@ -39,11 +39,14 @@ export default function SignInScreen() {
       setSubmitting(false);
       return;
     }
-    // Push the session into AuthContext synchronously so the (tabs) gate
-    // sees a non-null session on the same render — onAuthStateChange would
-    // arrive a tick too late and bounce us back to sign-in.
+    // Push the session into AuthContext synchronously so the root index
+    // gate sees a non-null session on the same render — onAuthStateChange
+    // would arrive a tick too late and bounce us back to sign-in.
     if (data.session) applySession(data.session);
-    router.replace('/(tabs)');
+    // Hand off to the root index so it can route through the username
+    // gate (and any future post-auth gates) instead of jumping straight
+    // to the tabs.
+    router.replace('/');
   };
 
   return (
