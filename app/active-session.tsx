@@ -21,7 +21,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
 import { colors } from '@/constants/theme';
-import { useSessions } from '@/context/SessionsContext';
+import { calculateResistPoints, useSessions } from '@/context/SessionsContext';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import {
@@ -307,20 +307,19 @@ export default function ActiveSession() {
     let pointsEarned = 0;
 
     if (params.id) {
+      pointsEarned = calculateResistPoints({
+        outcome,
+        durationSeconds: finalSeconds,
+        sensitivity,
+        completedCycles,
+      });
       recordSession({
         addictionId: params.id,
         outcome,
         durationSeconds: finalSeconds,
         sensitivity,
-        reachedCeiling: completedCycles > 0,
+        completedCycles,
       });
-
-      const minutes = finalSeconds / 60;
-      pointsEarned =
-        outcome === 'resisted'
-          ? Math.max(1, Math.round(minutes * sensitivity)) +
-            (completedCycles > 0 ? sensitivity * 5 * completedCycles : 0)
-          : 0;
 
       if (sessionId.current && user) {
         supabase

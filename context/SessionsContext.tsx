@@ -27,8 +27,32 @@ type RecordInput = {
   outcome: Outcome;
   durationSeconds: number;
   sensitivity: number;
-  reachedCeiling?: boolean;
+  /** How many full cycles the user completed during this session. Each
+   *  one is worth `sensitivity * 5` bonus points on a 'resisted' outcome. */
+  completedCycles?: number;
 };
+
+/**
+ * Single source of truth for the resist scoring formula. active-session
+ * sends to Supabase; SessionsContext mirrors locally. Both call this so
+ * a future tweak to the curve only happens in one place.
+ *
+ *   base   = max(1, round(minutes * sensitivity))    // floor at 1pt
+ *   bonus  = sensitivity * 5 * completedCycles       // each full cycle
+ *   total  = base + bonus  (only on 'resisted'; gave_in earns 0)
+ */
+export function calculateResistPoints(input: {
+  outcome: Outcome;
+  durationSeconds: number;
+  sensitivity: number;
+  completedCycles: number;
+}): number {
+  if (input.outcome !== 'resisted') return 0;
+  const minutes = input.durationSeconds / 60;
+  const base = Math.max(1, Math.round(minutes * input.sensitivity));
+  const bonus = input.sensitivity * 5 * input.completedCycles;
+  return base + bonus;
+}
 
 type SessionsContextValue = {
   sessions: Session[];
@@ -128,15 +152,17 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
 
   const recordSession = (input: RecordInput): Session => {
     const minutes = input.durationSeconds / 60;
-    let points = 0;
+    const completedCycles = input.completedCycles ?? 0;
+    const points = calculateResistPoints({
+      outcome: input.outcome,
+      durationSeconds: input.durationSeconds,
+      sensitivity: input.sensitivity,
+      completedCycles,
+    });
     let nextMomentum = momentum;
     let nextStreak = streak;
 
     if (input.outcome === 'resisted') {
-      const base = Math.max(1, Math.round(minutes * input.sensitivity));
-      const bonus = input.reachedCeiling ? input.sensitivity * 5 : 0;
-      points = base + bonus;
-
       const momentumGain = Math.max(
         1,
         Math.min(25, Math.round(input.sensitivity * 1.5 + minutes * 0.4))
