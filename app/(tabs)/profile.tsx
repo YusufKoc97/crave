@@ -1,12 +1,16 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { useSessions } from '@/context/SessionsContext';
 import { useAuth } from '@/context/AuthContext';
+import { useAddictions } from '@/context/AddictionsContext';
+import type { Addiction } from '@/constants/addictions';
 
 export default function ProfileScreen() {
   const { totalPoints, wonToday, lostToday, momentum, streak } = useSessions();
   const { user, signOut } = useAuth();
+  const { addictions, removeAddiction } = useAddictions();
 
   const onSignOut = async () => {
     await signOut();
@@ -15,7 +19,11 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={styles.root}>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.topSection}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>?</Text>
@@ -51,6 +59,33 @@ export default function ProfileScreen() {
         )}
       </View>
 
+      <View style={styles.addictionsSection}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionLabel}>BAĞIMLILIKLARIM</Text>
+          <Pressable
+            onPress={() => router.push('/add-addiction')}
+            hitSlop={8}
+            style={styles.addLinkBtn}
+          >
+            <Ionicons name="add" size={13} color="#7DC3FF" />
+            <Text style={styles.addLinkText}>Ekle</Text>
+          </Pressable>
+        </View>
+        {addictions.length === 0 ? (
+          <Text style={styles.emptyAddictions}>
+            Hiç bağımlılık yok. Ana ekrandan ekleyebilirsin.
+          </Text>
+        ) : (
+          addictions.map((a) => (
+            <AddictionRow
+              key={a.id}
+              addiction={a}
+              onRemove={() => removeAddiction(a.id)}
+            />
+          ))
+        )}
+      </View>
+
       {user && (
         <View style={styles.bottomSection}>
           <Text style={styles.emailLabel}>{user.email}</Text>
@@ -59,8 +94,58 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
       )}
+    </ScrollView>
+  );
+}
+
+function AddictionRow({
+  addiction,
+  onRemove,
+}: {
+  addiction: Addiction;
+  onRemove: () => void;
+}) {
+  const isCustom = addiction.id.startsWith('custom-');
+  return (
+    <View style={styles.addictionRow}>
+      <View
+        style={[
+          styles.addictionTile,
+          {
+            backgroundColor: hexToRgba(addiction.color, 0.14),
+            borderColor: hexToRgba(addiction.color, 0.35),
+          },
+        ]}
+      >
+        <Text style={styles.addictionEmoji}>{addiction.emoji}</Text>
+      </View>
+      <View style={styles.addictionText}>
+        <Text style={styles.addictionName} numberOfLines={1}>
+          {addiction.name}
+        </Text>
+        <Text style={styles.addictionMeta}>
+          <Text style={{ color: hexToRgba(addiction.color, 0.85) }}>
+            {isCustom ? 'özel' : 'varsayılan'}
+          </Text>
+          <Text style={{ color: '#3D5470' }}>{'  ·  '}</Text>
+          <Text style={{ color: '#94A3B8' }}>
+            hassasiyet {addiction.sensitivity}
+          </Text>
+        </Text>
+      </View>
+      <Pressable onPress={onRemove} hitSlop={10} style={styles.removeBtn}>
+        <Ionicons name="close" size={14} color="#6B8BA4" />
+      </Pressable>
     </View>
   );
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function StatCard({
@@ -89,10 +174,11 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#020810',
+  },
+  scrollContent: {
     paddingTop: 64,
     paddingHorizontal: 20,
     paddingBottom: 110,
-    justifyContent: 'space-between',
   },
   topSection: {
     alignItems: 'center',
@@ -201,8 +287,93 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
   },
+  addictionsSection: {
+    marginTop: 36,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingHorizontal: 2,
+  },
+  sectionLabel: {
+    color: '#6B8BA4',
+    fontSize: 9.5,
+    fontWeight: '700',
+    letterSpacing: 2,
+  },
+  addLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(125, 195, 255, 0.3)',
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+  },
+  addLinkText: {
+    color: '#7DC3FF',
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.4,
+  },
+  emptyAddictions: {
+    color: '#6B8BA4',
+    fontSize: 12,
+    fontStyle: 'italic',
+    paddingVertical: 14,
+    textAlign: 'center',
+  },
+  addictionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  addictionTile: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addictionEmoji: {
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  addictionText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  addictionName: {
+    color: '#F1F5F9',
+    fontSize: 13.5,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+  },
+  addictionMeta: {
+    marginTop: 2,
+    fontSize: 10.5,
+    letterSpacing: 0.3,
+  },
+  removeBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: '#1A2A45',
+    backgroundColor: '#0A1628',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   bottomSection: {
     alignItems: 'center',
+    marginTop: 36,
   },
   emailLabel: {
     color: '#6B8BA4',
