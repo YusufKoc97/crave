@@ -55,8 +55,6 @@ app/
 
 components/
   NeonRing.tsx         ─ Border-color trick + box-shadow neon glow
-  Spinner.tsx          ─ (Eski SVG comet trail — artık kullanılmıyor)
-  AddictionGlyph.tsx   ─ Vector icon wrapper (eski deneme — artık emoji)
 
 constants/
   theme.ts             ─ colors, spacing, radius, font
@@ -219,17 +217,21 @@ Email confirmation Supabase dashboard'dan OFF.
 | Önem | İş |
 |---|---|
 | 🔥 | **Sign-in/up redirect bug**: Sign-up sonrası auto-redirect bazen tetiklenmiyor; manual reload gerekiyor (web'de). Native'de muhtemelen sorunsuz ama doğrulanmadı |
-| 🔥 | **Pagination community**: Cursor logic kodda var (`fetchPosts({before})`) ama `onEndReached` UI tarafına bağlanmamış |
-| 🔥 | **Streak daily reset**: Streak şu an "consecutive resists" gibi davranıyor — gerçekte "consecutive days with at least 1 resist" olmalı (cron veya client-side date check) |
 | ⭐ | **Push notifications** (expo-notifications) — daily reminder, "ring fills" celebration |
 | ⭐ | **AI asistan** (Anthropic API) — sohbet desteği, taban için coping suggestions |
 | ⭐ | **Apple/Google sign-in** — şu an sadece email/password |
 | ⭐ | **Forgot password flow** |
 | ⭐ | **Edit/delete own posts** (community) + report mechanism |
-| ⭐ | **Custom addiction icon picker** — şu an hepsi 'star-circle' MCI fallback |
 | ⭐ | **Realtime community feed** — supabase realtime ile yeni postlar canlı |
 | 🔧 | **Onboarding'de username adımı?** — Şu an ilk post'ta soruluyor; consent ekranından sonra adım eklenebilir |
 | 🔧 | **Profil ekranında "kayıtlı bağımlılıklarım" listesi + edit** |
+
+### ✅ Yakın Zamanda Kapatılanlar
+
+- **Pagination community** (commit `4621750`): `onEndReached` → `fetchPosts({before})`, dedupe, hasMore terminator footer
+- **Streak daily reset** (commit `21cfcf8`): "consecutive days with ≥1 resist" semantiği, local sessions cache'den türetiyor — DB schema değişikliği yok. 8/8 senaryo testte yeşil
+- **Web focus ring** (commit `bb82b65`): Tarayıcı default amber outline → brand mavi (`#3B82F6` 2px). Tek style enjeksiyonu, native no-op
+- **Custom craving picker redesign** (commit `1c263a4`): Color/Icon kompakt buton + flex-wrap grid, char counter, 24 renk + ~150 kategorili emoji
 
 ## 🌐 Repo
 
