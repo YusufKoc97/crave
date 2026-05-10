@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { ActivityIndicator, Platform, View, StyleSheet } from 'react-native';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { AddictionsProvider, useAddictions } from '@/context/AddictionsContext';
 import { SessionsProvider } from '@/context/SessionsContext';
@@ -146,7 +146,34 @@ function RootStack() {
   );
 }
 
+/**
+ * On web, RN-Web inputs inherit the browser default focus outline, which is a
+ * platform-tinted amber/orange on Chromium and clashes with our blue accent.
+ * Inject a one-time stylesheet that removes the outline so each component's
+ * own border-color (already wired into the design system) is the only focus
+ * indicator. No-op on native.
+ */
+function useWebFocusOutlineFix() {
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const id = 'crave-focus-outline-fix';
+    if (document.getElementById(id)) return;
+    const styleEl = document.createElement('style');
+    styleEl.id = id;
+    styleEl.textContent = `
+      input:focus, input:focus-visible,
+      textarea:focus, textarea:focus-visible {
+        outline: 2px solid ${colors.blue} !important;
+        outline-offset: 2px;
+        box-shadow: none !important;
+      }
+    `;
+    document.head.appendChild(styleEl);
+  }, []);
+}
+
 export default function RootLayout() {
+  useWebFocusOutlineFix();
   return (
     <AuthProvider>
       <AddictionsProvider>
