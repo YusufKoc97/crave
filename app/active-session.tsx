@@ -210,15 +210,21 @@ export default function ActiveSession() {
     );
   }, [spinnerRotate]);
 
-  // Tick from wall clock instead of incrementing a counter — iOS suspends the
-  // JS timer while backgrounded, but Date.now() still advances. AppState
-  // listener forces a resync the moment the app returns to the foreground.
+  // Tick from wall clock instead of incrementing a counter — iOS suspends
+  // the JS timer while backgrounded, but Date.now() still advances. The
+  // AppState listener forces a resync the moment the app returns to the
+  // foreground (web translates 'visibilitychange' → 'active'/'background',
+  // see react-native-web AppState).
+  //
+  // 1Hz tick: the timer label only renders whole seconds, and the arc /
+  // ring animations are interpolated by Reanimated worklets on the UI
+  // thread, so a 250ms tick was just thrashing React for no visible win.
   useEffect(() => {
     const tick = () => {
       setElapsed(Math.floor((Date.now() - startedAt.current) / 1000));
     };
     tick();
-    const id = setInterval(tick, 250);
+    const id = setInterval(tick, 1000);
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') tick();
     });
@@ -233,11 +239,22 @@ export default function ActiveSession() {
   const cycleProgress = Math.min(1, cycleElapsed / cycleSeconds);
   const currentCycle = Math.floor(elapsed / cycleSeconds);
 
+  // First arc paint after mount snaps to whatever progress the resume
+  // starts at — otherwise the user watches a 900ms sweep from 0 to e.g.
+  // 18% on every resume, which feels like the timer is "starting over".
+  // Subsequent updates animate normally.
+  const arcInitialPaint = useRef(true);
   useEffect(() => {
-    arcOffset.value = withTiming(CIRCUMFERENCE * (1 - cycleProgress), {
-      duration: 900,
-      easing: Easing.out(Easing.cubic),
-    });
+    const target = CIRCUMFERENCE * (1 - cycleProgress);
+    if (arcInitialPaint.current) {
+      arcOffset.value = target;
+      arcInitialPaint.current = false;
+    } else {
+      arcOffset.value = withTiming(target, {
+        duration: 900,
+        easing: Easing.out(Easing.cubic),
+      });
+    }
   }, [cycleProgress, arcOffset]);
 
   // Detect a freshly completed cycle and play the celebration.
