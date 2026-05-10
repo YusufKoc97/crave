@@ -7,6 +7,14 @@ type AuthContextValue = {
   user: User | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  /**
+   * Push a freshly-acquired session straight into React state without
+   * waiting for the next `onAuthStateChange` tick. Auth screens call this
+   * right after a successful signIn/signUp so the router can navigate to
+   * a session-gated route on the same render — otherwise the gate sees
+   * `session: null` and bounces back, requiring a manual reload.
+   */
+  applySession: (session: Session | null) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -36,7 +44,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ session, user: session?.user ?? null, loading, signOut }}
+      value={{
+        session,
+        user: session?.user ?? null,
+        loading,
+        signOut,
+        applySession: setSession,
+      }}
     >
       {children}
     </AuthContext.Provider>

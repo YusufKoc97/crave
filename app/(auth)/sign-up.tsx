@@ -11,8 +11,10 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { isValidEmail, translateAuthError } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 
 export default function SignUpScreen() {
+  const { applySession } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -45,6 +47,10 @@ export default function SignUpScreen() {
       setSubmitting(false);
       return;
     }
+    // Push the session into AuthContext synchronously so the (tabs) gate
+    // sees a non-null session on the same render — onAuthStateChange would
+    // arrive a tick too late and bounce us back to sign-in.
+    applySession(data.session);
     router.replace('/(tabs)');
   };
 

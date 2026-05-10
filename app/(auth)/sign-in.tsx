@@ -11,8 +11,10 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { isValidEmail, translateAuthError } from '@/lib/auth';
+import { useAuth } from '@/context/AuthContext';
 
 export default function SignInScreen() {
+  const { applySession } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -28,7 +30,7 @@ export default function SignInScreen() {
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password,
     });
@@ -37,8 +39,10 @@ export default function SignInScreen() {
       setSubmitting(false);
       return;
     }
-    // AuthContext picks up the session via onAuthStateChange. The root
-    // index will then send us to /(tabs).
+    // Push the session into AuthContext synchronously so the (tabs) gate
+    // sees a non-null session on the same render — onAuthStateChange would
+    // arrive a tick too late and bounce us back to sign-in.
+    if (data.session) applySession(data.session);
     router.replace('/(tabs)');
   };
 
