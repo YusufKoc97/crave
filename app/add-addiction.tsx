@@ -11,19 +11,91 @@ import { router } from 'expo-router';
 import { useAddictions } from '@/context/AddictionsContext';
 import { maxMinutesFor } from '@/constants/addictions';
 
+// 24-color curated palette ordered by hue (green → cyan → blue → purple →
+// pink → red → orange → yellow → neutral). Each value is hand-picked to
+// stay readable on the #020810 dark background.
 const COLOR_OPTIONS = [
-  '#10B981', '#22D3EE', '#3B82F6', '#A78BFA',
-  '#EC4899', '#F472B6', '#EF4444', '#FB923C',
-  '#FBBF24', '#A3E635', '#94A3B8', '#E879F9',
+  '#10B981', '#34D399', '#A3E635', '#14B8A6',
+  '#06B6D4', '#22D3EE', '#0EA5E9', '#3B82F6',
+  '#6366F1', '#8B5CF6', '#A78BFA', '#C084FC',
+  '#E879F9', '#EC4899', '#F472B6', '#F43F5E',
+  '#EF4444', '#F97316', '#FB923C', '#FBBF24',
+  '#FACC15', '#D6D3D1', '#94A3B8', '#6B7280',
 ];
 
-const EMOJI_OPTIONS = [
-  '🚬', '🍷', '🍺', '🥃', '🍾', '🍔',
-  '🍟', '🍕', '🍩', '🍫', '☕', '📱',
-  '💊', '💳', '🎰', '🎴', '🃏', '🎲',
-  '🙈', '👁️', '⚡', '🔥', '💸', '🛍️',
-  '🍯', '🍦', '🥤', '🎮', '📺', '🎬',
+// Curated emoji palette grouped into addiction-relevant categories.
+// Total ~150 — wide enough for personal expression, narrow enough to avoid
+// decision paralysis on a recovery app.
+const EMOJI_CATEGORIES: { id: string; label: string; tab: string; emojis: string[] }[] = [
+  {
+    id: 'substances',
+    label: 'Bağımlılıklar',
+    tab: '🚬',
+    emojis: [
+      '🚬', '🚭', '💨', '🌿', '🍃',
+      '🍺', '🍻', '🍷', '🥂', '🍾', '🍸', '🍹', '🍶', '🥃', '🧉',
+      '☕', '🍵', '🥤', '🧋', '🧃',
+      '💊', '💉', '🧪', '⚗️', '🩸',
+    ],
+  },
+  {
+    id: 'food',
+    label: 'Yiyecek',
+    tab: '🍔',
+    emojis: [
+      '🍔', '🍟', '🌭', '🍕', '🌮', '🌯', '🥙', '🥪', '🥨', '🍿',
+      '🍩', '🍪', '🧁', '🍰', '🎂', '🥧', '🍫', '🍬', '🍭', '🍮',
+      '🍦', '🍨', '🍯', '🥞', '🧇',
+    ],
+  },
+  {
+    id: 'activities',
+    label: 'Aktivite',
+    tab: '🎮',
+    emojis: [
+      '📱', '💻', '🖥️', '⌨️', '🖱️',
+      '🎮', '🕹️', '🎲', '🎰', '🎴', '🃏', '♠️', '♥️', '♦️', '♣️',
+      '📺', '🎬', '🍿', '📷', '🎵', '🎧',
+      '🛍️', '💸', '💳', '💰',
+    ],
+  },
+  {
+    id: 'faces',
+    label: 'Yüzler',
+    tab: '🙈',
+    emojis: [
+      '🙈', '🙉', '🙊', '😶', '😔', '😞', '😟', '😣', '😖',
+      '😩', '😫', '😤', '😡', '😠', '🤬',
+      '😢', '😭', '😪', '😴', '🥱',
+      '🥺', '😬', '🫠', '🫣', '🫨',
+      '🤤', '😋', '🥹', '👁️', '🫥',
+    ],
+  },
+  {
+    id: 'symbols',
+    label: 'Sembol',
+    tab: '⚡',
+    emojis: [
+      '⚡', '🔥', '💥', '💢', '💫', '✨', '💯',
+      '❤️', '🖤', '💔', '🩷', '❤️‍🩹',
+      '⏰', '⏳', '🕯️', '🧠', '👁️‍🗨️',
+      '🔞', '⚠️', '🚫', '⛔', '🆘',
+    ],
+  },
+  {
+    id: 'objects',
+    label: 'Nesne',
+    tab: '🎁',
+    emojis: [
+      '🎁', '🎀', '🛒', '👛', '💼', '🔑', '🗝️',
+      '📦', '🧴', '🧻', '🪞', '🛏️', '🚿',
+      '🪙', '💎', '⌚', '📿', '👠', '👗',
+      '💄', '💋', '💅', '🎯', '🎪',
+    ],
+  },
 ];
+
+const DEFAULT_EMOJI = '🚬';
 
 const SENSITIVITY_LABELS: Record<number, string> = {
   1: 'Very mild',
@@ -38,15 +110,21 @@ const SENSITIVITY_LABELS: Record<number, string> = {
   10: 'Extreme',
 };
 
+const NAME_MAX = 28;
+
 export default function AddAddictionScreen() {
   const { addAddiction } = useAddictions();
   const [name, setName] = useState('');
-  const [emoji, setEmoji] = useState(EMOJI_OPTIONS[0]);
+  const [emoji, setEmoji] = useState(DEFAULT_EMOJI);
   const [color, setColor] = useState(COLOR_OPTIONS[0]);
   const [sensitivity, setSensitivity] = useState(5);
+  const [colorOpen, setColorOpen] = useState(false);
+  const [iconOpen, setIconOpen] = useState(false);
 
   const canSubmit = name.trim().length > 0;
   const ceilingMinutes = maxMinutesFor(sensitivity);
+  const nameLen = name.length;
+  const nameNearLimit = nameLen >= NAME_MAX - 5;
 
   const submit = () => {
     if (!canSubmit) return;
@@ -80,14 +158,18 @@ export default function AddAddictionScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* Name input — primary field */}
-        <Section label="Name">
+        <Section
+          label="Name"
+          hint={`${nameLen}/${NAME_MAX}`}
+          hintColor={nameNearLimit ? color : undefined}
+        >
           <TextInput
             value={name}
             onChangeText={setName}
             placeholder="e.g. Late-night scrolling"
             placeholderTextColor="#3D5470"
             style={[styles.nameInput, { borderColor: name ? hexToRgba(color, 0.4) : '#1A2A45' }]}
-            maxLength={28}
+            maxLength={NAME_MAX}
             returnKeyType="done"
           />
         </Section>
@@ -128,60 +210,78 @@ export default function AddAddictionScreen() {
           </View>
         </Section>
 
-        {/* Color — single-row horizontal scroll */}
-        <Section label="Color">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.scrollRow}
-          >
-            {COLOR_OPTIONS.map((c) => {
-              const selected = c === color;
-              return (
-                <Pressable
-                  key={c}
-                  onPress={() => setColor(c)}
-                  style={[
-                    styles.colorSwatch,
-                    {
-                      backgroundColor: c,
-                      borderColor: selected ? '#F1F5F9' : 'rgba(255,255,255,0.04)',
-                      borderWidth: selected ? 2 : 1,
-                      transform: selected ? [{ scale: 1.08 }] : undefined,
-                    },
-                  ]}
-                />
-              );
-            })}
-          </ScrollView>
-        </Section>
+        {/* Style — color (inline grid) + icon (modal picker) */}
+        <Section label="Style">
+          <View style={styles.styleRow}>
+            <Pressable
+              onPress={() => setColorOpen((v) => !v)}
+              style={[
+                styles.styleBtn,
+                {
+                  borderColor: colorOpen ? hexToRgba(color, 0.7) : '#1A2A45',
+                  backgroundColor: colorOpen ? hexToRgba(color, 0.08) : '#0A1628',
+                },
+              ]}
+            >
+              <View style={[styles.styleBtnSwatch, { backgroundColor: color }]} />
+              <Text style={styles.styleBtnLabel}>Color</Text>
+              <Text style={styles.styleBtnChevron}>{colorOpen ? '▴' : '▾'}</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setIconOpen((v) => !v);
+                setColorOpen(false);
+              }}
+              style={[
+                styles.styleBtn,
+                {
+                  borderColor: iconOpen ? hexToRgba(color, 0.7) : '#1A2A45',
+                  backgroundColor: iconOpen ? hexToRgba(color, 0.08) : '#0A1628',
+                },
+              ]}
+            >
+              <Text style={styles.styleBtnEmoji}>{emoji}</Text>
+              <Text style={styles.styleBtnLabel}>Icon</Text>
+              <Text style={styles.styleBtnChevron}>{iconOpen ? '▴' : '▾'}</Text>
+            </Pressable>
+          </View>
 
-        {/* Icon — single-row horizontal scroll */}
-        <Section label="Icon">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.scrollRow}
-          >
-            {EMOJI_OPTIONS.map((e) => {
-              const selected = e === emoji;
-              return (
-                <Pressable
-                  key={e}
-                  onPress={() => setEmoji(e)}
-                  style={[
-                    styles.emojiCell,
-                    {
-                      backgroundColor: selected ? hexToRgba(color, 0.18) : '#0A1628',
-                      borderColor: selected ? hexToRgba(color, 0.7) : '#1A2A45',
-                    },
-                  ]}
-                >
-                  <Text style={styles.emojiText}>{e}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          {colorOpen && (
+            <View style={styles.pickerGrid}>
+              {COLOR_OPTIONS.map((c) => {
+                const selected = c === color;
+                return (
+                  <Pressable
+                    key={c}
+                    onPress={() => {
+                      setColor(c);
+                      setColorOpen(false);
+                    }}
+                    style={[
+                      styles.colorSwatch,
+                      {
+                        backgroundColor: c,
+                        borderColor: selected ? '#F1F5F9' : 'rgba(255,255,255,0.04)',
+                        borderWidth: selected ? 2 : 1,
+                        transform: selected ? [{ scale: 1.08 }] : undefined,
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+          )}
+
+          {iconOpen && (
+            <EmojiPicker
+              emoji={emoji}
+              accent={color}
+              onPick={(e) => {
+                setEmoji(e);
+                setIconOpen(false);
+              }}
+            />
+          )}
         </Section>
 
         <View style={{ height: 12 }} />
@@ -210,6 +310,77 @@ export default function AddAddictionScreen() {
           </Text>
         </Pressable>
       </View>
+
+    </View>
+  );
+}
+
+function EmojiPicker({
+  emoji,
+  accent,
+  onPick,
+}: {
+  emoji: string;
+  accent: string;
+  onPick: (e: string) => void;
+}) {
+  const [activeCat, setActiveCat] = useState(EMOJI_CATEGORIES[0].id);
+  const cat = EMOJI_CATEGORIES.find((c) => c.id === activeCat) ?? EMOJI_CATEGORIES[0];
+
+  return (
+    <View style={styles.emojiPicker}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.emojiTabsRow}
+      >
+        {EMOJI_CATEGORIES.map((c) => {
+          const active = c.id === activeCat;
+          return (
+            <Pressable
+              key={c.id}
+              onPress={() => setActiveCat(c.id)}
+              style={[
+                styles.emojiTab,
+                {
+                  backgroundColor: active ? hexToRgba(accent, 0.18) : '#0A1628',
+                  borderColor: active ? hexToRgba(accent, 0.7) : '#1A2A45',
+                },
+              ]}
+            >
+              <Text style={styles.emojiTabIcon}>{c.tab}</Text>
+              <Text
+                style={[
+                  styles.emojiTabLabel,
+                  { color: active ? '#F1F5F9' : '#6B8BA4' },
+                ]}
+              >
+                {c.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+      <View style={styles.emojiGrid}>
+        {cat.emojis.map((e, i) => {
+          const selected = e === emoji;
+          return (
+            <Pressable
+              key={`${cat.id}-${i}`}
+              onPress={() => onPick(e)}
+              style={[
+                styles.emojiCell,
+                {
+                  backgroundColor: selected ? hexToRgba(accent, 0.18) : '#0A1628',
+                  borderColor: selected ? hexToRgba(accent, 0.7) : '#1A2A45',
+                },
+              ]}
+            >
+              <Text style={styles.emojiText}>{e}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -217,17 +388,28 @@ export default function AddAddictionScreen() {
 function Section({
   label,
   hint,
+  hintColor,
   children,
 }: {
   label: string;
   hint?: string;
+  hintColor?: string;
   children: React.ReactNode;
 }) {
   return (
     <View style={styles.section}>
       <View style={styles.sectionLabelRow}>
         <Text style={styles.sectionLabel}>{label.toUpperCase()}</Text>
-        {hint && <Text style={styles.sectionHint}>{hint}</Text>}
+        {hint && (
+          <Text
+            style={[
+              styles.sectionHint,
+              hintColor ? { color: hintColor } : null,
+            ]}
+          >
+            {hint}
+          </Text>
+        )}
       </View>
       {children}
     </View>
@@ -353,9 +535,82 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
-  scrollRow: {
+  styleRow: {
+    flexDirection: 'row',
     gap: 8,
-    paddingRight: 18,
+  },
+  styleBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    gap: 10,
+  },
+  styleBtnSwatch: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+  },
+  styleBtnEmoji: {
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  styleBtnLabel: {
+    flex: 1,
+    color: '#F1F5F9',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  styleBtnChevron: {
+    color: '#6B8BA4',
+    fontSize: 11,
+  },
+  pickerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+    paddingTop: 10,
+    paddingBottom: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#0E1A2C',
+  },
+  emojiPicker: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#0E1A2C',
+  },
+  emojiTabsRow: {
+    gap: 6,
+    paddingBottom: 10,
+    paddingRight: 8,
+  },
+  emojiTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 32,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  emojiTabIcon: {
+    fontSize: 14,
+    lineHeight: 16,
+  },
+  emojiTabLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  emojiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   colorSwatch: {
     width: 36,
