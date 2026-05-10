@@ -69,9 +69,14 @@ context/
 lib/
   supabase.ts          ─ Client + Database<T> tipi
   auth.ts              ─ translateAuthError() (EN→TR), isValidEmail()
-  community.ts         ─ fetchPosts, createPost, toggleLike, relativeTime
-  activeSession.ts     ─ AsyncStorage snapshot helpers
+  community.ts         ─ fetchPosts, createPost, toggleLike, ...
+  relativeTime.ts      ─ Pure ISO→"5dk önce" Turkish formatter
+  scoring.ts           ─ Pure: calculateResistPoints, nextStreak, day helpers
+  activeSession.ts     ─ AsyncStorage snapshot + pending finish replay
+  addictionsApi.ts     ─ CRUD wrappers on addictions + profiles.hidden_defaults
   onboarding.ts        ─ Onboarding completion tracker, calculateAge()
+  assistant.ts         ─ AI chat proxy (Supabase Edge Function)
+  devBypass.ts         ─ EXPO_PUBLIC_DEV_SKIP_AUTH flag
 ```
 
 ## ✅ Yapılan Özellikler (Kronolojik)

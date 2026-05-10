@@ -9,8 +9,16 @@ import {
 } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import {
+  calculateResistPoints,
+  localDayKey,
+  nextStreak,
+  type Outcome,
+} from '@/lib/scoring';
 
-type Outcome = 'resisted' | 'gave_in';
+// Re-export so existing imports of these from SessionsContext keep working.
+export { calculateResistPoints };
+export type { Outcome };
 
 export type Session = {
   id: string;
@@ -32,28 +40,6 @@ type RecordInput = {
   completedCycles?: number;
 };
 
-/**
- * Single source of truth for the resist scoring formula. active-session
- * sends to Supabase; SessionsContext mirrors locally. Both call this so
- * a future tweak to the curve only happens in one place.
- *
- *   base   = max(1, round(minutes * sensitivity))    // floor at 1pt
- *   bonus  = sensitivity * 5 * completedCycles       // each full cycle
- *   total  = base + bonus  (only on 'resisted'; gave_in earns 0)
- */
-export function calculateResistPoints(input: {
-  outcome: Outcome;
-  durationSeconds: number;
-  sensitivity: number;
-  completedCycles: number;
-}): number {
-  if (input.outcome !== 'resisted') return 0;
-  const minutes = input.durationSeconds / 60;
-  const base = Math.max(1, Math.round(minutes * input.sensitivity));
-  const bonus = input.sensitivity * 5 * input.completedCycles;
-  return base + bonus;
-}
-
 type SessionsContextValue = {
   sessions: Session[];
   totalPoints: number;
@@ -67,22 +53,6 @@ type SessionsContextValue = {
 const SessionsContext = createContext<SessionsContextValue | undefined>(undefined);
 
 const STARTING_MOMENTUM = 50;
-
-/** Local-time YYYY-MM-DD key for grouping sessions by calendar day. */
-function localDayKey(ts: number): string {
-  const d = new Date(ts);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-/** Whole calendar days from `from` to `to` (negative if from is later). */
-function daysBetween(from: string, to: string): number {
-  const a = new Date(`${from}T00:00:00`).getTime();
-  const b = new Date(`${to}T00:00:00`).getTime();
-  return Math.round((b - a) / 86400000);
-}
 
 export function SessionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -160,7 +130,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       completedCycles,
     });
     let nextMomentum = momentum;
-    let nextStreak = streak;
+    let updatedStreak = streak;
 
     if (input.outcome === 'resisted') {
       const momentumGain = Math.max(
@@ -170,8 +140,8 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       nextMomentum = Math.min(100, momentum + momentumGain);
 
       // Streak counts CONSECUTIVE DAYS with ≥1 resist, not consecutive
-      // resists. Find the most recent prior resist in the local cache and
-      // compare its calendar day to today.
+      // resists. Find the most recent prior resist in the local cache,
+      // compare its calendar day to today via the pure helper.
       const today = localDayKey(Date.now());
       let lastResistDay: string | null = null;
       for (let i = sessions.length - 1; i >= 0; i--) {
@@ -180,21 +150,15 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
           break;
         }
       }
-
-      if (lastResistDay === today) {
-        // Already counted today; subsequent resists today don't bump it.
-        nextStreak = streak;
-      } else if (lastResistDay && daysBetween(lastResistDay, today) === 1) {
-        // Yesterday's chain continues into today.
-        nextStreak = streak + 1;
-      } else {
-        // First resist ever, or a gap > 1 day broke the chain. New streak.
-        nextStreak = 1;
-      }
+      updatedStreak = nextStreak({
+        lastResistDay,
+        today,
+        currentStreak: streak,
+      });
 
       setMomentum(nextMomentum);
-      setStreak(nextStreak);
-      persistProfile({ momentum: nextMomentum, streak: nextStreak });
+      setStreak(updatedStreak);
+      persistProfile({ momentum: nextMomentum, streak: updatedStreak });
     }
 
     const session: Session = {
