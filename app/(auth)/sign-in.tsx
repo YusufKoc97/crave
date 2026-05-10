@@ -109,6 +109,14 @@ export default function SignInScreen() {
           </View>
         </View>
 
+        <Pressable
+          onPress={() => router.push('/(auth)/forgot-password')}
+          hitSlop={6}
+          style={styles.forgotBtn}
+        >
+          <Text style={styles.forgotText}>Şifremi unuttum</Text>
+        </Pressable>
+
         {error && (
           <View style={styles.errorBox}>
             <Ionicons name="alert-circle" size={14} color="#EF4444" />
@@ -224,6 +232,19 @@ const styles = StyleSheet.create({
     width: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  forgotBtn: {
+    alignSelf: 'flex-end',
+    marginTop: -4,
+    marginBottom: 14,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  forgotText: {
+    color: '#7BA8C8',
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
   errorBox: {
     flexDirection: 'row',
