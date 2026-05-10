@@ -97,6 +97,14 @@ export default function ProfileScreen() {
 
       {user && (
         <View style={styles.bottomSection}>
+          <Pressable
+            onPress={() => router.push('/assistant')}
+            style={styles.assistantBtn}
+            hitSlop={6}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={14} color="#7DC3FF" />
+            <Text style={styles.assistantBtnText}>Yardımcıyla konuş</Text>
+          </Pressable>
           <Text style={styles.emailLabel}>{user.email}</Text>
           <Pressable onPress={onSignOut} style={styles.signOutBtn} hitSlop={6}>
             <Text style={styles.signOutText}>Çıkış yap</Text>
@@ -400,6 +408,24 @@ const styles = StyleSheet.create({
   bottomSection: {
     alignItems: 'center',
     marginTop: 36,
+  },
+  assistantBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: 'rgba(125, 195, 255, 0.35)',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    marginBottom: 16,
+  },
+  assistantBtnText: {
+    color: '#7DC3FF',
+    fontSize: 12.5,
+    fontWeight: '600',
+    letterSpacing: 0.4,
   },
   emailLabel: {
     color: '#6B8BA4',

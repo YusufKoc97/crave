@@ -142,6 +142,13 @@ function RootStack() {
             animation: 'slide_from_bottom',
           }}
         />
+        <Stack.Screen
+          name="assistant"
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+          }}
+        />
       </Stack>
     </>
   );
