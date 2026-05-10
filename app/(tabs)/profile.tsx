@@ -148,7 +148,18 @@ function AddictionRow({
           </Text>
         </Text>
       </View>
-      <Pressable onPress={onRemove} hitSlop={10} style={styles.removeBtn}>
+      <Pressable
+        onPress={(e) => {
+          // RN-Web bubbles the click into the parent Pressable (which
+          // would otherwise open the edit screen). Native's responder
+          // system already prevents this; calling stopPropagation here
+          // is the no-op-on-native, fix-on-web path.
+          (e as unknown as { stopPropagation?: () => void })?.stopPropagation?.();
+          onRemove();
+        }}
+        hitSlop={10}
+        style={styles.removeBtn}
+      >
         <Ionicons name="close" size={14} color="#6B8BA4" />
       </Pressable>
     </Wrapper>
