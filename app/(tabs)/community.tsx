@@ -17,8 +17,10 @@ import { DEFAULT_ADDICTIONS } from '@/constants/addictions';
 import {
   COMMUNITY_FILTER_ORDER,
   deletePost,
+  fetchPost,
   fetchPosts,
   relativeTime,
+  subscribeToNewPosts,
   toggleLike,
   type ForumPost,
 } from '@/lib/community';
@@ -39,6 +41,7 @@ export default function CommunityScreen() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [pendingPosts, setPendingPosts] = useState<ForumPost[]>([]);
 
   // 300ms debounce on the search input.
   useEffect(() => {
@@ -71,6 +74,61 @@ export default function CommunityScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Realtime: forum_posts INSERT → buffer the new post into pendingPosts
+  // unless it should be filtered out by the active addiction pill or the
+  // search box. We don't auto-prepend because that would yank the user's
+  // scroll position; instead the "X yeni gönderi" pill below appears when
+  // pendingPosts.length > 0 and prepends on tap.
+  // Reload (filter / search change) clears the pending buffer — those
+  // staged posts may no longer match the new filter set anyway.
+  useEffect(() => {
+    setPendingPosts([]);
+  }, [activeFilter, debouncedSearch]);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsub = subscribeToNewPosts(async (postId) => {
+      const fresh = await fetchPost(postId, user.id);
+      if (!fresh) return;
+      // Filter against the active feed scope.
+      if (activeFilter && fresh.addiction_id !== activeFilter) return;
+      if (
+        debouncedSearch &&
+        !fresh.content.toLowerCase().includes(debouncedSearch.toLowerCase())
+      ) {
+        return;
+      }
+      // Skip rows already at the top (we created them locally) or already
+      // staged.
+      setPendingPosts((prev) => {
+        if (prev.some((p) => p.id === fresh.id)) return prev;
+        // The next effect deduplicates against the visible feed, so we
+        // don't need to filter against `posts` here.
+        return [fresh, ...prev];
+      });
+    });
+    return unsub;
+  }, [user, activeFilter, debouncedSearch]);
+
+  // Drop any pending posts that the local feed already shows. This covers
+  // the race where the realtime event arrives just after our own
+  // createPost INSERT has refreshed the feed via load().
+  useEffect(() => {
+    if (pendingPosts.length === 0) return;
+    const seen = new Set(posts.map((p) => p.id));
+    const filtered = pendingPosts.filter((p) => !seen.has(p.id));
+    if (filtered.length !== pendingPosts.length) setPendingPosts(filtered);
+  }, [posts, pendingPosts]);
+
+  const flushPending = () => {
+    if (pendingPosts.length === 0) return;
+    setPosts((prev) => {
+      const seen = new Set(prev.map((p) => p.id));
+      return [...pendingPosts.filter((p) => !seen.has(p.id)), ...prev];
+    });
+    setPendingPosts([]);
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -237,6 +295,17 @@ export default function CommunityScreen() {
           );
         })}
       </ScrollView>
+
+      {/* Pending realtime posts — surfaces only when the feed has new
+          rows the user hasn't pulled in yet */}
+      {pendingPosts.length > 0 && (
+        <Pressable onPress={flushPending} style={styles.pendingPill}>
+          <Ionicons name="arrow-up" size={13} color="#7DC3FF" />
+          <Text style={styles.pendingPillText}>
+            {pendingPosts.length} yeni gönderi
+          </Text>
+        </Pressable>
+      )}
 
       {/* Feed */}
       <FlatList
@@ -504,6 +573,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     marginTop: 10,
+  },
+  pendingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'center',
+    marginTop: 6,
+    marginBottom: -2,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(125, 195, 255, 0.4)',
+    backgroundColor: 'rgba(59, 130, 246, 0.14)',
+  },
+  pendingPillText: {
+    color: '#7DC3FF',
+    fontSize: 11.5,
+    fontWeight: '600',
+    letterSpacing: 0.4,
   },
   ownActions: {
     flexDirection: 'row',

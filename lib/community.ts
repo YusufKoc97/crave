@@ -212,6 +212,32 @@ export async function setUsername(userId: string, username: string): Promise<voi
   if (error) throw error;
 }
 
+/**
+ * Subscribe to forum_posts INSERT events. The callback receives only the
+ * post id; the caller is expected to hydrate the full row (with username
+ * and `liked_by_me`) via fetchPost. Returns the unsubscribe function.
+ *
+ * We deliberately don't filter the channel server-side by addiction_id —
+ * the call sites care about a moving filter (the feed pills) and
+ * Supabase channel filters can't be re-bound. Filtering happens in JS.
+ */
+export function subscribeToNewPosts(onInsert: (postId: string) => void): () => void {
+  const channel = supabase
+    .channel('forum_posts:inserts')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'forum_posts' },
+      (payload) => {
+        const row = payload.new as { id?: string };
+        if (row?.id) onInsert(row.id);
+      }
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
 /** Format an ISO timestamp as a Turkish relative-time string. */
 export function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
