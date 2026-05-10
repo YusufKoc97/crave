@@ -36,14 +36,18 @@ const R = (TIMER_SIZE - STROKE_WIDTH * 2) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * R;
 const SPINNER_RING_SIZE = TIMER_SIZE + 18;
 
+// Flavor text shown beneath the timer. Turkish per the project's
+// language-mixing rule (English is reserved for the brand + action
+// labels). Lines are short on purpose — long quotes compete with the
+// timer for attention.
 const QUOTES = [
-  'Every second that passes is a victory.',
-  'You are stronger than the urge.',
-  'This wave will break. You will not.',
-  'Pause. Breathe. The craving is temporary.',
-  'You chose to face this. That is courage.',
-  'A moment of patience saves you from regret.',
-  'You are not the craving. You are the one watching it.',
+  'Geçen her saniye senin lehine.',
+  'Bu dürtüden daha güçlüsün.',
+  'Bu dalga kırılacak. Sen kırılmayacaksın.',
+  'Dur. Nefes al. Dürtü geçici.',
+  'Bunu seçtin — bu cesaret.',
+  'Bir anlık sabır, pişmanlıktan kurtarır.',
+  'Sen dürtü değilsin. Onu izleyensin.',
 ];
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
