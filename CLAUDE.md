@@ -227,11 +227,11 @@ Email confirmation Supabase dashboard'dan OFF.
 | Önem | İş |
 |---|---|
 | ⭐ | **Push notifications** (expo-notifications) — daily reminder, "ring fills" celebration |
-| ⭐ | **AI asistan** (Anthropic API) — sohbet desteği, taban için coping suggestions |
 | ⭐ | **Apple/Google sign-in** — şu an sadece email/password |
 
 ### ✅ Yakın Zamanda Kapatılanlar
 
+- **AI asistan v1**: `/assistant` modal ekranı — Profile'dan erişiliyor. Anthropic API'ye Supabase Edge Function üzerinden proxy. Türkçe sistem promptu (recovery-aware, no therapy substitute, akut risk için 182/112). v1: no streaming, no persistence. Edge function deploy commit `[hash]` mesajında. `EXPO_PUBLIC_ASSISTANT_URL` env yoksa setup empty state gösteriyor
 - **Report mechanism**: Post kartlarında flag butonu (own değilse) → bottom sheet 5 reason. `reportPost` API'si, `forum_reports` tablosu (additive migration commit `[hash]` mesajında). Duplicate report sessizce success. Moderator UI scope dışı
 - **Realtime community feed**: `subscribeToNewPosts` (Supabase realtime channel) → community.tsx pending buffer + "N yeni gönderi" floating pill. Filter/search değişince buffer temizleniyor; local create sonrası feed'e zaten gelmiş post'lar dedupe ediliyor. Scroll position korunuyor (auto-prepend yok)
 - **Username post-auth gate**: `/setup-username` ekranı + `app/index.tsx`'de username probe. Sign-in/up `router.replace('/')` ile artık root'a iniyor; root username'i boşsa setup'a, doluysa (tabs)'e. Compose ekranındaki `needsUsername` fork'u kalktı, ~150 satır azaldı
