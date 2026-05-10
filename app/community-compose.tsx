@@ -14,8 +14,10 @@ import { DEFAULT_ADDICTIONS } from '@/constants/addictions';
 import {
   COMMUNITY_FILTER_ORDER,
   createPost,
+  fetchPost,
   getUsername,
   setUsername as persistUsername,
+  updatePost,
 } from '@/lib/community';
 
 const MAX_LEN = 500;
@@ -27,8 +29,11 @@ export default function CommunityCompose() {
   const params = useLocalSearchParams<{
     prefill?: string;
     addictionId?: string;
+    editId?: string;
   }>();
   const { user } = useAuth();
+
+  const isEditMode = !!params.editId;
 
   const [hydrating, setHydrating] = useState(true);
   const [needsUsername, setNeedsUsername] = useState(false);
@@ -53,13 +58,28 @@ export default function CommunityCompose() {
       return;
     }
     (async () => {
+      // Edit mode skips the username step — anyone with a post already
+      // had to set a username at create time.
+      if (isEditMode && params.editId) {
+        const post = await fetchPost(params.editId, user.id);
+        if (post && post.user_id === user.id) {
+          setContent(post.content);
+          setAddictionId(post.addiction_id);
+        } else {
+          // Post not found or not ours — drop back to the feed.
+          router.back();
+          return;
+        }
+        setHydrating(false);
+        return;
+      }
       const u = await getUsername(user.id);
       if (!u || u.trim().length === 0) {
         setNeedsUsername(true);
       }
       setHydrating(false);
     })();
-  }, [user]);
+  }, [user, isEditMode, params.editId]);
 
   const trimmedContent = content.trim();
   const remaining = MAX_LEN - content.length;
@@ -74,11 +94,19 @@ export default function CommunityCompose() {
     if (!canSubmit || !user) return;
     setSubmitting(true);
     try {
-      await createPost({
-        userId: user.id,
-        addictionId,
-        content: trimmedContent,
-      });
+      if (isEditMode && params.editId) {
+        await updatePost({
+          postId: params.editId,
+          userId: user.id,
+          content: trimmedContent,
+        });
+      } else {
+        await createPost({
+          userId: user.id,
+          addictionId,
+          content: trimmedContent,
+        });
+      }
       router.back();
     } catch {
       setSubmitting(false);
@@ -189,7 +217,9 @@ export default function CommunityCompose() {
         <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
           <Text style={styles.iconBtnText}>✕</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>Yeni Gönderi</Text>
+        <Text style={styles.headerTitle}>
+          {isEditMode ? 'Gönderiyi Düzenle' : 'Yeni Gönderi'}
+        </Text>
         <View style={styles.iconBtn} />
       </View>
 
@@ -208,10 +238,14 @@ export default function CommunityCompose() {
             const a = PRESETS_BY_ID[id];
             if (!a) return null;
             const selected = id === addictionId;
+            // In edit mode the post's category is locked — keeping the
+            // selected pill visible but non-interactive preserves context
+            // without letting users churn the feed by re-tagging old posts.
             return (
               <Pressable
                 key={id}
-                onPress={() => setAddictionId(id)}
+                onPress={() => !isEditMode && setAddictionId(id)}
+                disabled={isEditMode && !selected}
                 style={[
                   styles.pickerCell,
                   {
@@ -221,6 +255,7 @@ export default function CommunityCompose() {
                     backgroundColor: selected
                       ? hexToRgba(a.color, 0.14)
                       : '#0A1628',
+                    opacity: isEditMode && !selected ? 0.35 : 1,
                   },
                 ]}
               >
@@ -284,7 +319,13 @@ export default function CommunityCompose() {
           ]}
         >
           <Text style={[styles.submitText, { color: canSubmit ? accent : '#3D5470' }]}>
-            {submitting ? 'Paylaşılıyor...' : 'Paylaş'}
+            {submitting
+              ? isEditMode
+                ? 'Kaydediliyor...'
+                : 'Paylaşılıyor...'
+              : isEditMode
+                ? 'Kaydet'
+                : 'Paylaş'}
           </Text>
         </Pressable>
       </View>

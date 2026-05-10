@@ -16,6 +16,7 @@ import { useAuth } from '@/context/AuthContext';
 import { DEFAULT_ADDICTIONS } from '@/constants/addictions';
 import {
   COMMUNITY_FILTER_ORDER,
+  deletePost,
   fetchPosts,
   relativeTime,
   toggleLike,
@@ -242,7 +243,28 @@ export default function CommunityScreen() {
         data={posts}
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => (
-          <PostCard post={item} onLike={() => onLike(item)} />
+          <PostCard
+            post={item}
+            isOwn={item.user_id === user.id}
+            onLike={() => onLike(item)}
+            onEdit={() =>
+              router.push({
+                pathname: '/community-compose',
+                params: { editId: item.id },
+              })
+            }
+            onDelete={async () => {
+              // Optimistic remove.
+              const snapshot = posts;
+              setPosts((prev) => prev.filter((p) => p.id !== item.id));
+              try {
+                await deletePost({ postId: item.id, userId: user.id });
+              } catch {
+                // Restore on failure.
+                setPosts(snapshot);
+              }
+            }}
+          />
         )}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         contentContainerStyle={styles.listContent}
@@ -291,7 +313,19 @@ export default function CommunityScreen() {
   );
 }
 
-function PostCard({ post, onLike }: { post: ForumPost; onLike: () => void }) {
+function PostCard({
+  post,
+  isOwn,
+  onLike,
+  onEdit,
+  onDelete,
+}: {
+  post: ForumPost;
+  isOwn: boolean;
+  onLike: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   const a = PRESETS_BY_ID[post.addiction_id];
   const accent = a?.color ?? '#7DC3FF';
   return (
@@ -320,6 +354,16 @@ function PostCard({ post, onLike }: { post: ForumPost; onLike: () => void }) {
             <Text style={{ color: '#94A3B8' }}>{relativeTime(post.created_at)}</Text>
           </Text>
         </View>
+        {isOwn && (
+          <View style={styles.ownActions}>
+            <Pressable onPress={onEdit} hitSlop={6} style={styles.ownIconBtn}>
+              <Ionicons name="pencil" size={12} color="#6B8BA4" />
+            </Pressable>
+            <Pressable onPress={onDelete} hitSlop={6} style={styles.ownIconBtn}>
+              <Ionicons name="trash-outline" size={12} color="#6B8BA4" />
+            </Pressable>
+          </View>
+        )}
       </View>
 
       <Text style={styles.content}>{post.content}</Text>
@@ -460,6 +504,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     marginTop: 10,
+  },
+  ownActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  ownIconBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1A2A45',
+    backgroundColor: '#0D1E35',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   likeBtn: {
     flexDirection: 'row',

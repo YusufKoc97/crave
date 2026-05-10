@@ -105,6 +105,76 @@ export async function createPost(input: {
   return data;
 }
 
+export async function fetchPost(
+  postId: string,
+  userId?: string
+): Promise<ForumPost | null> {
+  const { data, error } = await supabase
+    .from('forum_posts')
+    .select(
+      'id, user_id, addiction_id, content, like_count, created_at, profiles!forum_posts_user_id_fkey(username)'
+    )
+    .eq('id', postId)
+    .single();
+  if (error || !data) return null;
+
+  let likedByMe = false;
+  if (userId) {
+    const { data: like } = await supabase
+      .from('forum_likes')
+      .select('post_id')
+      .eq('post_id', postId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    likedByMe = !!like;
+  }
+
+  const profileObj = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
+  return {
+    id: data.id,
+    user_id: data.user_id,
+    username: (profileObj as { username?: string | null } | null)?.username ?? null,
+    addiction_id: data.addiction_id,
+    content: data.content,
+    like_count: data.like_count,
+    liked_by_me: likedByMe,
+    created_at: data.created_at,
+  };
+}
+
+export async function updatePost(input: {
+  postId: string;
+  userId: string;
+  content: string;
+}): Promise<void> {
+  const { error } = await supabase
+    .from('forum_posts')
+    .update({ content: input.content })
+    .eq('id', input.postId)
+    .eq('user_id', input.userId);
+  if (error) throw error;
+}
+
+export async function deletePost(input: {
+  postId: string;
+  userId: string;
+}): Promise<void> {
+  // NOTE: assumes the forum_likes(post_id) FK has ON DELETE CASCADE so
+  // dependent like rows go with the post. CLAUDE.md doesn't pin that
+  // down — if a delete starts failing with FK violations, the migration
+  // is:
+  //   ALTER TABLE forum_likes
+  //     DROP CONSTRAINT forum_likes_post_id_fkey,
+  //     ADD CONSTRAINT forum_likes_post_id_fkey
+  //       FOREIGN KEY (post_id) REFERENCES forum_posts(id) ON DELETE CASCADE;
+  const { error } = await supabase
+    .from('forum_posts')
+    .delete()
+    .eq('id', input.postId)
+    .eq('user_id', input.userId);
+  if (error) throw error;
+}
+
 export async function toggleLike(
   postId: string,
   userId: string,
