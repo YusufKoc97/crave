@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -5,12 +6,31 @@ import { colors } from '@/constants/theme';
 import { useSessions } from '@/context/SessionsContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAddictions } from '@/context/AddictionsContext';
+import { getUsername } from '@/lib/community';
 import type { Addiction } from '@/constants/addictions';
 
 export default function ProfileScreen() {
   const { totalPoints, wonToday, lostToday, momentum, streak } = useSessions();
   const { user, signOut } = useAuth();
   const { addictions, removeAddiction } = useAddictions();
+  const [username, setUsername] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    getUsername(user.id).then((u) => {
+      if (!cancelled) setUsername(u);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  // First glyph for the avatar — username takes precedence over email so
+  // the profile feels "yours" once a handle is chosen. Falls back to "?"
+  // until either is loaded (or in the dev-bypass case where there's no
+  // user at all).
+  const avatarGlyph = (username?.[0] || user?.email?.[0] || '?').toUpperCase();
 
   const onSignOut = async () => {
     await signOut();
@@ -26,8 +46,11 @@ export default function ProfileScreen() {
     >
       <View style={styles.topSection}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>?</Text>
+          <Text style={styles.avatarText}>{avatarGlyph}</Text>
         </View>
+        {username && (
+          <Text style={styles.usernameLabel}>{username}</Text>
+        )}
         <View style={styles.dash} />
 
         <View style={styles.totalCard}>
@@ -231,6 +254,13 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
     fontSize: 24,
     fontWeight: '500',
+  },
+  usernameLabel: {
+    marginTop: 10,
+    color: '#94A3B8',
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0.4,
   },
   dash: {
     width: 24,
