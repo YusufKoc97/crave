@@ -44,6 +44,22 @@ const SessionsContext = createContext<SessionsContextValue | undefined>(undefine
 
 const STARTING_MOMENTUM = 50;
 
+/** Local-time YYYY-MM-DD key for grouping sessions by calendar day. */
+function localDayKey(ts: number): string {
+  const d = new Date(ts);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Whole calendar days from `from` to `to` (negative if from is later). */
+function daysBetween(from: string, to: string): number {
+  const a = new Date(`${from}T00:00:00`).getTime();
+  const b = new Date(`${to}T00:00:00`).getTime();
+  return Math.round((b - a) / 86400000);
+}
+
 export function SessionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -126,7 +142,29 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
         Math.min(25, Math.round(input.sensitivity * 1.5 + minutes * 0.4))
       );
       nextMomentum = Math.min(100, momentum + momentumGain);
-      nextStreak = streak + 1;
+
+      // Streak counts CONSECUTIVE DAYS with ≥1 resist, not consecutive
+      // resists. Find the most recent prior resist in the local cache and
+      // compare its calendar day to today.
+      const today = localDayKey(Date.now());
+      let lastResistDay: string | null = null;
+      for (let i = sessions.length - 1; i >= 0; i--) {
+        if (sessions[i].outcome === 'resisted') {
+          lastResistDay = localDayKey(sessions[i].createdAt);
+          break;
+        }
+      }
+
+      if (lastResistDay === today) {
+        // Already counted today; subsequent resists today don't bump it.
+        nextStreak = streak;
+      } else if (lastResistDay && daysBetween(lastResistDay, today) === 1) {
+        // Yesterday's chain continues into today.
+        nextStreak = streak + 1;
+      } else {
+        // First resist ever, or a gap > 1 day broke the chain. New streak.
+        nextStreak = 1;
+      }
 
       setMomentum(nextMomentum);
       setStreak(nextStreak);
