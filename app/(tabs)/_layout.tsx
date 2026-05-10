@@ -120,7 +120,6 @@ const styles = StyleSheet.create({
     borderColor: '#1E3050',
     ...Platform.select({
       web: {
-        // @ts-expect-error web-only style
         backdropFilter: 'blur(20px)',
       },
       default: {},

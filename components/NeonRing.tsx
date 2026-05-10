@@ -123,7 +123,6 @@ const styles = StyleSheet.create({
     elevation: 8,
     ...Platform.select({
       web: {
-        // @ts-expect-error web-only style
         boxShadow:
           '0 0 6px rgba(125, 195, 255, 0.7), 0 0 14px rgba(125, 195, 255, 0.35)',
       },

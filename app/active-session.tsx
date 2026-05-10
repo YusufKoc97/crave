@@ -379,7 +379,6 @@ export default function ActiveSession() {
           style={[
             styles.topGlow,
             {
-              // @ts-expect-error web-only style prop
               backgroundImage: `radial-gradient(ellipse at top, ${accentColor}47 0%, transparent 60%)`,
             },
           ]}

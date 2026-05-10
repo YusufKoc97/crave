@@ -34,6 +34,7 @@ export default function CommunityCompose() {
   const isEditMode = !!params.editId;
 
   const [hydrating, setHydrating] = useState(isEditMode);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const initialAddiction =
     params.addictionId && PRESETS_BY_ID[params.addictionId]
@@ -74,6 +75,7 @@ export default function CommunityCompose() {
   const submit = async () => {
     if (!canSubmit || !user) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
       if (isEditMode && params.editId) {
         await updatePost({
@@ -90,6 +92,13 @@ export default function CommunityCompose() {
       }
       router.back();
     } catch {
+      // Most likely a connection drop; the user has typed real content
+      // and we don't want to silently strand them with a stuck button.
+      setSubmitError(
+        isEditMode
+          ? 'Kaydedilemedi. Tekrar dene.'
+          : 'Paylaşılamadı. Tekrar dene.'
+      );
       setSubmitting(false);
     }
   };
@@ -210,6 +219,9 @@ export default function CommunityCompose() {
       </ScrollView>
 
       <View style={styles.footer}>
+        {submitError && (
+          <Text style={styles.errorText}>{submitError}</Text>
+        )}
         <Pressable
           onPress={submit}
           disabled={!canSubmit}
@@ -361,6 +373,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingBottom: 26,
     paddingTop: 8,
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+    marginBottom: 10,
+    textAlign: 'center',
   },
   submitBtn: {
     height: 50,
