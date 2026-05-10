@@ -81,6 +81,15 @@ export default function ProfileScreen() {
               key={a.id}
               addiction={a}
               onRemove={() => removeAddiction(a.id)}
+              onEdit={
+                a.id.startsWith('custom-')
+                  ? () =>
+                      router.push({
+                        pathname: '/add-addiction',
+                        params: { id: a.id },
+                      })
+                  : undefined
+              }
             />
           ))
         )}
@@ -101,13 +110,19 @@ export default function ProfileScreen() {
 function AddictionRow({
   addiction,
   onRemove,
+  onEdit,
 }: {
   addiction: Addiction;
   onRemove: () => void;
+  onEdit?: () => void;
 }) {
   const isCustom = addiction.id.startsWith('custom-');
+  const Wrapper = onEdit ? Pressable : View;
   return (
-    <View style={styles.addictionRow}>
+    <Wrapper
+      {...(onEdit ? { onPress: onEdit } : {})}
+      style={styles.addictionRow}
+    >
       <View
         style={[
           styles.addictionTile,
@@ -136,7 +151,7 @@ function AddictionRow({
       <Pressable onPress={onRemove} hitSlop={10} style={styles.removeBtn}>
         <Ionicons name="close" size={14} color="#6B8BA4" />
       </Pressable>
-    </View>
+    </Wrapper>
   );
 }
 

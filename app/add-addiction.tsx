@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -7,7 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useAddictions } from '@/context/AddictionsContext';
 import { maxMinutesFor } from '@/constants/addictions';
 
@@ -113,11 +113,18 @@ const SENSITIVITY_LABELS: Record<number, string> = {
 const NAME_MAX = 28;
 
 export default function AddAddictionScreen() {
-  const { addAddiction } = useAddictions();
-  const [name, setName] = useState('');
-  const [emoji, setEmoji] = useState(DEFAULT_EMOJI);
-  const [color, setColor] = useState(COLOR_OPTIONS[0]);
-  const [sensitivity, setSensitivity] = useState(5);
+  const { addictions, addAddiction, updateAddiction } = useAddictions();
+  const params = useLocalSearchParams<{ id?: string }>();
+  const editing = useMemo(() => {
+    if (!params.id) return null;
+    return addictions.find((a) => a.id === params.id) ?? null;
+  }, [params.id, addictions]);
+  const isEditMode = !!editing;
+
+  const [name, setName] = useState(editing?.name ?? '');
+  const [emoji, setEmoji] = useState(editing?.emoji ?? DEFAULT_EMOJI);
+  const [color, setColor] = useState(editing?.color ?? COLOR_OPTIONS[0]);
+  const [sensitivity, setSensitivity] = useState(editing?.sensitivity ?? 5);
   const [colorOpen, setColorOpen] = useState(false);
   const [iconOpen, setIconOpen] = useState(false);
 
@@ -128,7 +135,16 @@ export default function AddAddictionScreen() {
 
   const submit = () => {
     if (!canSubmit) return;
-    addAddiction({ name: name.trim(), emoji, color, sensitivity });
+    if (isEditMode && editing) {
+      updateAddiction(editing.id, {
+        name: name.trim(),
+        emoji,
+        color,
+        sensitivity,
+      });
+    } else {
+      addAddiction({ name: name.trim(), emoji, color, sensitivity });
+    }
     router.back();
   };
 
@@ -139,7 +155,9 @@ export default function AddAddictionScreen() {
         <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
           <Text style={styles.iconBtnText}>✕</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>New Craving</Text>
+        <Text style={styles.headerTitle}>
+          {isEditMode ? 'Edit Craving' : 'New Craving'}
+        </Text>
         <View style={styles.previewChip}>
           <View
             style={[
@@ -306,7 +324,7 @@ export default function AddAddictionScreen() {
               { color: canSubmit ? color : '#3D5470' },
             ]}
           >
-            Add Craving
+            {isEditMode ? 'Save Changes' : 'Add Craving'}
           </Text>
         </Pressable>
       </View>
