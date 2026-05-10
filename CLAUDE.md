@@ -51,7 +51,8 @@ app/
     community.tsx      ─ Feed: search, filter pills, post cards, FAB, auth gate
   active-session.tsx   ─ Timer (modal): Date.now-based, cycle bonus, share banner
   add-addiction.tsx    ─ Custom addiction modal (sensitivity 1-10, minimal)
-  community-compose.tsx─ Yeni post modal (username step + addiction picker)
+  community-compose.tsx─ Yeni post modal (addiction picker; create + edit)
+  setup-username.tsx   ─ Post-auth gate: yeni hesap için topluluk handle'ı
 
 components/
   NeonRing.tsx         ─ Border-color trick + box-shadow neon glow
@@ -221,10 +222,10 @@ Email confirmation Supabase dashboard'dan OFF.
 | ⭐ | **Apple/Google sign-in** — şu an sadece email/password |
 | ⭐ | **Report mechanism** (community moderation) — flag inappropriate posts |
 | ⭐ | **Realtime community feed** — supabase realtime ile yeni postlar canlı |
-| 🔧 | **Onboarding'de username adımı?** — Şu an ilk post'ta soruluyor; consent ekranından sonra adım eklenebilir |
 
 ### ✅ Yakın Zamanda Kapatılanlar
 
+- **Username post-auth gate**: `/setup-username` ekranı + `app/index.tsx`'de username probe. Sign-in/up `router.replace('/')` ile artık root'a iniyor; root username'i boşsa setup'a, doluysa (tabs)'e. Compose ekranındaki `needsUsername` fork'u kalktı, ~150 satır azaldı
 - **Edit/delete own posts** (community): PostCard'da kendi post'larında pencil + trash mini-butonlar. Compose ekranı `?editId` param'ıyla edit moduna giriyor; addiction picker kilitleniyor (kategori değişikliği feed'i bozar). `lib/community.ts`'e `updatePost`, `deletePost`, `fetchPost` eklendi. Delete optimistic + rollback
 - **Custom addiction edit**: `AddictionsContext.updateAddiction(id, patch)` + `add-addiction.tsx`'de `?id` param desteği. Profile satırına tap → modal edit modunda açılıyor (custom only; default'lar read-only). × delete butonu için web'de stopPropagation guard
 - **Forgot password flow**: `/(auth)/forgot-password` ekranı + sign-in'den link. `supabase.auth.resetPasswordForEmail`. Reset link'i Supabase hosted recovery sayfası açıyor — native deep-link handling şimdilik scope dışı
