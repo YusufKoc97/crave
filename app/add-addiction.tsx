@@ -127,25 +127,36 @@ export default function AddAddictionScreen() {
   const [sensitivity, setSensitivity] = useState(editing?.sensitivity ?? 5);
   const [colorOpen, setColorOpen] = useState(false);
   const [iconOpen, setIconOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const canSubmit = name.trim().length > 0;
+  const canSubmit = name.trim().length > 0 && !submitting;
   const ceilingMinutes = maxMinutesFor(sensitivity);
   const nameLen = name.length;
   const nameNearLimit = nameLen >= NAME_MAX - 5;
 
-  const submit = () => {
+  const submit = async () => {
     if (!canSubmit) return;
-    if (isEditMode && editing) {
-      updateAddiction(editing.id, {
-        name: name.trim(),
-        emoji,
-        color,
-        sensitivity,
-      });
-    } else {
-      addAddiction({ name: name.trim(), emoji, color, sensitivity });
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      if (isEditMode && editing) {
+        await updateAddiction(editing.id, {
+          name: name.trim(),
+          emoji,
+          color,
+          sensitivity,
+        });
+      } else {
+        await addAddiction({ name: name.trim(), emoji, color, sensitivity });
+      }
+      router.back();
+    } catch (e) {
+      setSubmitError(
+        (e as Error).message ?? 'Bir şey ters gitti. Tekrar dene.'
+      );
+      setSubmitting(false);
     }
-    router.back();
   };
 
   return (
@@ -306,6 +317,9 @@ export default function AddAddictionScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
+        {submitError && (
+          <Text style={styles.submitError}>{submitError}</Text>
+        )}
         <Pressable
           onPress={submit}
           disabled={!canSubmit}
@@ -324,7 +338,13 @@ export default function AddAddictionScreen() {
               { color: canSubmit ? color : '#3D5470' },
             ]}
           >
-            {isEditMode ? 'Save Changes' : 'Add Craving'}
+            {submitting
+              ? isEditMode
+                ? 'Saving...'
+                : 'Adding...'
+              : isEditMode
+                ? 'Save Changes'
+                : 'Add Craving'}
           </Text>
         </Pressable>
       </View>
@@ -658,6 +678,14 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  submitError: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+    marginBottom: 10,
+    textAlign: 'center',
   },
   submitText: {
     fontSize: 14,

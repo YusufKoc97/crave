@@ -110,7 +110,8 @@ lib/
 ```
 id (uuid PK, → auth.users) | username (text) UNIQUE | total_points (int) [LEGACY]
 momentum_score (int) [LEGACY] | momentum (int, default 50) [BUNU KULLAN]
-streak (int, default 0) | onboarding_completed (bool) | created_at
+streak (int, default 0) | onboarding_completed (bool)
+hidden_defaults (text[], default '{}') | created_at
 ```
 > ⚠️ `total_points` ve `momentum_score` daha önceki migration'lardan kalma. Kod
 > `momentum` ve `streak` kullanır. `total_points` SessionsContext tarafından
@@ -157,6 +158,15 @@ created_at | UNIQUE (post_id, reporter_id)
 ```
 > RLS: reporter_insert + reporter_read (kendi raporları). Moderasyon
 > dashboard'u henüz yok — tablo şu an "şikâyet kuyruğu" olarak duruyor.
+
+### addictions (custom)
+```
+id (uuid PK) | user_id (uuid → profiles) | name (text) | emoji (text)
+color (text, hex) | sensitivity (int 1-10)
+max_duration_minutes (int) [LEGACY, derive sensitivity'den] | created_at
+```
+> AddictionsContext bunu Supabase'le sync eder (lib/addictionsApi.ts).
+> AsyncStorage offline cache'i; server source of truth.
 
 ### momentum_log (henüz kullanılmıyor)
 ```

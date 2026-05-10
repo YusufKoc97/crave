@@ -38,6 +38,10 @@ export type Database = {
           onboarding_completed: boolean;
           momentum: number;
           streak: number;
+          // Default addiction ids the user has removed from their orb
+          // (e.g. ['nicotine']). Stored as text[] so RLS / writes are
+          // straightforward; client always replaces the whole array.
+          hidden_defaults: string[];
           created_at: string;
         };
         Insert: {
@@ -46,12 +50,14 @@ export type Database = {
           onboarding_completed?: boolean;
           momentum?: number;
           streak?: number;
+          hidden_defaults?: string[];
         };
         Update: {
           username?: string | null;
           onboarding_completed?: boolean;
           momentum?: number;
           streak?: number;
+          hidden_defaults?: string[];
         };
         Relationships: [];
       };
@@ -61,19 +67,29 @@ export type Database = {
           user_id: string;
           name: string;
           emoji: string;
+          // LEGACY: kept for the original SQL migration that NOT-NULL'd
+          // this column. New code reads `sensitivity` and derives the
+          // ceiling via maxMinutesFor() — pass any number when inserting.
           max_duration_minutes: number;
+          color: string;
+          sensitivity: number;
           created_at: string;
         };
         Insert: {
+          id?: string;
           user_id: string;
           name: string;
           emoji: string;
-          max_duration_minutes: number;
+          max_duration_minutes?: number;
+          color: string;
+          sensitivity: number;
         };
         Update: {
           name?: string;
           emoji?: string;
           max_duration_minutes?: number;
+          color?: string;
+          sensitivity?: number;
         };
         Relationships: [];
       };
