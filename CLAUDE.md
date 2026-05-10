@@ -223,10 +223,11 @@ Email confirmation Supabase dashboard'dan OFF.
 | ⭐ | **Edit/delete own posts** (community) + report mechanism |
 | ⭐ | **Realtime community feed** — supabase realtime ile yeni postlar canlı |
 | 🔧 | **Onboarding'de username adımı?** — Şu an ilk post'ta soruluyor; consent ekranından sonra adım eklenebilir |
-| 🔧 | **Profil ekranında "kayıtlı bağımlılıklarım" listesi + edit** |
+| 🔧 | **Bağımlılık edit** — Profile'daki "Bağımlılıklarım" satırına tap edip name/emoji/color/sensitivity güncellemek (şu an sadece silme var) |
 
 ### ✅ Yakın Zamanda Kapatılanlar
 
+- **Profile "Bağımlılıklarım" listesi**: Profile ekranında stats ile email/sign-out arasında inline liste. Her satırda × ile silme; default → `hiddenDefaults`, custom → diziden çıkar. + Ekle pill'i `/add-addiction`'a yönlendiriyor
 - **Sign-in/up redirect bug**: AuthContext'e `applySession()` eklendi. Auth ekranları, `router.replace`'ten önce session'ı imperatif olarak React state'e basıyor — `onAuthStateChange` callback'inin geç gelişi (tabs) guard'ını yanıltmıyor
 - **Pagination community** (commit `4621750`): `onEndReached` → `fetchPosts({before})`, dedupe, hasMore terminator footer
 - **Streak daily reset** (commit `21cfcf8`): "consecutive days with ≥1 resist" semantiği, local sessions cache'den türetiyor — DB schema değişikliği yok. 8/8 senaryo testte yeşil
