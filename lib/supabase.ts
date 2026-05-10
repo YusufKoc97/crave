@@ -2,11 +2,32 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://scdedlhpbcddoqphauxo.supabase.co';
+const supabaseUrl =
+  process.env.EXPO_PUBLIC_SUPABASE_URL ??
+  'https://scdedlhpbcddoqphauxo.supabase.co';
 const supabaseAnonKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder.placeholder';
 
+/**
+ * Hand-written DB schema. The shape that postgrest-js v2 wants for full
+ * inference is:
+ *
+ *   Database.public.Tables.<name> = { Row, Insert, Update, Relationships }
+ *   Database.public                = { Tables, Views, Functions }
+ *
+ * Missing any of those slots collapses the inferred row types to `never`,
+ * which is why the codebase used to be peppered with TS2769 / TS2339 noise.
+ *
+ * Insert-only tables (forum_likes, forum_reports, momentum_log) keep an
+ * empty `Update` object — postgrest-js requires the slot, but the table
+ * is RLS-locked against UPDATE on the server.
+ *
+ * Relationships are listed where postgrest-js needs them to resolve embed
+ * queries (forum_posts → profiles via the explicit FK). Tables we don't
+ * embed from leave Relationships empty so the type still satisfies
+ * GenericTable.
+ */
 export type Database = {
   public: {
     Tables: {
@@ -32,6 +53,7 @@ export type Database = {
           momentum?: number;
           streak?: number;
         };
+        Relationships: [];
       };
       addictions: {
         Row: {
@@ -53,6 +75,7 @@ export type Database = {
           emoji?: string;
           max_duration_minutes?: number;
         };
+        Relationships: [];
       };
       craving_sessions: {
         Row: {
@@ -90,6 +113,7 @@ export type Database = {
           points_earned?: number;
           completed_cycles?: number;
         };
+        Relationships: [];
       };
       momentum_log: {
         Row: {
@@ -102,7 +126,8 @@ export type Database = {
           user_id: string;
           value: number;
         };
-        Update: never;
+        Update: Record<string, never>;
+        Relationships: [];
       };
       forum_posts: {
         Row: {
@@ -122,6 +147,17 @@ export type Database = {
         Update: {
           content?: string;
         };
+        // Embedded select uses this FK alias verbatim; see lib/community.ts
+        // (`profiles!forum_posts_user_id_fkey(username)`).
+        Relationships: [
+          {
+            foreignKeyName: 'forum_posts_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       forum_likes: {
         Row: {
@@ -133,7 +169,8 @@ export type Database = {
           post_id: string;
           user_id: string;
         };
-        Update: never;
+        Update: Record<string, never>;
+        Relationships: [];
       };
       forum_reports: {
         Row: {
@@ -149,9 +186,12 @@ export type Database = {
           reporter_id: string;
           reason: string;
         };
-        Update: never;
+        Update: Record<string, never>;
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
   };
 };
 
