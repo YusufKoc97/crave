@@ -216,7 +216,6 @@ Email confirmation Supabase dashboard'dan OFF.
 
 | Önem | İş |
 |---|---|
-| 🔥 | **Sign-in/up redirect bug**: Sign-up sonrası auto-redirect bazen tetiklenmiyor; manual reload gerekiyor (web'de). Native'de muhtemelen sorunsuz ama doğrulanmadı |
 | ⭐ | **Push notifications** (expo-notifications) — daily reminder, "ring fills" celebration |
 | ⭐ | **AI asistan** (Anthropic API) — sohbet desteği, taban için coping suggestions |
 | ⭐ | **Apple/Google sign-in** — şu an sadece email/password |
@@ -228,6 +227,7 @@ Email confirmation Supabase dashboard'dan OFF.
 
 ### ✅ Yakın Zamanda Kapatılanlar
 
+- **Sign-in/up redirect bug**: AuthContext'e `applySession()` eklendi. Auth ekranları, `router.replace`'ten önce session'ı imperatif olarak React state'e basıyor — `onAuthStateChange` callback'inin geç gelişi (tabs) guard'ını yanıltmıyor
 - **Pagination community** (commit `4621750`): `onEndReached` → `fetchPosts({before})`, dedupe, hasMore terminator footer
 - **Streak daily reset** (commit `21cfcf8`): "consecutive days with ≥1 resist" semantiği, local sessions cache'den türetiyor — DB schema değişikliği yok. 8/8 senaryo testte yeşil
 - **Web focus ring** (commit `bb82b65`): Tarayıcı default amber outline → brand mavi (`#3B82F6` 2px). Tek style enjeksiyonu, native no-op
