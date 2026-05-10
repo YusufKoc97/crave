@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -25,6 +26,8 @@ const PRESETS_BY_ID = Object.fromEntries(
   DEFAULT_ADDICTIONS.map((a) => [a.id, a])
 );
 
+const PAGE_SIZE = 30;
+
 export default function CommunityScreen() {
   const { user } = useAuth();
   const [posts, setPosts] = useState<ForumPost[]>([]);
@@ -33,6 +36,8 @@ export default function CommunityScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   // 300ms debounce on the search input.
   useEffect(() => {
@@ -48,11 +53,15 @@ export default function CommunityScreen() {
         addictionId: activeFilter ?? undefined,
         search: debouncedSearch || undefined,
         userId: user.id,
+        limit: PAGE_SIZE,
       });
       setPosts(rows);
+      // If the first page came back partial, there's no second page.
+      setHasMore(rows.length === PAGE_SIZE);
     } catch {
       /* swallow — show empty state */
       setPosts([]);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
@@ -67,6 +76,46 @@ export default function CommunityScreen() {
     await load();
     setRefreshing(false);
   };
+
+  const loadMore = useCallback(async () => {
+    if (!user) return;
+    if (loading || loadingMore || refreshing || !hasMore) return;
+    if (posts.length === 0) return;
+    const cursor = posts[posts.length - 1].created_at;
+    setLoadingMore(true);
+    try {
+      const rows = await fetchPosts({
+        addictionId: activeFilter ?? undefined,
+        search: debouncedSearch || undefined,
+        userId: user.id,
+        before: cursor,
+        limit: PAGE_SIZE,
+      });
+      // Defensive dedupe — a new top-of-feed post shouldn't slip into a
+      // later page, but RLS + clock skew make it possible.
+      setPosts((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        const fresh = rows.filter((r) => !seen.has(r.id));
+        return [...prev, ...fresh];
+      });
+      if (rows.length < PAGE_SIZE) setHasMore(false);
+    } catch {
+      // On error, stop trying further pages this session — the user can
+      // pull-to-refresh to retry.
+      setHasMore(false);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [
+    user,
+    loading,
+    loadingMore,
+    refreshing,
+    hasMore,
+    posts,
+    activeFilter,
+    debouncedSearch,
+  ]);
 
   const onLike = async (post: ForumPost) => {
     if (!user) return;
@@ -197,6 +246,8 @@ export default function CommunityScreen() {
         )}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         contentContainerStyle={styles.listContent}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -214,6 +265,17 @@ export default function CommunityScreen() {
               </Text>
             </View>
           )
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.footerLoader}>
+              <ActivityIndicator size="small" color="#7DC3FF" />
+            </View>
+          ) : !hasMore && posts.length > 0 ? (
+            <View style={styles.footerEnd}>
+              <Text style={styles.footerEndText}>· · ·</Text>
+            </View>
+          ) : null
         }
       />
 
@@ -419,6 +481,19 @@ const styles = StyleSheet.create({
     color: '#6B8BA4',
     fontSize: 13,
     fontWeight: '300',
+  },
+  footerLoader: {
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  footerEnd: {
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  footerEndText: {
+    color: '#3D5470',
+    fontSize: 12,
+    letterSpacing: 4,
   },
   fab: {
     position: 'absolute',
