@@ -4,6 +4,7 @@ import { Redirect } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { isOnboardingCompleted } from '@/lib/onboarding';
 import { getUsername } from '@/lib/community';
+import { DEV_SKIP_AUTH } from '@/lib/devBypass';
 import { colors } from '@/constants/theme';
 
 /**
@@ -55,6 +56,12 @@ export default function Index() {
 
   if (!onboardingDone) {
     return <Redirect href="/(onboarding)" />;
+  }
+
+  // Dev bypass — skip every auth/username gate and drop straight on the
+  // orb. Lets the screen be inspected when Supabase is paused/unreachable.
+  if (DEV_SKIP_AUTH) {
+    return <Redirect href="/(tabs)" />;
   }
 
   if (!session) {

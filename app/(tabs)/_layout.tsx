@@ -4,6 +4,7 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
+import { DEV_SKIP_AUTH } from '@/lib/devBypass';
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -78,7 +79,7 @@ export default function TabsLayout() {
   // "Çıkış yap" on the profile screen). The root index would also redirect on
   // a fresh launch, but we want sign-out to feel instant without a reload.
   const { session, loading } = useAuth();
-  if (!loading && !session) {
+  if (!DEV_SKIP_AUTH && !loading && !session) {
     return <Redirect href="/(auth)/sign-in" />;
   }
 
