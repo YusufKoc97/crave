@@ -37,8 +37,17 @@ export default function SetupUsernameScreen() {
     try {
       await persistUsername(user.id, trimmed);
       router.replace('/');
-    } catch {
-      setError('Kaydedilemedi. Tekrar deneyin.');
+    } catch (e) {
+      // PG 23505 = unique_violation. The DB-side UNIQUE on profiles
+      // (username) is the source of truth — RLS keeps us from probing
+      // other users' rows in advance, so we have to attempt the write
+      // and translate the failure.
+      const code = (e as { code?: string }).code;
+      if (code === '23505') {
+        setError('Bu kullanıcı adı zaten alınmış. Başka bir tane dene.');
+      } else {
+        setError('Kaydedilemedi. Tekrar deneyin.');
+      }
       setSaving(false);
     }
   };

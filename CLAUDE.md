@@ -108,13 +108,19 @@ lib/
 
 ### profiles
 ```
-id (uuid PK, → auth.users) | username (text) | total_points (int) [LEGACY, kullanma]
+id (uuid PK, → auth.users) | username (text) UNIQUE | total_points (int) [LEGACY]
 momentum_score (int) [LEGACY] | momentum (int, default 50) [BUNU KULLAN]
 streak (int, default 0) | onboarding_completed (bool) | created_at
 ```
 > ⚠️ `total_points` ve `momentum_score` daha önceki migration'lardan kalma. Kod
 > `momentum` ve `streak` kullanır. `total_points` SessionsContext tarafından
 > sessions sayımıyla derive edilir.
+>
+> **Pending migration**: `username`'in UNIQUE olması gerekiyor — şu an constraint yok,
+> setup-username `23505` (unique_violation) yakalıyor ama önce DB'ye eklenmeli:
+> ```sql
+> ALTER TABLE profiles ADD CONSTRAINT profiles_username_unique UNIQUE (username);
+> ```
 
 ### craving_sessions
 ```
