@@ -28,6 +28,8 @@ import {
   saveActiveSessionId,
   clearActiveSessionId,
   saveActiveSnapshot,
+  savePendingFinish,
+  clearPendingFinish,
 } from '@/lib/activeSession';
 
 const TIMER_SIZE = 220;
@@ -322,18 +324,30 @@ export default function ActiveSession() {
       });
 
       if (sessionId.current && user) {
+        // Fire-and-forget but with a retry path: if the network drops
+        // mid-finish we still want to mark the row 'completed' on the
+        // server eventually. Stash the payload locally so the next
+        // app launch can replay it via ActiveSessionRestorer (which
+        // already runs on cold start).
+        const finishPayload = {
+          status: 'completed' as const,
+          outcome,
+          ended_at: new Date().toISOString(),
+          duration_seconds: finalSeconds,
+          points_earned: pointsEarned,
+          completed_cycles: completedCycles,
+        };
+        const rowId = sessionId.current;
+        savePendingFinish({ sessionId: rowId, payload: finishPayload });
         supabase
           .from('craving_sessions')
-          .update({
-            status: 'completed',
-            outcome,
-            ended_at: new Date().toISOString(),
-            duration_seconds: finalSeconds,
-            points_earned: pointsEarned,
-            completed_cycles: completedCycles,
-          })
-          .eq('id', sessionId.current)
-          .then(() => {});
+          .update(finishPayload)
+          .eq('id', rowId)
+          .then(({ error }) => {
+            if (!error) clearPendingFinish();
+            // On error, the pending blob stays on disk and the next
+            // ActiveSessionRestorer pass picks it up.
+          });
       }
     }
     clearActiveSessionId();

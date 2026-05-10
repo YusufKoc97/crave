@@ -11,6 +11,8 @@ import {
   getActiveSessionId,
   getActiveSnapshot,
   clearActiveSessionId,
+  getPendingFinish,
+  clearPendingFinish,
 } from '@/lib/activeSession';
 import { maxMinutesFor } from '@/constants/addictions';
 
@@ -31,6 +33,22 @@ function ActiveSessionRestorer() {
     (async () => {
       // Authenticated path: server is the source of truth.
       if (user) {
+        // First, replay any finish UPDATE that didn't make it to the
+        // server (network drop between "I Resisted" tap and the RPC).
+        // We do this BEFORE checking the active-session id so a stuck
+        // 'active' row gets cleared instead of resuming forever.
+        const pending = await getPendingFinish();
+        if (pending) {
+          const { error } = await supabase
+            .from('craving_sessions')
+            .update(pending.payload)
+            .eq('id', pending.sessionId);
+          if (!error) {
+            await clearPendingFinish();
+            await clearActiveSessionId();
+          }
+          // If still failing (offline), leave the blob and try next launch.
+        }
         const id = await getActiveSessionId();
         if (!id) return;
         const { data, error } = await supabase
