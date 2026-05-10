@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { markOnboardingCompleted } from '@/lib/onboarding';
+import { StepIndicator } from '@/components/StepIndicator';
 
 export default function ConsentScreen() {
   const params = useLocalSearchParams<{ dob?: string }>();
@@ -32,7 +33,7 @@ export default function ConsentScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.kicker}>ADIM 2 / 2</Text>
+        <StepIndicator step={2} total={2} />
         <Text style={styles.title}>Son Adım</Text>
         <Text style={styles.subtitle}>
           Devam etmek için aşağıdaki onayların ikisini de işaretleyin.
@@ -148,14 +149,8 @@ const styles = StyleSheet.create({
     paddingTop: 80,
     paddingBottom: 24,
   },
-  kicker: {
-    color: '#3D5470',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 3,
-  },
   title: {
-    marginTop: 8,
+    marginTop: 18,
     color: '#F1F5F9',
     fontSize: 28,
     fontWeight: '300',

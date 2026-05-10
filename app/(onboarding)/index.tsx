@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { calculateAge } from '@/lib/onboarding';
+import { StepIndicator } from '@/components/StepIndicator';
 
 const MIN_AGE = 18;
 
@@ -47,7 +48,7 @@ export default function AgeGateScreen() {
   return (
     <View style={styles.root}>
       <View style={styles.center}>
-        <Text style={styles.kicker}>ADIM 1 / 2</Text>
+        <StepIndicator step={1} total={2} />
         <Text style={styles.title}>Yaş Doğrulama</Text>
         <Text style={styles.subtitle}>
           Devam etmek için doğum tarihinizi girin.
@@ -170,14 +171,8 @@ const styles = StyleSheet.create({
   center: {
     flex: 1,
   },
-  kicker: {
-    color: '#3D5470',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 3,
-  },
   title: {
-    marginTop: 8,
+    marginTop: 18,
     color: '#F1F5F9',
     fontSize: 28,
     fontWeight: '300',
