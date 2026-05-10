@@ -16,13 +16,16 @@ import { useAuth } from '@/context/AuthContext';
 import { DEFAULT_ADDICTIONS } from '@/constants/addictions';
 import {
   COMMUNITY_FILTER_ORDER,
+  REPORT_REASONS,
   deletePost,
   fetchPost,
   fetchPosts,
   relativeTime,
+  reportPost,
   subscribeToNewPosts,
   toggleLike,
   type ForumPost,
+  type ReportReasonId,
 } from '@/lib/community';
 
 const PRESETS_BY_ID = Object.fromEntries(
@@ -42,6 +45,8 @@ export default function CommunityScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [pendingPosts, setPendingPosts] = useState<ForumPost[]>([]);
+  const [reportTarget, setReportTarget] = useState<ForumPost | null>(null);
+  const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
 
   // 300ms debounce on the search input.
   useEffect(() => {
@@ -315,6 +320,7 @@ export default function CommunityScreen() {
           <PostCard
             post={item}
             isOwn={item.user_id === user.id}
+            isReported={reportedIds.has(item.id)}
             onLike={() => onLike(item)}
             onEdit={() =>
               router.push({
@@ -333,6 +339,7 @@ export default function CommunityScreen() {
                 setPosts(snapshot);
               }
             }}
+            onReport={() => setReportTarget(item)}
           />
         )}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
@@ -378,6 +385,80 @@ export default function CommunityScreen() {
       >
         <Ionicons name="add" size={26} color="#020810" />
       </Pressable>
+
+      {reportTarget && (
+        <ReportSheet
+          post={reportTarget}
+          onCancel={() => setReportTarget(null)}
+          onConfirm={async (reason) => {
+            const target = reportTarget;
+            setReportTarget(null);
+            // Optimistic mark as reported regardless of server outcome —
+            // a duplicate is also a "your report is on file" signal.
+            setReportedIds((prev) => {
+              const next = new Set(prev);
+              next.add(target.id);
+              return next;
+            });
+            try {
+              await reportPost({
+                postId: target.id,
+                userId: user.id,
+                reason,
+              });
+            } catch {
+              // Roll back the local mark; user can try again.
+              setReportedIds((prev) => {
+                const next = new Set(prev);
+                next.delete(target.id);
+                return next;
+              });
+            }
+          }}
+        />
+      )}
+    </View>
+  );
+}
+
+function ReportSheet({
+  post,
+  onCancel,
+  onConfirm,
+}: {
+  post: ForumPost;
+  onCancel: () => void;
+  onConfirm: (reason: ReportReasonId) => void | Promise<void>;
+}) {
+  return (
+    <View style={styles.sheetBackdrop}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} />
+      <View style={styles.sheet}>
+        <Text style={styles.sheetKicker}>BU GÖNDERİYİ BİLDİR</Text>
+        <Text style={styles.sheetTitle} numberOfLines={2}>
+          {post.content.slice(0, 80)}
+          {post.content.length > 80 ? '…' : ''}
+        </Text>
+        <Text style={styles.sheetSubtitle}>
+          Bildirimin moderasyon ekibine gider. Diğer kullanıcılar bunu
+          göremez.
+        </Text>
+        <View style={styles.sheetReasons}>
+          {REPORT_REASONS.map((r) => (
+            <Pressable
+              key={r.id}
+              onPress={() => onConfirm(r.id)}
+              style={styles.sheetReason}
+            >
+              <Text style={styles.sheetReasonText}>{r.label}</Text>
+              <Ionicons name="chevron-forward" size={14} color="#6B8BA4" />
+            </Pressable>
+          ))}
+        </View>
+        <Pressable onPress={onCancel} style={styles.sheetCancel} hitSlop={6}>
+          <Text style={styles.sheetCancelText}>Vazgeç</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -385,15 +466,19 @@ export default function CommunityScreen() {
 function PostCard({
   post,
   isOwn,
+  isReported,
   onLike,
   onEdit,
   onDelete,
+  onReport,
 }: {
   post: ForumPost;
   isOwn: boolean;
+  isReported: boolean;
   onLike: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onReport: () => void;
 }) {
   const a = PRESETS_BY_ID[post.addiction_id];
   const accent = a?.color ?? '#7DC3FF';
@@ -438,6 +523,21 @@ function PostCard({
       <Text style={styles.content}>{post.content}</Text>
 
       <View style={styles.cardFooter}>
+        {!isOwn && (
+          <Pressable
+            onPress={onReport}
+            disabled={isReported}
+            hitSlop={6}
+            style={styles.reportBtn}
+          >
+            <Ionicons
+              name={isReported ? 'flag' : 'flag-outline'}
+              size={13}
+              color={isReported ? '#94A3B8' : '#3D5470'}
+            />
+          </Pressable>
+        )}
+        <View style={{ flex: 1 }} />
         <Pressable onPress={onLike} hitSlop={6} style={styles.likeBtn}>
           <Ionicons
             name={post.liked_by_me ? 'heart' : 'heart-outline'}
@@ -573,6 +673,80 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     marginTop: 10,
+  },
+  reportBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(2, 8, 16, 0.78)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#0A1628',
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderTopWidth: 1,
+    borderColor: '#1E3050',
+    paddingTop: 18,
+    paddingBottom: 32,
+    paddingHorizontal: 20,
+  },
+  sheetKicker: {
+    color: '#6B8BA4',
+    fontSize: 9.5,
+    fontWeight: '700',
+    letterSpacing: 2,
+  },
+  sheetTitle: {
+    marginTop: 10,
+    color: '#F1F5F9',
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  sheetSubtitle: {
+    marginTop: 8,
+    color: '#94A3B8',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  sheetReasons: {
+    marginTop: 18,
+  },
+  sheetReason: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: '#1A2A45',
+    backgroundColor: '#0D1E35',
+    marginBottom: 8,
+  },
+  sheetReasonText: {
+    color: '#F1F5F9',
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+  },
+  sheetCancel: {
+    marginTop: 6,
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+  },
+  sheetCancelText: {
+    color: '#7BA8C8',
+    fontSize: 12.5,
+    fontWeight: '500',
+    letterSpacing: 0.4,
   },
   pendingPill: {
     flexDirection: 'row',

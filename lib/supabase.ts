@@ -135,6 +135,22 @@ export type Database = {
         };
         Update: never;
       };
+      forum_reports: {
+        Row: {
+          id: string;
+          post_id: string;
+          reporter_id: string;
+          reason: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          post_id: string;
+          reporter_id: string;
+          reason: string;
+        };
+        Update: never;
+      };
     };
   };
 };

@@ -212,6 +212,54 @@ export async function setUsername(userId: string, username: string): Promise<voi
   if (error) throw error;
 }
 
+/** Curated set of report reasons — short, recovery-aware, Turkish. */
+export const REPORT_REASONS = [
+  { id: 'harassment', label: 'Tacizci ya da kötücül dil' },
+  { id: 'spam', label: 'Spam ya da reklam' },
+  { id: 'misinformation', label: 'Yanlış / zararlı bilgi' },
+  { id: 'triggering', label: 'Aşırı tetikleyici içerik' },
+  { id: 'other', label: 'Diğer' },
+] as const;
+
+export type ReportReasonId = (typeof REPORT_REASONS)[number]['id'];
+
+/**
+ * NOTE — additive migration required before this hits production:
+ *
+ *   CREATE TABLE IF NOT EXISTS forum_reports (
+ *     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ *     post_id uuid NOT NULL REFERENCES forum_posts(id) ON DELETE CASCADE,
+ *     reporter_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+ *     reason text NOT NULL CHECK (char_length(reason) BETWEEN 1 AND 64),
+ *     created_at timestamptz NOT NULL DEFAULT now(),
+ *     UNIQUE (post_id, reporter_id)
+ *   );
+ *   ALTER TABLE forum_reports ENABLE ROW LEVEL SECURITY;
+ *   CREATE POLICY "reporter_insert" ON forum_reports
+ *     FOR INSERT TO authenticated
+ *     WITH CHECK (reporter_id = auth.uid());
+ *   CREATE POLICY "reporter_read" ON forum_reports
+ *     FOR SELECT TO authenticated USING (reporter_id = auth.uid());
+ */
+export async function reportPost(input: {
+  postId: string;
+  userId: string;
+  reason: ReportReasonId;
+}): Promise<{ duplicate: boolean }> {
+  const { error } = await supabase.from('forum_reports').insert({
+    post_id: input.postId,
+    reporter_id: input.userId,
+    reason: input.reason,
+  });
+  if (!error) return { duplicate: false };
+  // PostgREST surfaces unique-violation as code 23505 (Postgres) wrapped
+  // in a Supabase error. Treat re-flag as a successful no-op so the user
+  // doesn't see a scary message for a benign duplicate.
+  const code = (error as { code?: string }).code;
+  if (code === '23505') return { duplicate: true };
+  throw error;
+}
+
 /**
  * Subscribe to forum_posts INSERT events. The callback receives only the
  * post id; the caller is expected to hydrate the full row (with username
