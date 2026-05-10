@@ -219,12 +219,13 @@ Email confirmation Supabase dashboard'dan OFF.
 | ⭐ | **Push notifications** (expo-notifications) — daily reminder, "ring fills" celebration |
 | ⭐ | **AI asistan** (Anthropic API) — sohbet desteği, taban için coping suggestions |
 | ⭐ | **Apple/Google sign-in** — şu an sadece email/password |
-| ⭐ | **Edit/delete own posts** (community) + report mechanism |
+| ⭐ | **Report mechanism** (community moderation) — flag inappropriate posts |
 | ⭐ | **Realtime community feed** — supabase realtime ile yeni postlar canlı |
 | 🔧 | **Onboarding'de username adımı?** — Şu an ilk post'ta soruluyor; consent ekranından sonra adım eklenebilir |
 
 ### ✅ Yakın Zamanda Kapatılanlar
 
+- **Edit/delete own posts** (community): PostCard'da kendi post'larında pencil + trash mini-butonlar. Compose ekranı `?editId` param'ıyla edit moduna giriyor; addiction picker kilitleniyor (kategori değişikliği feed'i bozar). `lib/community.ts`'e `updatePost`, `deletePost`, `fetchPost` eklendi. Delete optimistic + rollback
 - **Custom addiction edit**: `AddictionsContext.updateAddiction(id, patch)` + `add-addiction.tsx`'de `?id` param desteği. Profile satırına tap → modal edit modunda açılıyor (custom only; default'lar read-only). × delete butonu için web'de stopPropagation guard
 - **Forgot password flow**: `/(auth)/forgot-password` ekranı + sign-in'den link. `supabase.auth.resetPasswordForEmail`. Reset link'i Supabase hosted recovery sayfası açıyor — native deep-link handling şimdilik scope dışı
 - **Profile "Bağımlılıklarım" listesi**: Profile ekranında stats ile email/sign-out arasında inline liste. Her satırda × ile silme; default → `hiddenDefaults`, custom → diziden çıkar. + Ekle pill'i `/add-addiction`'a yönlendiriyor
