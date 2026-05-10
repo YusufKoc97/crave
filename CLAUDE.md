@@ -222,10 +222,10 @@ Email confirmation Supabase dashboard'dan OFF.
 | ⭐ | **Edit/delete own posts** (community) + report mechanism |
 | ⭐ | **Realtime community feed** — supabase realtime ile yeni postlar canlı |
 | 🔧 | **Onboarding'de username adımı?** — Şu an ilk post'ta soruluyor; consent ekranından sonra adım eklenebilir |
-| 🔧 | **Bağımlılık edit** — Profile'daki "Bağımlılıklarım" satırına tap edip name/emoji/color/sensitivity güncellemek (şu an sadece silme var) |
 
 ### ✅ Yakın Zamanda Kapatılanlar
 
+- **Custom addiction edit**: `AddictionsContext.updateAddiction(id, patch)` + `add-addiction.tsx`'de `?id` param desteği. Profile satırına tap → modal edit modunda açılıyor (custom only; default'lar read-only). × delete butonu için web'de stopPropagation guard
 - **Forgot password flow**: `/(auth)/forgot-password` ekranı + sign-in'den link. `supabase.auth.resetPasswordForEmail`. Reset link'i Supabase hosted recovery sayfası açıyor — native deep-link handling şimdilik scope dışı
 - **Profile "Bağımlılıklarım" listesi**: Profile ekranında stats ile email/sign-out arasında inline liste. Her satırda × ile silme; default → `hiddenDefaults`, custom → diziden çıkar. + Ekle pill'i `/add-addiction`'a yönlendiriyor
 - **Sign-in/up redirect bug**: AuthContext'e `applySession()` eklendi. Auth ekranları, `router.replace`'ten önce session'ı imperatif olarak React state'e basıyor — `onAuthStateChange` callback'inin geç gelişi (tabs) guard'ını yanıltmıyor
