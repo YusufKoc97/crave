@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -47,6 +47,10 @@ export default function CommunityScreen() {
   const [pendingPosts, setPendingPosts] = useState<ForumPost[]>([]);
   const [reportTarget, setReportTarget] = useState<ForumPost | null>(null);
   const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
+  // Track posts whose like is currently in-flight so a fast double-tap
+  // can't fire two opposing toggleLike calls and leave the DB in a
+  // visually-correct-but-actually-flipped state.
+  const likeInFlight = useRef<Set<string>>(new Set());
 
   // 300ms debounce on the search input.
   useEffect(() => {
@@ -183,6 +187,9 @@ export default function CommunityScreen() {
 
   const onLike = async (post: ForumPost) => {
     if (!user) return;
+    // Drop the tap if the previous one for this post hasn't resolved.
+    if (likeInFlight.current.has(post.id)) return;
+    likeInFlight.current.add(post.id);
     // Optimistic update.
     setPosts((prev) =>
       prev.map((p) =>
@@ -210,6 +217,8 @@ export default function CommunityScreen() {
             : p
         )
       );
+    } finally {
+      likeInFlight.current.delete(post.id);
     }
   };
 
