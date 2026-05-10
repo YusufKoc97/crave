@@ -143,6 +143,15 @@ PRIMARY KEY (post_id, user_id)
 TRIGGER: AFTER INSERT/DELETE → forum_posts.like_count ± 1
 ```
 
+### forum_reports
+```
+id (uuid PK) | post_id (uuid → forum_posts ON DELETE CASCADE)
+reporter_id (uuid → profiles ON DELETE CASCADE) | reason (text 1-64)
+created_at | UNIQUE (post_id, reporter_id)
+```
+> RLS: reporter_insert + reporter_read (kendi raporları). Moderasyon
+> dashboard'u henüz yok — tablo şu an "şikâyet kuyruğu" olarak duruyor.
+
 ### momentum_log (henüz kullanılmıyor)
 ```
 id | user_id | value | created_at
@@ -220,10 +229,10 @@ Email confirmation Supabase dashboard'dan OFF.
 | ⭐ | **Push notifications** (expo-notifications) — daily reminder, "ring fills" celebration |
 | ⭐ | **AI asistan** (Anthropic API) — sohbet desteği, taban için coping suggestions |
 | ⭐ | **Apple/Google sign-in** — şu an sadece email/password |
-| ⭐ | **Report mechanism** (community moderation) — flag inappropriate posts |
 
 ### ✅ Yakın Zamanda Kapatılanlar
 
+- **Report mechanism**: Post kartlarında flag butonu (own değilse) → bottom sheet 5 reason. `reportPost` API'si, `forum_reports` tablosu (additive migration commit `[hash]` mesajında). Duplicate report sessizce success. Moderator UI scope dışı
 - **Realtime community feed**: `subscribeToNewPosts` (Supabase realtime channel) → community.tsx pending buffer + "N yeni gönderi" floating pill. Filter/search değişince buffer temizleniyor; local create sonrası feed'e zaten gelmiş post'lar dedupe ediliyor. Scroll position korunuyor (auto-prepend yok)
 - **Username post-auth gate**: `/setup-username` ekranı + `app/index.tsx`'de username probe. Sign-in/up `router.replace('/')` ile artık root'a iniyor; root username'i boşsa setup'a, doluysa (tabs)'e. Compose ekranındaki `needsUsername` fork'u kalktı, ~150 satır azaldı
 - **Edit/delete own posts** (community): PostCard'da kendi post'larında pencil + trash mini-butonlar. Compose ekranı `?editId` param'ıyla edit moduna giriyor; addiction picker kilitleniyor (kategori değişikliği feed'i bozar). `lib/community.ts`'e `updatePost`, `deletePost`, `fetchPost` eklendi. Delete optimistic + rollback
