@@ -11,6 +11,11 @@ import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { setUsername as persistUsername } from '@/lib/community';
 
+async function handleSignOut(signOut: () => Promise<void>) {
+  await signOut();
+  router.replace('/(auth)/sign-in');
+}
+
 const MIN_LEN = 3;
 const MAX_LEN = 24;
 
@@ -21,7 +26,7 @@ const MAX_LEN = 24;
  * router decides where they truly belong (typically /(tabs)).
  */
 export default function SetupUsernameScreen() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [value, setValue] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +94,13 @@ export default function SetupUsernameScreen() {
       </View>
 
       <View style={styles.footer}>
+        <Pressable
+          onPress={() => handleSignOut(signOut)}
+          hitSlop={8}
+          style={styles.signOutLink}
+        >
+          <Text style={styles.signOutLinkText}>Vazgeç ve çıkış yap</Text>
+        </Pressable>
         <Pressable
           onPress={submit}
           disabled={!canSubmit}
@@ -190,6 +202,18 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingTop: 12,
+  },
+  signOutLink: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+  },
+  signOutLinkText: {
+    color: '#6B8BA4',
+    fontSize: 12.5,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
   submitBtn: {
     height: 54,

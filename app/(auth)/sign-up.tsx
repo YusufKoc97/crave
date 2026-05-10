@@ -23,7 +23,7 @@ export default function SignUpScreen() {
   const [info, setInfo] = useState<string | null>(null);
 
   const canSubmit =
-    !submitting && isValidEmail(email) && password.length >= 6;
+    !submitting && !info && isValidEmail(email) && password.length >= 6;
 
   const submit = async () => {
     if (!canSubmit) return;
