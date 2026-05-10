@@ -10,6 +10,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAddictions } from '@/context/AddictionsContext';
 import { maxMinutesFor } from '@/constants/addictions';
+import { emojiMatchesQuery } from '@/constants/emojiKeywords';
 
 // 24-color curated palette ordered by hue (green → cyan → blue → purple →
 // pink → red → orange → yellow → neutral). Each value is hand-picked to
@@ -363,48 +364,80 @@ function EmojiPicker({
   onPick: (e: string) => void;
 }) {
   const [activeCat, setActiveCat] = useState(EMOJI_CATEGORIES[0].id);
+  const [query, setQuery] = useState('');
+  const searching = query.trim().length > 0;
+
+  // When the user types, show a single flat grid of every emoji whose
+  // keywords match. Otherwise, the original tab-scoped grid.
   const cat = EMOJI_CATEGORIES.find((c) => c.id === activeCat) ?? EMOJI_CATEGORIES[0];
+  const visibleEmojis = searching
+    ? EMOJI_CATEGORIES.flatMap((c) => c.emojis).filter((e) =>
+        emojiMatchesQuery(e, query)
+      )
+    : cat.emojis;
 
   return (
     <View style={styles.emojiPicker}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.emojiTabsRow}
-      >
-        {EMOJI_CATEGORIES.map((c) => {
-          const active = c.id === activeCat;
-          return (
-            <Pressable
-              key={c.id}
-              onPress={() => setActiveCat(c.id)}
-              style={[
-                styles.emojiTab,
-                {
-                  backgroundColor: active ? hexToRgba(accent, 0.18) : '#0A1628',
-                  borderColor: active ? hexToRgba(accent, 0.7) : '#1A2A45',
-                },
-              ]}
-            >
-              <Text style={styles.emojiTabIcon}>{c.tab}</Text>
-              <Text
+      <View style={styles.emojiSearchRow}>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Ara: kalp, ofke, alkol…"
+          placeholderTextColor="#3D5470"
+          style={styles.emojiSearchInput}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {query.length > 0 && (
+          <Pressable
+            onPress={() => setQuery('')}
+            hitSlop={8}
+            style={styles.emojiSearchClear}
+          >
+            <Text style={styles.emojiSearchClearText}>×</Text>
+          </Pressable>
+        )}
+      </View>
+      {!searching && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.emojiTabsRow}
+        >
+          {EMOJI_CATEGORIES.map((c) => {
+            const active = c.id === activeCat;
+            return (
+              <Pressable
+                key={c.id}
+                onPress={() => setActiveCat(c.id)}
                 style={[
-                  styles.emojiTabLabel,
-                  { color: active ? '#F1F5F9' : '#6B8BA4' },
+                  styles.emojiTab,
+                  {
+                    backgroundColor: active ? hexToRgba(accent, 0.18) : '#0A1628',
+                    borderColor: active ? hexToRgba(accent, 0.7) : '#1A2A45',
+                  },
                 ]}
               >
-                {c.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+                <Text style={styles.emojiTabIcon}>{c.tab}</Text>
+                <Text
+                  style={[
+                    styles.emojiTabLabel,
+                    { color: active ? '#F1F5F9' : '#6B8BA4' },
+                  ]}
+                >
+                  {c.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
       <View style={styles.emojiGrid}>
-        {cat.emojis.map((e, i) => {
+        {visibleEmojis.map((e, i) => {
           const selected = e === emoji;
           return (
             <Pressable
-              key={`${cat.id}-${i}`}
+              key={`${searching ? 'q' : cat.id}-${i}-${e}`}
               onPress={() => onPick(e)}
               style={[
                 styles.emojiCell,
@@ -418,6 +451,9 @@ function EmojiPicker({
             </Pressable>
           );
         })}
+        {searching && visibleEmojis.length === 0 && (
+          <Text style={styles.emojiEmptyText}>Sonuç yok</Text>
+        )}
       </View>
     </View>
   );
@@ -649,6 +685,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+  },
+  emojiSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0A1628',
+    borderWidth: 1,
+    borderColor: '#1A2A45',
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    height: 36,
+    marginBottom: 10,
+  },
+  emojiSearchInput: {
+    flex: 1,
+    color: '#F1F5F9',
+    fontSize: 13,
+    padding: 0,
+  },
+  emojiSearchClear: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiSearchClearText: {
+    color: '#6B8BA4',
+    fontSize: 16,
+    lineHeight: 18,
+  },
+  emojiEmptyText: {
+    color: '#6B8BA4',
+    fontSize: 12.5,
+    fontStyle: 'italic',
+    paddingVertical: 18,
+    paddingHorizontal: 4,
   },
   colorSwatch: {
     width: 36,
