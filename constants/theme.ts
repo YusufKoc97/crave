@@ -48,6 +48,53 @@ export const radius = {
   full: 9999,
 } as const;
 
+/**
+ * Surface tokens give every card the same "light-from-above" feel
+ * without breaking the dark/flat aesthetic. Two layers:
+ *   - cardSurface  — base background + subtle border with a slight
+ *                    blue tint (warmer than pure gray on the dark bg).
+ *   - cardElevated — adds a soft outer glow + larger radius for the
+ *                    primary stat / share / hero cards.
+ *
+ * The "inner highlight" (top 1px alpha-white line) is rendered as a
+ * 1px absolutely-positioned child View by <Card />. It's intentionally
+ * not on the borderTopColor because RN doesn't let you mix
+ * per-side colors on a single border definition cleanly.
+ */
+export const surfaces = {
+  card: {
+    backgroundColor: '#0A1628',
+    borderColor: '#1E2D4D',
+    borderWidth: 1,
+  },
+  cardSoft: {
+    backgroundColor: '#0D1E35',
+    borderColor: '#1E3050',
+    borderWidth: 1,
+  },
+  cardElevated: {
+    backgroundColor: '#0A1628',
+    borderColor: '#1E2D4D',
+    borderWidth: 1,
+    // Native uses shadow*; web reads boxShadow.
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  /** Top inner highlight line — a 1px alpha-white View pinned to the
+   *  top edge of a card, inside its border radius. */
+  innerHighlight: {
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+} as const;
+
 export const font = {
   size: {
     xs: 9,

@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { Card } from './Card';
 
 /**
  * Minimal 7-day bar chart for the profile screen. Each bar is one day,
@@ -28,7 +29,7 @@ export function WeeklyChart({
 }) {
   const max = Math.max(1, ...counts);
   return (
-    <View style={styles.wrap}>
+    <Card variant="elevated" style={styles.wrap} borderRadius={14}>
       <View style={styles.bars}>
         {counts.map((c, i) => {
           const isToday = i === 6;
@@ -68,7 +69,7 @@ export function WeeklyChart({
           );
         })}
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -77,10 +78,6 @@ const styles = StyleSheet.create({
     width: '100%',
     paddingVertical: 14,
     paddingHorizontal: 14,
-    borderRadius: 14,
-    backgroundColor: '#0A1628',
-    borderWidth: 1,
-    borderColor: '#1A2840',
   },
   bars: {
     flexDirection: 'row',

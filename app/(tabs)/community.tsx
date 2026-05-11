@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import { Card } from '@/components/Card';
 import { DEFAULT_ADDICTIONS } from '@/constants/addictions';
 import {
   COMMUNITY_FILTER_ORDER,
@@ -518,7 +519,7 @@ function PostCard({
   const a = PRESETS_BY_ID[post.addiction_id];
   const accent = a?.color ?? '#7DC3FF';
   return (
-    <View style={styles.card}>
+    <Card style={styles.card} borderRadius={14}>
       <View style={styles.cardHeader}>
         <View
           style={[
@@ -618,7 +619,7 @@ function PostCard({
           </Text>
         </Pressable>
       </View>
-    </View>
+    </Card>
   );
 }
 

@@ -9,6 +9,7 @@ import { useAddictions } from '@/context/AddictionsContext';
 import { getUsername } from '@/lib/community';
 import { weeklyResistCounts } from '@/lib/scoring';
 import { WeeklyChart } from '@/components/WeeklyChart';
+import { Card } from '@/components/Card';
 import type { Addiction } from '@/constants/addictions';
 
 export default function ProfileScreen() {
@@ -61,10 +62,10 @@ export default function ProfileScreen() {
         {username && <Text style={styles.usernameLabel}>{username}</Text>}
         <View style={styles.dash} />
 
-        <View style={styles.totalCard}>
+        <Card variant="elevated" style={styles.totalCard} borderRadius={14}>
           <Text style={styles.totalNumber}>{totalPoints}</Text>
           <Text style={styles.totalLabel}>TOTAL POINTS</Text>
-        </View>
+        </Card>
 
         <View style={styles.statsRow}>
           <StatCard
@@ -87,10 +88,10 @@ export default function ProfileScreen() {
         </View>
 
         {streak > 0 && (
-          <View style={styles.streakCard}>
+          <Card variant="elevated" style={styles.streakCard} borderRadius={14}>
             <Text style={styles.streakNumber}>{streak}</Text>
             <Text style={styles.streakLabel}>RESIST STREAK</Text>
-          </View>
+          </Card>
         )}
       </View>
 
@@ -252,7 +253,12 @@ function StatCard({
   topBorderColor?: string;
 }) {
   return (
-    <View style={styles.statCard}>
+    <Card
+      variant="elevated"
+      style={styles.statCard}
+      borderRadius={14}
+      showHighlight={false}
+    >
       {topBorderColor && (
         <View
           style={[styles.statTopBorder, { backgroundColor: topBorderColor }]}
@@ -260,7 +266,7 @@ function StatCard({
       )}
       <Text style={[styles.statValue, { color: valueColor }]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    </Card>
   );
 }
 
