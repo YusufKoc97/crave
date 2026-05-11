@@ -11,6 +11,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useAddictions } from '@/context/AddictionsContext';
 import { maxMinutesFor } from '@/constants/addictions';
 import { emojiMatchesQuery } from '@/constants/emojiKeywords';
+import { useKeyboardShortcut } from '@/lib/useKeyboardShortcut';
 
 // 24-color curated palette ordered by hue (green → cyan → blue → purple →
 // pink → red → orange → yellow → neutral). Each value is hand-picked to
@@ -159,6 +160,11 @@ export default function AddAddictionScreen() {
       setSubmitting(false);
     }
   };
+
+  useKeyboardShortcut({
+    onEscape: () => router.back(),
+    onSubmit: () => submit(),
+  });
 
   return (
     <View style={styles.root}>

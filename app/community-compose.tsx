@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
+import { useKeyboardShortcut } from '@/lib/useKeyboardShortcut';
 import { DEFAULT_ADDICTIONS } from '@/constants/addictions';
 import {
   COMMUNITY_FILTER_ORDER,
@@ -104,6 +105,11 @@ export default function CommunityCompose() {
   };
 
   const accent = PRESETS_BY_ID[addictionId]?.color ?? '#3B82F6';
+
+  useKeyboardShortcut({
+    onEscape: () => router.back(),
+    onSubmit: () => submit(),
+  });
 
   if (hydrating) {
     return (

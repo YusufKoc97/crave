@@ -17,6 +17,7 @@ import {
   sendAssistantMessage,
   type ChatMessage,
 } from '@/lib/assistant';
+import { useKeyboardShortcut } from '@/lib/useKeyboardShortcut';
 
 type LocalMessage = ChatMessage & { id: string };
 
@@ -75,6 +76,11 @@ export default function AssistantScreen() {
     if (messages.length === 0) return;
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
   }, [messages.length, thinking]);
+
+  useKeyboardShortcut({
+    onEscape: () => router.back(),
+    onSubmit: () => send(),
+  });
 
   if (!configured) {
     return (

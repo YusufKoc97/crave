@@ -128,4 +128,58 @@ describe('nextStreak', () => {
       })
     ).toBe(1);
   });
+
+  // Edge cases for boundary scenarios that almost-but-don't-quite
+  // round-trip through daysBetween.
+  it('extends across year boundaries (Dec 31 → Jan 1)', () => {
+    expect(
+      nextStreak({
+        lastResistDay: '2025-12-31',
+        today: '2026-01-01',
+        currentStreak: 30,
+      })
+    ).toBe(31);
+  });
+
+  it('extends across month boundaries (Feb 28 → Mar 1 in a non-leap year)', () => {
+    expect(
+      nextStreak({
+        lastResistDay: '2025-02-28',
+        today: '2025-03-01',
+        currentStreak: 4,
+      })
+    ).toBe(5);
+  });
+
+  it('extends across leap-year Feb 29 → Mar 1', () => {
+    expect(
+      nextStreak({
+        lastResistDay: '2024-02-29',
+        today: '2024-03-01',
+        currentStreak: 12,
+      })
+    ).toBe(13);
+  });
+
+  it('starts at 1 even with a huge currentStreak when last resist is ancient', () => {
+    // A user reopens the app after a long break. Their stored streak
+    // is stale; the local cache anchored to last year is the gap proof.
+    expect(
+      nextStreak({
+        lastResistDay: '2025-01-15',
+        today: '2026-03-05',
+        currentStreak: 99,
+      })
+    ).toBe(1);
+  });
+
+  it('does not extend across a 2-day gap (Mar 3 → Mar 5)', () => {
+    expect(
+      nextStreak({
+        lastResistDay: '2026-03-03',
+        today: '2026-03-05',
+        currentStreak: 5,
+      })
+    ).toBe(1);
+  });
 });

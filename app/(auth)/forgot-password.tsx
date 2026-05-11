@@ -11,6 +11,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { isValidEmail, translateAuthError } from '@/lib/auth';
+import { useKeyboardShortcut } from '@/lib/useKeyboardShortcut';
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
@@ -34,6 +35,11 @@ export default function ForgotPasswordScreen() {
     }
     setSent(true);
   };
+
+  useKeyboardShortcut({
+    onEscape: () => router.back(),
+    onSubmit: () => submit(),
+  });
 
   return (
     <View style={styles.root}>
