@@ -552,7 +552,13 @@ export default function ActiveSession() {
                     styles.shareBtn,
                     {
                       borderColor: accentColor,
-                      backgroundColor: hexWithAlpha(accentColor, 0.12),
+                      backgroundColor: hexWithAlpha(accentColor, 0.16),
+                      shadowColor: accentColor,
+                      shadowOffset: { width: 0, height: 0 },
+                      shadowOpacity: 0.5,
+                      shadowRadius: 10,
+                      elevation: 3,
+                      boxShadow: `0 0 12px ${hexWithAlpha(accentColor, 0.28)}, inset 0 1px 0 rgba(255, 255, 255, 0.08)`,
                     },
                   ]}
                   onPress={goShare}
@@ -588,7 +594,20 @@ export default function ActiveSession() {
         ) : (
           <>
             <Pressable
-              style={[styles.resistBtn, { borderColor: accentColor }]}
+              style={[
+                styles.resistBtn,
+                {
+                  borderColor: accentColor,
+                  // Accent-tinted halo — pulses the addiction color
+                  // so each session feels color-locked.
+                  shadowColor: accentColor,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.45,
+                  shadowRadius: 14,
+                  elevation: 5,
+                  boxShadow: `0 0 16px ${hexWithAlpha(accentColor, 0.32)}, inset 0 1px 0 rgba(255, 255, 255, 0.08)`,
+                },
+              ]}
               onPress={() => finish('resisted')}
             >
               <Text style={[styles.resistText, { color: accentColor }]}>
@@ -641,6 +660,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#1E3050',
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.05)',
   },
   backArrow: {
     color: '#7BA8C8',
@@ -660,6 +680,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    // Inset highlight + soft outer shadow so the emoji card reads as
+    // an actual object hovering over the canvas. The accent-tinted
+    // border is set inline from the addiction color downstream.
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 5,
+    boxShadow:
+      '0 6px 14px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
   },
   addictionEmoji: {
     fontSize: 36,
@@ -762,12 +792,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   resistBtn: {
-    height: 56,
-    borderRadius: 12,
+    height: 58,
+    borderRadius: 14,
     borderWidth: 1.5,
     backgroundColor: '#0A1628',
     alignItems: 'center',
     justifyContent: 'center',
+    // Halo + inset highlight are applied inline at the call site so
+    // they can tint with the addiction's accent color.
   },
   resistText: {
     fontSize: 15,
@@ -782,6 +814,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#080F1C',
     alignItems: 'center',
     justifyContent: 'center',
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)',
   },
   gaveInText: {
     color: '#3D5470',
@@ -792,10 +825,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#0A1628',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1A2A45',
+    borderColor: '#1E2D4D',
     paddingTop: 16,
     paddingBottom: 14,
     paddingHorizontal: 16,
+    // Banner is celebrating the win — give it a real surface presence
+    // so it lands as a moment, not a notification strip.
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 5,
+    boxShadow:
+      '0 6px 14px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
   },
   shareTitle: {
     fontSize: 18,
@@ -816,12 +858,13 @@ const styles = StyleSheet.create({
   dismissBtn: {
     flex: 1,
     height: 44,
-    borderRadius: 11,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1A2A45',
+    borderColor: '#1E2D4D',
     backgroundColor: '#080F1C',
     alignItems: 'center',
     justifyContent: 'center',
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
   },
   dismissText: {
     color: '#7BA8C8',
