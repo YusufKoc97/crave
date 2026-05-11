@@ -28,7 +28,7 @@ describe('emojiMatchesQuery', () => {
   });
 
   it('every emoji in the index has at least one keyword', () => {
-    for (const [emoji, kws] of Object.entries(EMOJI_KEYWORDS)) {
+    for (const [, kws] of Object.entries(EMOJI_KEYWORDS)) {
       expect(kws.length).toBeGreaterThan(0);
       // Spot-check: the keywords array shouldn't contain empty strings
       // (empty would make every search match it).

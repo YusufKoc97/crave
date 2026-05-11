@@ -52,11 +52,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
             >
               {isFocused ? (
                 <View style={styles.activeBubble}>
-                  <Ionicons
-                    name={icons.active}
-                    size={19}
-                    color="#E2E8F0"
-                  />
+                  <Ionicons name={icons.active} size={19} color="#E2E8F0" />
                 </View>
               ) : (
                 <Ionicons

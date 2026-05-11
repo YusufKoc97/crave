@@ -29,7 +29,7 @@ const ICON_SIZE = 62;
 const ICON_R = 134;
 
 const SMALL_ORB = ORB_SIZE * ORB_SELECTING_SCALE; // 84
-const RING_INNER = SMALL_ORB + 8;  // 92 — hugs the small orb
+const RING_INNER = SMALL_ORB + 8; // 92 — hugs the small orb
 const RING_OUTER = SMALL_ORB + 24; // 108 — slightly further out
 const INNER_GLOW_SIZE = SMALL_ORB - 12; // 72 — inside the orb behind text
 
@@ -76,7 +76,15 @@ export default function HomeScreen() {
       duration: 800 + total * 110,
       easing: Easing.bezier(0.16, 1, 0.3, 1),
     });
-  }, [orbScale, orbTextOpacity, ringsOpacity, innerGlowOpacity, innerGlowPulse, progress, total]);
+  }, [
+    orbScale,
+    orbTextOpacity,
+    ringsOpacity,
+    innerGlowOpacity,
+    innerGlowPulse,
+    progress,
+    total,
+  ]);
 
   const exitSelecting = useCallback(() => {
     // All exit animations start in lock-step with the orb growing back so the
@@ -357,8 +365,18 @@ function AddictionIcon({
     // smoothly with neighbours instead of finishing in lockstep.
     const local = (progress.value - index * 0.85) / 1.4;
     const t = Math.max(0, Math.min(1, local));
-    const scale = interpolate(t, [0, 0.55, 0.85, 1], [0.2, 0.92, 1.04, 1.0], Extrapolation.CLAMP);
-    const opacity = interpolate(t, [0, 0.35, 0.85, 1], [0, 0.55, 0.95, 1], Extrapolation.CLAMP);
+    const scale = interpolate(
+      t,
+      [0, 0.55, 0.85, 1],
+      [0.2, 0.92, 1.04, 1.0],
+      Extrapolation.CLAMP
+    );
+    const opacity = interpolate(
+      t,
+      [0, 0.35, 0.85, 1],
+      [0, 0.55, 0.95, 1],
+      Extrapolation.CLAMP
+    );
     const eased = 1 - Math.pow(1 - t, 3);
     const tx = x * eased;
     const ty = y * eased;

@@ -56,9 +56,7 @@ describe('translateAuthError', () => {
   });
 
   it('returns the generic message for null / undefined', () => {
-    expect(translateAuthError(null)).toBe(
-      'Bir hata oluştu. Tekrar deneyin.'
-    );
+    expect(translateAuthError(null)).toBe('Bir hata oluştu. Tekrar deneyin.');
     expect(translateAuthError(undefined)).toBe(
       'Bir hata oluştu. Tekrar deneyin.'
     );

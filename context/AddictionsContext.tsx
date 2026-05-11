@@ -41,7 +41,9 @@ type AddictionsContextValue = {
   updateAddiction: (id: string, patch: AddictionPatch) => Promise<void>;
 };
 
-const AddictionsContext = createContext<AddictionsContextValue | undefined>(undefined);
+const AddictionsContext = createContext<AddictionsContextValue | undefined>(
+  undefined
+);
 
 const STORAGE_KEY_CUSTOM = 'addictions_custom_v1';
 const STORAGE_KEY_HIDDEN = 'addictions_hidden_defaults_v1';
@@ -240,7 +242,9 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
           ...(patch.name != null ? { name: patch.name } : {}),
           ...(patch.emoji != null ? { emoji: patch.emoji } : {}),
           ...(patch.color != null ? { color: patch.color } : {}),
-          ...(sanitizedSensitivity != null ? { sensitivity: sanitizedSensitivity } : {}),
+          ...(sanitizedSensitivity != null
+            ? { sensitivity: sanitizedSensitivity }
+            : {}),
         });
       } catch {
         setCustom(snapshot);
@@ -250,7 +254,9 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
   );
 
   const addictions = useMemo(() => {
-    const visibleDefaults = DEFAULT_ADDICTIONS.filter((a) => !hiddenDefaults.has(a.id));
+    const visibleDefaults = DEFAULT_ADDICTIONS.filter(
+      (a) => !hiddenDefaults.has(a.id)
+    );
     return [...visibleDefaults, ...custom];
   }, [custom, hiddenDefaults]);
 

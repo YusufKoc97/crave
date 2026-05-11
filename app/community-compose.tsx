@@ -133,7 +133,11 @@ export default function CommunityCompose() {
   return (
     <View style={styles.root}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.iconBtn}
+          hitSlop={8}
+        >
           <Text style={styles.iconBtnText}>✕</Text>
         </Pressable>
         <Text style={styles.headerTitle}>
@@ -168,9 +172,7 @@ export default function CommunityCompose() {
                 style={[
                   styles.pickerCell,
                   {
-                    borderColor: selected
-                      ? hexToRgba(a.color, 0.7)
-                      : '#1A2A45',
+                    borderColor: selected ? hexToRgba(a.color, 0.7) : '#1A2A45',
                     backgroundColor: selected
                       ? hexToRgba(a.color, 0.14)
                       : '#0A1628',
@@ -205,7 +207,11 @@ export default function CommunityCompose() {
             styles.contentInput,
             {
               borderColor:
-                remaining < 0 ? '#EF4444' : content ? hexToRgba(accent, 0.4) : '#1A2A45',
+                remaining < 0
+                  ? '#EF4444'
+                  : content
+                    ? hexToRgba(accent, 0.4)
+                    : '#1A2A45',
             },
           ]}
           multiline
@@ -225,9 +231,7 @@ export default function CommunityCompose() {
       </ScrollView>
 
       <View style={styles.footer}>
-        {submitError && (
-          <Text style={styles.errorText}>{submitError}</Text>
-        )}
+        {submitError && <Text style={styles.errorText}>{submitError}</Text>}
         <Pressable
           onPress={submit}
           disabled={!canSubmit}
@@ -240,7 +244,12 @@ export default function CommunityCompose() {
             },
           ]}
         >
-          <Text style={[styles.submitText, { color: canSubmit ? accent : '#3D5470' }]}>
+          <Text
+            style={[
+              styles.submitText,
+              { color: canSubmit ? accent : '#3D5470' },
+            ]}
+          >
             {submitting
               ? isEditMode
                 ? 'Kaydediliyor...'

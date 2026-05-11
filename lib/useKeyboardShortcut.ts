@@ -30,11 +30,7 @@ export function useKeyboardShortcut(handlers: {
         onEscape();
         return;
       }
-      if (
-        e.key === 'Enter' &&
-        (e.metaKey || e.ctrlKey) &&
-        onSubmit
-      ) {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && onSubmit) {
         e.preventDefault();
         onSubmit();
       }

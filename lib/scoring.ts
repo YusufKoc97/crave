@@ -56,10 +56,7 @@ export function nextStreak(args: {
   currentStreak: number;
 }): number {
   if (args.lastResistDay === args.today) return args.currentStreak;
-  if (
-    args.lastResistDay &&
-    daysBetween(args.lastResistDay, args.today) === 1
-  ) {
+  if (args.lastResistDay && daysBetween(args.lastResistDay, args.today) === 1) {
     return args.currentStreak + 1;
   }
   return 1;

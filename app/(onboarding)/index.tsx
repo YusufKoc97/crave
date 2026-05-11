@@ -1,11 +1,5 @@
 import { useRef, useState } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { calculateAge } from '@/lib/onboarding';
 import { StepIndicator } from '@/components/StepIndicator';
@@ -110,7 +104,9 @@ export default function AgeGateScreen() {
             styles.continueBtn,
             {
               borderColor: canContinue ? '#3B82F6' : '#1A2A45',
-              backgroundColor: canContinue ? 'rgba(59,130,246,0.12)' : '#080F1C',
+              backgroundColor: canContinue
+                ? 'rgba(59,130,246,0.12)'
+                : '#080F1C',
               opacity: canContinue ? 1 : 0.55,
             },
           ]}

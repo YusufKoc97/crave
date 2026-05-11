@@ -37,7 +37,9 @@ type FetchOptions = {
   userId?: string;
 };
 
-export async function fetchPosts(opts: FetchOptions = {}): Promise<ForumPost[]> {
+export async function fetchPosts(
+  opts: FetchOptions = {}
+): Promise<ForumPost[]> {
   // Pin the FK explicitly — `profiles` has multiple relationship paths to
   // forum_posts (auth.users hop + direct user_id FK) and Supabase refuses to
   // auto-pick. The constraint name is what the migration created.
@@ -73,11 +75,14 @@ export async function fetchPosts(opts: FetchOptions = {}): Promise<ForumPost[]> 
   }
 
   return (data ?? []).map((row) => {
-    const profileObj = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    const profileObj = Array.isArray(row.profiles)
+      ? row.profiles[0]
+      : row.profiles;
     return {
       id: row.id,
       user_id: row.user_id,
-      username: (profileObj as { username?: string | null } | null)?.username ?? null,
+      username:
+        (profileObj as { username?: string | null } | null)?.username ?? null,
       addiction_id: row.addiction_id,
       content: row.content,
       like_count: row.like_count,
@@ -129,11 +134,14 @@ export async function fetchPost(
     likedByMe = !!like;
   }
 
-  const profileObj = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
+  const profileObj = Array.isArray(data.profiles)
+    ? data.profiles[0]
+    : data.profiles;
   return {
     id: data.id,
     user_id: data.user_id,
-    username: (profileObj as { username?: string | null } | null)?.username ?? null,
+    username:
+      (profileObj as { username?: string | null } | null)?.username ?? null,
     addiction_id: data.addiction_id,
     content: data.content,
     like_count: data.like_count,
@@ -204,7 +212,10 @@ export async function getUsername(userId: string): Promise<string | null> {
   return data?.username ?? null;
 }
 
-export async function setUsername(userId: string, username: string): Promise<void> {
+export async function setUsername(
+  userId: string,
+  username: string
+): Promise<void> {
   const { error } = await supabase
     .from('profiles')
     .update({ username })
@@ -269,7 +280,9 @@ export async function reportPost(input: {
  * the call sites care about a moving filter (the feed pills) and
  * Supabase channel filters can't be re-bound. Filtering happens in JS.
  */
-export function subscribeToNewPosts(onInsert: (postId: string) => void): () => void {
+export function subscribeToNewPosts(
+  onInsert: (postId: string) => void
+): () => void {
   const channel = supabase
     .channel('forum_posts:inserts')
     .on(

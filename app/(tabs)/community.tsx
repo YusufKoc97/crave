@@ -224,10 +224,20 @@ export default function CommunityScreen() {
 
   const filterPills = useMemo(
     () => [
-      { id: null as string | null, label: 'Hepsi', emoji: '✨', color: '#7DC3FF' },
+      {
+        id: null as string | null,
+        label: 'Hepsi',
+        emoji: '✨',
+        color: '#7DC3FF',
+      },
       ...COMMUNITY_FILTER_ORDER.map((id) => {
         const a = PRESETS_BY_ID[id];
-        return { id, label: a?.name ?? id, emoji: a?.emoji ?? '•', color: a?.color ?? '#7DC3FF' };
+        return {
+          id,
+          label: a?.name ?? id,
+          emoji: a?.emoji ?? '•',
+          color: a?.color ?? '#7DC3FF',
+        };
       }),
     ],
     []
@@ -241,7 +251,8 @@ export default function CommunityScreen() {
         </View>
         <Text style={styles.gateTitle}>Topluluğa katıl</Text>
         <Text style={styles.gateBody}>
-          Diğerlerinin hikayelerini gör, kendi zaferlerini paylaş. Önce hesap oluşturman gerekiyor.
+          Diğerlerinin hikayelerini gör, kendi zaferlerini paylaş. Önce hesap
+          oluşturman gerekiyor.
         </Text>
         <Pressable
           style={styles.gateBtn}
@@ -292,7 +303,9 @@ export default function CommunityScreen() {
                 styles.filterPill,
                 {
                   borderColor: active ? hexToRgba(pill.color, 0.65) : '#1A2A45',
-                  backgroundColor: active ? hexToRgba(pill.color, 0.14) : '#0A1628',
+                  backgroundColor: active
+                    ? hexToRgba(pill.color, 0.14)
+                    : '#0A1628',
                 },
               ]}
             >
@@ -449,8 +462,7 @@ function ReportSheet({
           {post.content.length > 80 ? '…' : ''}
         </Text>
         <Text style={styles.sheetSubtitle}>
-          Bildirimin moderasyon ekibine gider. Diğer kullanıcılar bunu
-          göremez.
+          Bildirimin moderasyon ekibine gider. Diğer kullanıcılar bunu göremez.
         </Text>
         <View style={styles.sheetReasons}>
           {REPORT_REASONS.map((r) => (
@@ -514,7 +526,9 @@ function PostCard({
               {a?.name ?? post.addiction_id}
             </Text>
             <Text style={{ color: '#3D5470' }}>{'  ·  '}</Text>
-            <Text style={{ color: '#94A3B8' }}>{relativeTime(post.created_at)}</Text>
+            <Text style={{ color: '#94A3B8' }}>
+              {relativeTime(post.created_at)}
+            </Text>
           </Text>
         </View>
         {isOwn && (

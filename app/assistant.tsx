@@ -74,7 +74,9 @@ export default function AssistantScreen() {
   // Auto-scroll on new messages.
   useEffect(() => {
     if (messages.length === 0) return;
-    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+    requestAnimationFrame(() =>
+      listRef.current?.scrollToEnd({ animated: true })
+    );
   }, [messages.length, thinking]);
 
   useKeyboardShortcut({
@@ -86,7 +88,11 @@ export default function AssistantScreen() {
     return (
       <View style={styles.root}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.iconBtn}
+            hitSlop={8}
+          >
             <Text style={styles.iconBtnText}>✕</Text>
           </Pressable>
           <Text style={styles.headerTitle}>Yardımcı</Text>
@@ -98,9 +104,9 @@ export default function AssistantScreen() {
           </View>
           <Text style={styles.setupTitle}>Yardımcı henüz ayarlı değil</Text>
           <Text style={styles.setupBody2}>
-            Bu özellik bir Supabase Edge Function'a (assistant) ihtiyaç
-            duyuyor. Anthropic API anahtarın orada saklanıyor; uygulama
-            sadece konuşmayı oraya gönderiyor.
+            Bu özellik bir Supabase Edge Function'a (assistant) ihtiyaç duyuyor.
+            Anthropic API anahtarın orada saklanıyor; uygulama sadece konuşmayı
+            oraya gönderiyor.
           </Text>
           <Text style={styles.setupHint}>
             Kurduktan sonra .env.local'a şunu ekle:
@@ -122,7 +128,11 @@ export default function AssistantScreen() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.iconBtn}
+          hitSlop={8}
+        >
           <Text style={styles.iconBtnText}>✕</Text>
         </Pressable>
         <Text style={styles.headerTitle}>Yardımcı</Text>
@@ -211,7 +221,9 @@ function Bubble({ message }: { message: LocalMessage }) {
           isUser ? styles.bubbleUser : styles.bubbleAssistant,
         ]}
       >
-        <Text style={isUser ? styles.bubbleUserText : styles.bubbleAssistantText}>
+        <Text
+          style={isUser ? styles.bubbleUserText : styles.bubbleAssistantText}
+        >
           {message.content}
         </Text>
       </View>
@@ -428,6 +440,10 @@ const styles = StyleSheet.create({
   codeText: {
     color: '#7DC3FF',
     fontSize: 11,
-    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+    fontFamily: Platform.select({
+      ios: 'Menlo',
+      android: 'monospace',
+      default: 'monospace',
+    }),
   },
 });

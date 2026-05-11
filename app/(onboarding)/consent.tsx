@@ -1,11 +1,5 @@
 import { useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { markOnboardingCompleted } from '@/lib/onboarding';
 import { StepIndicator } from '@/components/StepIndicator';
@@ -111,9 +105,7 @@ function ConsentRow({
               ? '#3B82F6'
               : 'rgba(59,130,246,0.5)'
             : '#1A2A45',
-          backgroundColor: checked
-            ? 'rgba(59,130,246,0.06)'
-            : '#0A1628',
+          backgroundColor: checked ? 'rgba(59,130,246,0.06)' : '#0A1628',
         },
       ]}
     >

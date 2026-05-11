@@ -21,10 +21,7 @@ export default function SignInScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit =
-    !submitting &&
-    isValidEmail(email) &&
-    password.length >= 6;
+  const canSubmit = !submitting && isValidEmail(email) && password.length >= 6;
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -161,7 +158,10 @@ export default function SignInScreen() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>Hesabın yok mu?</Text>
-        <Pressable onPress={() => router.replace('/(auth)/sign-up')} hitSlop={8}>
+        <Pressable
+          onPress={() => router.replace('/(auth)/sign-up')}
+          hitSlop={8}
+        >
           <Text style={styles.footerLink}>Kayıt ol</Text>
         </Pressable>
       </View>

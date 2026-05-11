@@ -172,7 +172,10 @@ export default function SignUpScreen() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>Zaten hesabın var mı?</Text>
-        <Pressable onPress={() => router.replace('/(auth)/sign-in')} hitSlop={8}>
+        <Pressable
+          onPress={() => router.replace('/(auth)/sign-in')}
+          hitSlop={8}
+        >
           <Text style={styles.footerLink}>Giriş yap</Text>
         </Pressable>
       </View>

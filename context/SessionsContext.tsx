@@ -50,7 +50,9 @@ type SessionsContextValue = {
   recordSession: (input: RecordInput) => Session;
 };
 
-const SessionsContext = createContext<SessionsContextValue | undefined>(undefined);
+const SessionsContext = createContext<SessionsContextValue | undefined>(
+  undefined
+);
 
 const STARTING_MOMENTUM = 50;
 
@@ -69,7 +71,9 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       // Last 30 completed sessions, newest first.
       const { data: rows } = await supabase
         .from('craving_sessions')
-        .select('id, addiction_id, outcome, duration_seconds, points_earned, sensitivity, created_at')
+        .select(
+          'id, addiction_id, outcome, duration_seconds, points_earned, sensitivity, created_at'
+        )
         .eq('user_id', user.id)
         .eq('status', 'completed')
         .order('created_at', { ascending: false })
@@ -129,15 +133,12 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       sensitivity: input.sensitivity,
       completedCycles,
     });
-    let nextMomentum = momentum;
-    let updatedStreak = streak;
-
     if (input.outcome === 'resisted') {
       const momentumGain = Math.max(
         1,
         Math.min(25, Math.round(input.sensitivity * 1.5 + minutes * 0.4))
       );
-      nextMomentum = Math.min(100, momentum + momentumGain);
+      const nextMomentum = Math.min(100, momentum + momentumGain);
 
       // Streak counts CONSECUTIVE DAYS with ≥1 resist, not consecutive
       // resists. Find the most recent prior resist in the local cache,
@@ -150,7 +151,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
           break;
         }
       }
-      updatedStreak = nextStreak({
+      const updatedStreak = nextStreak({
         lastResistDay,
         today,
         currentStreak: streak,

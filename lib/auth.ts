@@ -7,7 +7,10 @@ export function translateAuthError(message: string | undefined | null): string {
 
   const m = message.toLowerCase();
 
-  if (m.includes('invalid login credentials') || m.includes('invalid email or password')) {
+  if (
+    m.includes('invalid login credentials') ||
+    m.includes('invalid email or password')
+  ) {
     return 'E-posta veya şifre hatalı.';
   }
   if (m.includes('email not confirmed')) {

@@ -17,27 +17,71 @@ import { useKeyboardShortcut } from '@/lib/useKeyboardShortcut';
 // pink → red → orange → yellow → neutral). Each value is hand-picked to
 // stay readable on the #020810 dark background.
 const COLOR_OPTIONS = [
-  '#10B981', '#34D399', '#A3E635', '#14B8A6',
-  '#06B6D4', '#22D3EE', '#0EA5E9', '#3B82F6',
-  '#6366F1', '#8B5CF6', '#A78BFA', '#C084FC',
-  '#E879F9', '#EC4899', '#F472B6', '#F43F5E',
-  '#EF4444', '#F97316', '#FB923C', '#FBBF24',
-  '#FACC15', '#D6D3D1', '#94A3B8', '#6B7280',
+  '#10B981',
+  '#34D399',
+  '#A3E635',
+  '#14B8A6',
+  '#06B6D4',
+  '#22D3EE',
+  '#0EA5E9',
+  '#3B82F6',
+  '#6366F1',
+  '#8B5CF6',
+  '#A78BFA',
+  '#C084FC',
+  '#E879F9',
+  '#EC4899',
+  '#F472B6',
+  '#F43F5E',
+  '#EF4444',
+  '#F97316',
+  '#FB923C',
+  '#FBBF24',
+  '#FACC15',
+  '#D6D3D1',
+  '#94A3B8',
+  '#6B7280',
 ];
 
 // Curated emoji palette grouped into addiction-relevant categories.
 // Total ~150 — wide enough for personal expression, narrow enough to avoid
 // decision paralysis on a recovery app.
-const EMOJI_CATEGORIES: { id: string; label: string; tab: string; emojis: string[] }[] = [
+const EMOJI_CATEGORIES: {
+  id: string;
+  label: string;
+  tab: string;
+  emojis: string[];
+}[] = [
   {
     id: 'substances',
     label: 'Bağımlılıklar',
     tab: '🚬',
     emojis: [
-      '🚬', '🚭', '💨', '🌿', '🍃',
-      '🍺', '🍻', '🍷', '🥂', '🍾', '🍸', '🍹', '🍶', '🥃', '🧉',
-      '☕', '🍵', '🥤', '🧋', '🧃',
-      '💊', '💉', '🧪', '⚗️', '🩸',
+      '🚬',
+      '🚭',
+      '💨',
+      '🌿',
+      '🍃',
+      '🍺',
+      '🍻',
+      '🍷',
+      '🥂',
+      '🍾',
+      '🍸',
+      '🍹',
+      '🍶',
+      '🥃',
+      '🧉',
+      '☕',
+      '🍵',
+      '🥤',
+      '🧋',
+      '🧃',
+      '💊',
+      '💉',
+      '🧪',
+      '⚗️',
+      '🩸',
     ],
   },
   {
@@ -45,9 +89,31 @@ const EMOJI_CATEGORIES: { id: string; label: string; tab: string; emojis: string
     label: 'Yiyecek',
     tab: '🍔',
     emojis: [
-      '🍔', '🍟', '🌭', '🍕', '🌮', '🌯', '🥙', '🥪', '🥨', '🍿',
-      '🍩', '🍪', '🧁', '🍰', '🎂', '🥧', '🍫', '🍬', '🍭', '🍮',
-      '🍦', '🍨', '🍯', '🥞', '🧇',
+      '🍔',
+      '🍟',
+      '🌭',
+      '🍕',
+      '🌮',
+      '🌯',
+      '🥙',
+      '🥪',
+      '🥨',
+      '🍿',
+      '🍩',
+      '🍪',
+      '🧁',
+      '🍰',
+      '🎂',
+      '🥧',
+      '🍫',
+      '🍬',
+      '🍭',
+      '🍮',
+      '🍦',
+      '🍨',
+      '🍯',
+      '🥞',
+      '🧇',
     ],
   },
   {
@@ -55,10 +121,31 @@ const EMOJI_CATEGORIES: { id: string; label: string; tab: string; emojis: string
     label: 'Aktivite',
     tab: '🎮',
     emojis: [
-      '📱', '💻', '🖥️', '⌨️', '🖱️',
-      '🎮', '🕹️', '🎲', '🎰', '🎴', '🃏', '♠️', '♥️', '♦️', '♣️',
-      '📺', '🎬', '🍿', '📷', '🎵', '🎧',
-      '🛍️', '💸', '💳', '💰',
+      '📱',
+      '💻',
+      '🖥️',
+      '⌨️',
+      '🖱️',
+      '🎮',
+      '🕹️',
+      '🎲',
+      '🎰',
+      '🎴',
+      '🃏',
+      '♠️',
+      '♥️',
+      '♦️',
+      '♣️',
+      '📺',
+      '🎬',
+      '🍿',
+      '📷',
+      '🎵',
+      '🎧',
+      '🛍️',
+      '💸',
+      '💳',
+      '💰',
     ],
   },
   {
@@ -66,11 +153,36 @@ const EMOJI_CATEGORIES: { id: string; label: string; tab: string; emojis: string
     label: 'Yüzler',
     tab: '🙈',
     emojis: [
-      '🙈', '🙉', '🙊', '😶', '😔', '😞', '😟', '😣', '😖',
-      '😩', '😫', '😤', '😡', '😠', '🤬',
-      '😢', '😭', '😪', '😴', '🥱',
-      '🥺', '😬', '🫠', '🫣', '🫨',
-      '🤤', '😋', '🥹', '👁️', '🫥',
+      '🙈',
+      '🙉',
+      '🙊',
+      '😶',
+      '😔',
+      '😞',
+      '😟',
+      '😣',
+      '😖',
+      '😩',
+      '😫',
+      '😤',
+      '😡',
+      '😠',
+      '🤬',
+      '😢',
+      '😭',
+      '😪',
+      '😴',
+      '🥱',
+      '🥺',
+      '😬',
+      '🫠',
+      '🫣',
+      '🫨',
+      '🤤',
+      '😋',
+      '🥹',
+      '👁️',
+      '🫥',
     ],
   },
   {
@@ -78,10 +190,28 @@ const EMOJI_CATEGORIES: { id: string; label: string; tab: string; emojis: string
     label: 'Sembol',
     tab: '⚡',
     emojis: [
-      '⚡', '🔥', '💥', '💢', '💫', '✨', '💯',
-      '❤️', '🖤', '💔', '🩷', '❤️‍🩹',
-      '⏰', '⏳', '🕯️', '🧠', '👁️‍🗨️',
-      '🔞', '⚠️', '🚫', '⛔', '🆘',
+      '⚡',
+      '🔥',
+      '💥',
+      '💢',
+      '💫',
+      '✨',
+      '💯',
+      '❤️',
+      '🖤',
+      '💔',
+      '🩷',
+      '❤️‍🩹',
+      '⏰',
+      '⏳',
+      '🕯️',
+      '🧠',
+      '👁️‍🗨️',
+      '🔞',
+      '⚠️',
+      '🚫',
+      '⛔',
+      '🆘',
     ],
   },
   {
@@ -89,10 +219,30 @@ const EMOJI_CATEGORIES: { id: string; label: string; tab: string; emojis: string
     label: 'Nesne',
     tab: '🎁',
     emojis: [
-      '🎁', '🎀', '🛒', '👛', '💼', '🔑', '🗝️',
-      '📦', '🧴', '🧻', '🪞', '🛏️', '🚿',
-      '🪙', '💎', '⌚', '📿', '👠', '👗',
-      '💄', '💋', '💅', '🎯', '🎪',
+      '🎁',
+      '🎀',
+      '🛒',
+      '👛',
+      '💼',
+      '🔑',
+      '🗝️',
+      '📦',
+      '🧴',
+      '🧻',
+      '🪞',
+      '🛏️',
+      '🚿',
+      '🪙',
+      '💎',
+      '⌚',
+      '📿',
+      '👠',
+      '👗',
+      '💄',
+      '💋',
+      '💅',
+      '🎯',
+      '🎪',
     ],
   },
 ];
@@ -170,7 +320,11 @@ export default function AddAddictionScreen() {
     <View style={styles.root}>
       {/* Header — close + a tiny live preview chip on the right */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.iconBtn}
+          hitSlop={8}
+        >
           <Text style={styles.iconBtnText}>✕</Text>
         </Pressable>
         <Text style={styles.headerTitle}>
@@ -204,7 +358,10 @@ export default function AddAddictionScreen() {
             onChangeText={setName}
             placeholder="e.g. Late-night scrolling"
             placeholderTextColor="#3D5470"
-            style={[styles.nameInput, { borderColor: name ? hexToRgba(color, 0.4) : '#1A2A45' }]}
+            style={[
+              styles.nameInput,
+              { borderColor: name ? hexToRgba(color, 0.4) : '#1A2A45' },
+            ]}
             maxLength={NAME_MAX}
             returnKeyType="done"
           />
@@ -227,7 +384,11 @@ export default function AddAddictionScreen() {
                     styles.sensCell,
                     {
                       backgroundColor: active ? color : '#0A1628',
-                      borderColor: isSelected ? '#F1F5F9' : active ? color : '#1A2A45',
+                      borderColor: isSelected
+                        ? '#F1F5F9'
+                        : active
+                          ? color
+                          : '#1A2A45',
                       opacity: active ? 0.5 + (n / 10) * 0.5 : 1,
                     },
                   ]}
@@ -255,13 +416,19 @@ export default function AddAddictionScreen() {
                 styles.styleBtn,
                 {
                   borderColor: colorOpen ? hexToRgba(color, 0.7) : '#1A2A45',
-                  backgroundColor: colorOpen ? hexToRgba(color, 0.08) : '#0A1628',
+                  backgroundColor: colorOpen
+                    ? hexToRgba(color, 0.08)
+                    : '#0A1628',
                 },
               ]}
             >
-              <View style={[styles.styleBtnSwatch, { backgroundColor: color }]} />
+              <View
+                style={[styles.styleBtnSwatch, { backgroundColor: color }]}
+              />
               <Text style={styles.styleBtnLabel}>Color</Text>
-              <Text style={styles.styleBtnChevron}>{colorOpen ? '▴' : '▾'}</Text>
+              <Text style={styles.styleBtnChevron}>
+                {colorOpen ? '▴' : '▾'}
+              </Text>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -272,7 +439,9 @@ export default function AddAddictionScreen() {
                 styles.styleBtn,
                 {
                   borderColor: iconOpen ? hexToRgba(color, 0.7) : '#1A2A45',
-                  backgroundColor: iconOpen ? hexToRgba(color, 0.08) : '#0A1628',
+                  backgroundColor: iconOpen
+                    ? hexToRgba(color, 0.08)
+                    : '#0A1628',
                 },
               ]}
             >
@@ -297,7 +466,9 @@ export default function AddAddictionScreen() {
                       styles.colorSwatch,
                       {
                         backgroundColor: c,
-                        borderColor: selected ? '#F1F5F9' : 'rgba(255,255,255,0.04)',
+                        borderColor: selected
+                          ? '#F1F5F9'
+                          : 'rgba(255,255,255,0.04)',
                         borderWidth: selected ? 2 : 1,
                         transform: selected ? [{ scale: 1.08 }] : undefined,
                       },
@@ -324,9 +495,7 @@ export default function AddAddictionScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        {submitError && (
-          <Text style={styles.submitError}>{submitError}</Text>
-        )}
+        {submitError && <Text style={styles.submitError}>{submitError}</Text>}
         <Pressable
           onPress={submit}
           disabled={!canSubmit}
@@ -355,7 +524,6 @@ export default function AddAddictionScreen() {
           </Text>
         </Pressable>
       </View>
-
     </View>
   );
 }
@@ -375,7 +543,8 @@ function EmojiPicker({
 
   // When the user types, show a single flat grid of every emoji whose
   // keywords match. Otherwise, the original tab-scoped grid.
-  const cat = EMOJI_CATEGORIES.find((c) => c.id === activeCat) ?? EMOJI_CATEGORIES[0];
+  const cat =
+    EMOJI_CATEGORIES.find((c) => c.id === activeCat) ?? EMOJI_CATEGORIES[0];
   const visibleEmojis = searching
     ? EMOJI_CATEGORIES.flatMap((c) => c.emojis).filter((e) =>
         emojiMatchesQuery(e, query)
@@ -419,7 +588,9 @@ function EmojiPicker({
                 style={[
                   styles.emojiTab,
                   {
-                    backgroundColor: active ? hexToRgba(accent, 0.18) : '#0A1628',
+                    backgroundColor: active
+                      ? hexToRgba(accent, 0.18)
+                      : '#0A1628',
                     borderColor: active ? hexToRgba(accent, 0.7) : '#1A2A45',
                   },
                 ]}
@@ -448,7 +619,9 @@ function EmojiPicker({
               style={[
                 styles.emojiCell,
                 {
-                  backgroundColor: selected ? hexToRgba(accent, 0.18) : '#0A1628',
+                  backgroundColor: selected
+                    ? hexToRgba(accent, 0.18)
+                    : '#0A1628',
                   borderColor: selected ? hexToRgba(accent, 0.7) : '#1A2A45',
                 },
               ]}

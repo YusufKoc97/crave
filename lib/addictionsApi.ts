@@ -53,7 +53,9 @@ function rawId(prefixedId: string): string {
   return prefixedId.replace(/^custom-/, '');
 }
 
-export async function fetchCustomAddictions(userId: string): Promise<Addiction[]> {
+export async function fetchCustomAddictions(
+  userId: string
+): Promise<Addiction[]> {
   const { data, error } = await supabase
     .from('addictions')
     .select('id, name, emoji, color, sensitivity')
@@ -63,7 +65,9 @@ export async function fetchCustomAddictions(userId: string): Promise<Addiction[]
   return (data ?? []).map(rowToAddiction);
 }
 
-export async function fetchHiddenDefaults(userId: string): Promise<Set<string>> {
+export async function fetchHiddenDefaults(
+  userId: string
+): Promise<Set<string>> {
   const { data, error } = await supabase
     .from('profiles')
     .select('hidden_defaults')

@@ -56,10 +56,7 @@ export function NeonRing({
 
   return (
     <View
-      style={[
-        styles.wrap,
-        { width: size, height: size, borderRadius: radius },
-      ]}
+      style={[styles.wrap, { width: size, height: size, borderRadius: radius }]}
       pointerEvents="none"
     >
       {/* Faint full-circle track */}

@@ -55,7 +55,9 @@ const QUOTES = [
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 function formatTime(s: number) {
-  const mm = Math.floor(s / 60).toString().padStart(2, '0');
+  const mm = Math.floor(s / 60)
+    .toString()
+    .padStart(2, '0');
   const ss = (s % 60).toString().padStart(2, '0');
   return `${mm}:${ss}`;
 }
@@ -115,7 +117,10 @@ export default function ActiveSession() {
 
   const accentColor = params.color ?? colors.blue;
   const maxMinutes = Number(params.maxMinutes ?? 9);
-  const sensitivity = Math.max(1, Math.min(10, Number(params.sensitivity ?? 5)));
+  const sensitivity = Math.max(
+    1,
+    Math.min(10, Number(params.sensitivity ?? 5))
+  );
   const cycleSeconds = Math.max(60, maxMinutes * 60);
 
   const { recordSession } = useSessions();
@@ -125,11 +130,16 @@ export default function ActiveSession() {
 
   const [elapsed, setElapsed] = useState(0);
   const [completedCycles, setCompletedCycles] = useState(0);
-  const [bonusFlash, setBonusFlash] = useState<{ key: number; amount: number } | null>(null);
+  const [bonusFlash, setBonusFlash] = useState<{
+    key: number;
+    amount: number;
+  } | null>(null);
   const [quoteIdx, setQuoteIdx] = useState(0);
   // Set after a successful "I Resisted" — replaces the action buttons with a
   // celebratory share banner. Custom addictions skip share (preset only).
-  const [shareBanner, setShareBanner] = useState<{ points: number } | null>(null);
+  const [shareBanner, setShareBanner] = useState<{ points: number } | null>(
+    null
+  );
 
   // Wall-clock anchor — survives JS thread pauses (background/foreground).
   // For a resumed session we anchor to the ORIGINAL started_at so elapsed
@@ -268,7 +278,10 @@ export default function ActiveSession() {
       // Ring/timer pulse: scale + opacity bloom.
       completePulse.value = withSequence(
         withTiming(1, { duration: 380, easing: Easing.out(Easing.cubic) }),
-        withDelay(140, withTiming(0, { duration: 520, easing: Easing.in(Easing.cubic) }))
+        withDelay(
+          140,
+          withTiming(0, { duration: 520, easing: Easing.in(Easing.cubic) })
+        )
       );
 
       // Floating "+X" indicator
@@ -317,7 +330,10 @@ export default function ActiveSession() {
     transform: [{ scale: 1 + completePulse.value * 0.18 }],
   }));
   const bonusFloatStyle = useAnimatedStyle(() => ({
-    opacity: bonusFloat.value < 0.05 ? 0 : 1 - Math.max(0, (bonusFloat.value - 0.6) / 0.4),
+    opacity:
+      bonusFloat.value < 0.05
+        ? 0
+        : 1 - Math.max(0, (bonusFloat.value - 0.6) / 0.4),
     transform: [{ translateY: -bonusFloat.value * 38 }],
   }));
 
@@ -416,13 +432,19 @@ export default function ActiveSession() {
       )}
 
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          hitSlop={8}
+        >
           <Text style={styles.backArrow}>‹</Text>
         </Pressable>
       </View>
 
       <View style={styles.addictionArea}>
-        <View style={[styles.addictionCard, { borderColor: `${accentColor}55` }]}>
+        <View
+          style={[styles.addictionCard, { borderColor: `${accentColor}55` }]}
+        >
           <Text style={styles.addictionEmoji}>{params.emoji ?? '⚠️'}</Text>
         </View>
         <Text style={styles.addictionName}>
@@ -466,7 +488,9 @@ export default function ActiveSession() {
           <ArcProgress arcOffset={arcOffset} accentColor={accentColor} />
           <View style={styles.timerCenter} pointerEvents="none">
             <Text style={styles.timerText}>{formatTime(cycleElapsed)}</Text>
-            <Text style={[styles.pointsText, { color: accentColor }]}>+{points} pts</Text>
+            <Text style={[styles.pointsText, { color: accentColor }]}>
+              +{points} pts
+            </Text>
           </View>
 
           {/* Floating bonus indicator */}
@@ -485,11 +509,15 @@ export default function ActiveSession() {
       </View>
 
       <View style={styles.quoteArea}>
-        <View style={[styles.quoteLine, { backgroundColor: `${accentColor}70` }]} />
+        <View
+          style={[styles.quoteLine, { backgroundColor: `${accentColor}70` }]}
+        />
         <Animated.Text style={[styles.quoteText, quoteStyle]}>
           {QUOTES[quoteIdx]}
         </Animated.Text>
-        <View style={[styles.quoteLine, { backgroundColor: `${accentColor}70` }]} />
+        <View
+          style={[styles.quoteLine, { backgroundColor: `${accentColor}70` }]}
+        />
       </View>
 
       <View style={styles.btnArea}>
@@ -499,7 +527,9 @@ export default function ActiveSession() {
               <Text style={{ color: accentColor }}>+{shareBanner.points} </Text>
               <Text style={{ color: '#F1F5F9' }}>puan kazandın</Text>
             </Text>
-            <Text style={styles.shareSubtitle}>Bu anı toplulukla paylaşmak ister misin?</Text>
+            <Text style={styles.shareSubtitle}>
+              Bu anı toplulukla paylaşmak ister misin?
+            </Text>
             <View style={styles.shareBtnRow}>
               <Pressable
                 style={[styles.dismissBtn]}
@@ -509,7 +539,13 @@ export default function ActiveSession() {
               </Pressable>
               {!params.id?.startsWith('custom-') && (
                 <Pressable
-                  style={[styles.shareBtn, { borderColor: accentColor, backgroundColor: hexWithAlpha(accentColor, 0.12) }]}
+                  style={[
+                    styles.shareBtn,
+                    {
+                      borderColor: accentColor,
+                      backgroundColor: hexWithAlpha(accentColor, 0.12),
+                    },
+                  ]}
                   onPress={goShare}
                 >
                   <Text style={[styles.shareBtnText, { color: accentColor }]}>
@@ -525,9 +561,14 @@ export default function ActiveSession() {
               style={[styles.resistBtn, { borderColor: accentColor }]}
               onPress={() => finish('resisted')}
             >
-              <Text style={[styles.resistText, { color: accentColor }]}>I Resisted</Text>
+              <Text style={[styles.resistText, { color: accentColor }]}>
+                I Resisted
+              </Text>
             </Pressable>
-            <Pressable style={styles.gaveInBtn} onPress={() => finish('gave_in')}>
+            <Pressable
+              style={styles.gaveInBtn}
+              onPress={() => finish('gave_in')}
+            >
               <Text style={styles.gaveInText}>I gave in</Text>
             </Pressable>
           </>

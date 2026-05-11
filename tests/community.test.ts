@@ -60,4 +60,3 @@ describe('relativeTime', () => {
     ).toBe('1y önce');
   });
 });
-

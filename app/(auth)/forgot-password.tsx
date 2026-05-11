@@ -92,8 +92,8 @@ export default function ForgotPasswordScreen() {
           <View style={styles.infoBox}>
             <Ionicons name="mail-outline" size={14} color="#7DC3FF" />
             <Text style={styles.infoText}>
-              Sıfırlama bağlantısını {email.trim().toLowerCase()} adresine gönderdik.
-              Gelen kutunu (ve spam'i) kontrol et.
+              Sıfırlama bağlantısını {email.trim().toLowerCase()} adresine
+              gönderdik. Gelen kutunu (ve spam'i) kontrol et.
             </Text>
           </View>
         )}
@@ -106,7 +106,9 @@ export default function ForgotPasswordScreen() {
               styles.submitBtn,
               {
                 borderColor: canSubmit ? '#3B82F6' : '#1A2A45',
-                backgroundColor: canSubmit ? 'rgba(59,130,246,0.12)' : '#080F1C',
+                backgroundColor: canSubmit
+                  ? 'rgba(59,130,246,0.12)'
+                  : '#080F1C',
                 opacity: canSubmit ? 1 : 0.55,
               },
             ]}

@@ -30,8 +30,13 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['lib/scoring.ts', 'lib/auth.ts', 'lib/community.ts',
-                'lib/onboarding.ts', 'constants/emojiKeywords.ts'],
+      include: [
+        'lib/scoring.ts',
+        'lib/auth.ts',
+        'lib/community.ts',
+        'lib/onboarding.ts',
+        'constants/emojiKeywords.ts',
+      ],
     },
   },
 });

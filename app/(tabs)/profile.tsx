@@ -48,9 +48,7 @@ export default function ProfileScreen() {
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{avatarGlyph}</Text>
         </View>
-        {username && (
-          <Text style={styles.usernameLabel}>{username}</Text>
-        )}
+        {username && <Text style={styles.usernameLabel}>{username}</Text>}
         <View style={styles.dash} />
 
         <View style={styles.totalCard}>
@@ -71,7 +69,11 @@ export default function ProfileScreen() {
             valueColor="#EF4444"
             topBorderColor="#EF4444"
           />
-          <StatCard value={momentum} label="MOMENTUM" valueColor={colors.textPrimary} />
+          <StatCard
+            value={momentum}
+            label="MOMENTUM"
+            valueColor={colors.textPrimary}
+          />
         </View>
 
         {streak > 0 && (
@@ -125,7 +127,11 @@ export default function ProfileScreen() {
             style={styles.assistantBtn}
             hitSlop={6}
           >
-            <Ionicons name="chatbubble-ellipses-outline" size={14} color="#7DC3FF" />
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={14}
+              color="#7DC3FF"
+            />
             <Text style={styles.assistantBtnText}>Yardımcıyla konuş</Text>
           </Pressable>
           <Text style={styles.emailLabel}>{user.email}</Text>
@@ -185,7 +191,9 @@ function AddictionRow({
           // would otherwise open the edit screen). Native's responder
           // system already prevents this; calling stopPropagation here
           // is the no-op-on-native, fix-on-web path.
-          (e as unknown as { stopPropagation?: () => void })?.stopPropagation?.();
+          (
+            e as unknown as { stopPropagation?: () => void }
+          )?.stopPropagation?.();
           onRemove();
         }}
         hitSlop={10}
@@ -219,7 +227,9 @@ function StatCard({
   return (
     <View style={styles.statCard}>
       {topBorderColor && (
-        <View style={[styles.statTopBorder, { backgroundColor: topBorderColor }]} />
+        <View
+          style={[styles.statTopBorder, { backgroundColor: topBorderColor }]}
+        />
       )}
       <Text style={[styles.statValue, { color: valueColor }]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
