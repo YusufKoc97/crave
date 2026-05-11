@@ -222,9 +222,9 @@ export default function AssistantScreen() {
           }}
           style={[
             styles.sendBtn,
-            {
-              opacity: input.trim().length === 0 || thinking ? 0.4 : 1,
-            },
+            input.trim().length === 0 || thinking
+              ? styles.sendBtnIdle
+              : styles.sendBtnActive,
           ]}
           hitSlop={6}
         >
@@ -282,6 +282,9 @@ const styles = StyleSheet.create({
     borderColor: '#1E3050',
     alignItems: 'center',
     justifyContent: 'center',
+    // Tiny inset highlight so the chip reads as a real lifted surface
+    // against the page bg, matching tabs / profile chips.
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
   },
   iconBtnText: {
     color: '#7BA8C8',
@@ -313,6 +316,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1E3050',
     marginBottom: 18,
+    // Soft accent breath so the empty-state orb hints at the brand
+    // ring on the home screen — invitational, not loud.
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 2,
+    boxShadow:
+      '0 0 12px rgba(59, 130, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
   },
   emptyTitle: {
     color: '#F1F5F9',
@@ -338,14 +350,26 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   bubbleUser: {
-    backgroundColor: 'rgba(59,130,246,0.15)',
+    backgroundColor: 'rgba(59, 130, 246, 0.16)',
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.4)',
+    borderColor: 'rgba(59, 130, 246, 0.45)',
+    // Soft accent halo so the user's own message reads as "lit from
+    // the right edge" — a directional cue without over-styling.
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 2,
+    boxShadow:
+      '0 0 8px rgba(59, 130, 246, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
   },
   bubbleAssistant: {
     backgroundColor: '#0A1628',
     borderWidth: 1,
-    borderColor: '#1A2A45',
+    borderColor: '#1E2D4D',
+    // Just a 1px inset highlight on the receiving bubble — recessed,
+    // not lit. Lets the user bubble carry all the visual weight.
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
   },
   bubbleUserText: {
     color: '#E2E8F0',
@@ -403,21 +427,40 @@ const styles = StyleSheet.create({
     maxHeight: 120,
     backgroundColor: '#0A1628',
     borderWidth: 1,
-    borderColor: '#1A2A45',
+    borderColor: '#1E2D4D',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 11,
     color: '#F1F5F9',
     fontSize: 14,
     lineHeight: 19,
+    // Inset highlight matches auth + onboarding inputs — single
+    // recessed-surface treatment across the app.
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
   },
   sendBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#7DC3FF',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sendBtnActive: {
+    backgroundColor: '#7DC3FF',
+    // Accent halo on the live send button so the action feels primed.
+    // Pairs with the user-bubble glow so the right-hand column reads
+    // as the "user-action" axis of the screen.
+    shadowColor: '#7DC3FF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 4,
+    boxShadow:
+      '0 0 10px rgba(125, 195, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
+  },
+  sendBtnIdle: {
+    backgroundColor: '#7DC3FF',
+    opacity: 0.4,
   },
   setupBody: {
     flex: 1,
@@ -435,6 +478,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 22,
+    // Same soft accent breath as emptyOrb — keeps the two
+    // "introduce-yourself" states visually consistent.
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 2,
+    boxShadow:
+      '0 0 12px rgba(59, 130, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
   },
   setupTitle: {
     color: '#F1F5F9',
@@ -462,9 +514,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#1A2A45',
+    borderColor: '#1E2D4D',
     backgroundColor: '#0A1628',
     width: '100%',
+    // Inset highlight so the env var line reads as a recessed inset
+    // panel, not a flat rectangle stuck on the page bg.
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
   },
   codeText: {
     color: '#7DC3FF',
