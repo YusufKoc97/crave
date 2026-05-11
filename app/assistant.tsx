@@ -14,7 +14,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   isAssistantConfigured,
-  sendAssistantMessage,
+  streamAssistantMessage,
   type ChatMessage,
 } from '@/lib/assistant';
 import { useKeyboardShortcut } from '@/lib/useKeyboardShortcut';
@@ -52,17 +52,34 @@ export default function AssistantScreen() {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
+    // Streaming: append an empty assistant message immediately, then
+    // patch its content as deltas arrive. The user sees tokens land in
+    // place instead of waiting for the full reply.
+    const assistantId = `a-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      { id: assistantId, role: 'assistant', content: '' },
+    ]);
+
     try {
-      const reply = await sendAssistantMessage(
+      await streamAssistantMessage(
         nextHistory.map(({ role, content }) => ({ role, content })),
-        ctrl.signal
+        {
+          signal: ctrl.signal,
+          onChunk: (delta) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, content: m.content + delta } : m
+              )
+            );
+          },
+        }
       );
-      setMessages((prev) => [
-        ...prev,
-        { id: `a-${Date.now()}`, role: 'assistant', content: reply },
-      ]);
     } catch (e) {
       if ((e as { name?: string }).name === 'AbortError') return;
+      // Drop the empty / partial assistant bubble on failure; the user
+      // sees an error toast/banner and can retry from a clean state.
+      setMessages((prev) => prev.filter((m) => m.id !== assistantId));
       setError(
         (e as Error).message ?? 'Yardımcı şu an cevap veremiyor. Tekrar dene.'
       );
@@ -159,7 +176,12 @@ export default function AssistantScreen() {
           </View>
         }
         ListFooterComponent={
-          thinking ? (
+          // Show the spinner only while we're waiting for the first
+          // delta. Once tokens start landing they're visible inside the
+          // streaming bubble itself, so the footer would just be noise.
+          thinking &&
+          (messages.length === 0 ||
+            messages[messages.length - 1]?.content.length === 0) ? (
             <View style={styles.thinkingRow}>
               <ActivityIndicator size="small" color="#7DC3FF" />
               <Text style={styles.thinkingText}>Yardımcı düşünüyor...</Text>
