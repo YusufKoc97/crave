@@ -60,11 +60,7 @@ export default function ConsentScreen() {
           disabled={!canSubmit}
           style={[
             styles.submitBtn,
-            {
-              borderColor: canSubmit ? '#3B82F6' : '#1A2A45',
-              backgroundColor: canSubmit ? 'rgba(59,130,246,0.12)' : '#080F1C',
-              opacity: canSubmit ? 1 : 0.55,
-            },
+            canSubmit ? styles.submitBtnActive : styles.submitBtnIdle,
           ]}
         >
           <Text
@@ -99,14 +95,11 @@ function ConsentRow({
       onPress={onToggle}
       style={[
         styles.row,
-        {
-          borderColor: checked
-            ? highlight
-              ? '#3B82F6'
-              : 'rgba(59,130,246,0.5)'
-            : '#1A2A45',
-          backgroundColor: checked ? 'rgba(59,130,246,0.06)' : '#0A1628',
-        },
+        checked
+          ? highlight
+            ? styles.rowCheckedHighlight
+            : styles.rowChecked
+          : styles.rowIdle,
       ]}
     >
       <View
@@ -165,6 +158,39 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 12,
   },
+  rowIdle: {
+    borderColor: '#1E2D4D',
+    backgroundColor: '#0A1628',
+    // Resting state: just a faint inset highlight to give the card
+    // a real top edge instead of flat hex.
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)',
+  },
+  rowChecked: {
+    borderColor: 'rgba(59, 130, 246, 0.5)',
+    backgroundColor: 'rgba(59, 130, 246, 0.06)',
+    // Soft accent halo for a "lit" feel when toggled on — but not as
+    // strong as primary CTAs since this is a passive accept state.
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 2,
+    boxShadow:
+      '0 0 10px rgba(59, 130, 246, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+  },
+  rowCheckedHighlight: {
+    // Health-data row when checked: stronger accent because it's the
+    // explicit KVKK rıza — the user should feel they actively opted in.
+    borderColor: '#3B82F6',
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 3,
+    boxShadow:
+      '0 0 12px rgba(59, 130, 246, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+  },
   checkbox: {
     width: 22,
     height: 22,
@@ -215,6 +241,23 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  submitBtnActive: {
+    borderColor: '#3B82F6',
+    backgroundColor: 'rgba(59, 130, 246, 0.16)',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 4,
+    // Final-step CTA — same accent halo as the age gate + auth CTAs.
+    boxShadow:
+      '0 0 14px rgba(59, 130, 246, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
+  },
+  submitBtnIdle: {
+    borderColor: '#1A2A45',
+    backgroundColor: '#080F1C',
+    opacity: 0.55,
   },
   submitText: {
     fontSize: 15,

@@ -102,13 +102,7 @@ export default function AgeGateScreen() {
           disabled={!canContinue}
           style={[
             styles.continueBtn,
-            {
-              borderColor: canContinue ? '#3B82F6' : '#1A2A45',
-              backgroundColor: canContinue
-                ? 'rgba(59,130,246,0.12)'
-                : '#080F1C',
-              opacity: canContinue ? 1 : 0.55,
-            },
+            canContinue ? styles.continueBtnActive : styles.continueBtnIdle,
           ]}
         >
           <Text
@@ -194,12 +188,15 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: '#0A1628',
     borderWidth: 1,
-    borderColor: '#1A2A45',
+    borderColor: '#1E2D4D',
     color: '#F1F5F9',
     fontSize: 24,
     fontWeight: '500',
     textAlign: 'center',
     letterSpacing: 1.5,
+    // 1px alpha-white cap on each square so the digits sit *inside*
+    // a real recessed surface, not on a flat hex block.
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
   },
   dobInputWide: {
     width: 96,
@@ -239,6 +236,23 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  continueBtnActive: {
+    borderColor: '#3B82F6',
+    backgroundColor: 'rgba(59, 130, 246, 0.16)',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 4,
+    // Same accent halo + inset highlight pattern as the auth CTAs.
+    boxShadow:
+      '0 0 14px rgba(59, 130, 246, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
+  },
+  continueBtnIdle: {
+    borderColor: '#1A2A45',
+    backgroundColor: '#080F1C',
+    opacity: 0.55,
   },
   continueText: {
     fontSize: 15,
