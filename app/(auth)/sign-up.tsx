@@ -142,11 +142,7 @@ export default function SignUpScreen() {
           disabled={!canSubmit}
           style={[
             styles.submitBtn,
-            {
-              borderColor: canSubmit ? '#3B82F6' : '#1A2A45',
-              backgroundColor: canSubmit ? 'rgba(59,130,246,0.12)' : '#080F1C',
-              opacity: canSubmit ? 1 : 0.55,
-            },
+            canSubmit ? styles.submitBtnActive : styles.submitBtnIdle,
           ]}
         >
           {submitting ? (
@@ -231,13 +227,16 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: '#0A1628',
     borderWidth: 1,
-    borderColor: '#1A2A45',
-    borderRadius: 11,
+    borderColor: '#1E2D4D',
+    borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
     color: '#F1F5F9',
     fontSize: 15,
     fontWeight: '400',
+    // 1px alpha-white cap so the field reads as a real recessed
+    // surface, not a hex block on the page bg.
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
   },
   passwordWrap: {
     position: 'relative',
@@ -302,6 +301,24 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  submitBtnActive: {
+    borderColor: '#3B82F6',
+    backgroundColor: 'rgba(59, 130, 246, 0.16)',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 4,
+    // Outer accent halo + 1px inset highlight so the CTA reads as raised
+    // and "lit", matching the depth pass on profile + active-session.
+    boxShadow:
+      '0 0 14px rgba(59, 130, 246, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
+  },
+  submitBtnIdle: {
+    borderColor: '#1A2A45',
+    backgroundColor: '#080F1C',
+    opacity: 0.55,
   },
   submitText: {
     fontSize: 14.5,
