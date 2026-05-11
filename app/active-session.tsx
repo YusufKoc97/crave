@@ -436,6 +436,8 @@ export default function ActiveSession() {
           onPress={() => router.back()}
           style={styles.backBtn}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Geri"
         >
           <Text style={styles.backArrow}>‹</Text>
         </Pressable>

@@ -280,7 +280,12 @@ export default function CommunityScreen() {
           returnKeyType="search"
         />
         {search.length > 0 && (
-          <Pressable onPress={() => setSearch('')} hitSlop={8}>
+          <Pressable
+            onPress={() => setSearch('')}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Aramayı temizle"
+          >
             <Ionicons name="close-circle" size={16} color="#3D5470" />
           </Pressable>
         )}
@@ -404,6 +409,8 @@ export default function CommunityScreen() {
         style={styles.fab}
         onPress={() => router.push('/community-compose')}
         hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Yeni gönderi"
       >
         <Ionicons name="add" size={26} color="#020810" />
       </Pressable>
@@ -533,10 +540,22 @@ function PostCard({
         </View>
         {isOwn && (
           <View style={styles.ownActions}>
-            <Pressable onPress={onEdit} hitSlop={6} style={styles.ownIconBtn}>
+            <Pressable
+              onPress={onEdit}
+              hitSlop={6}
+              style={styles.ownIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Gönderiyi düzenle"
+            >
               <Ionicons name="pencil" size={12} color="#6B8BA4" />
             </Pressable>
-            <Pressable onPress={onDelete} hitSlop={6} style={styles.ownIconBtn}>
+            <Pressable
+              onPress={onDelete}
+              hitSlop={6}
+              style={styles.ownIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Gönderiyi sil"
+            >
               <Ionicons name="trash-outline" size={12} color="#6B8BA4" />
             </Pressable>
           </View>
@@ -552,6 +571,11 @@ function PostCard({
             disabled={isReported}
             hitSlop={6}
             style={styles.reportBtn}
+            accessibilityRole="button"
+            accessibilityLabel={
+              isReported ? 'Bu gönderi bildirildi' : 'Gönderiyi bildir'
+            }
+            accessibilityState={{ disabled: isReported }}
           >
             <Ionicons
               name={isReported ? 'flag' : 'flag-outline'}
@@ -561,7 +585,17 @@ function PostCard({
           </Pressable>
         )}
         <View style={{ flex: 1 }} />
-        <Pressable onPress={onLike} hitSlop={6} style={styles.likeBtn}>
+        <Pressable
+          onPress={onLike}
+          hitSlop={6}
+          style={styles.likeBtn}
+          accessibilityRole="button"
+          accessibilityLabel={
+            post.liked_by_me
+              ? `Beğeniyi kaldır, ${post.like_count} beğeni`
+              : `Beğen, ${post.like_count} beğeni`
+          }
+        >
           <Ionicons
             name={post.liked_by_me ? 'heart' : 'heart-outline'}
             size={16}

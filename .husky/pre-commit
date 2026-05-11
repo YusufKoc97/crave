@@ -1,1 +1,6 @@
+# Husky wraps this with `sh -e`. Extend PATH to common Node install
+# locations so GUI clients and headless agents (with a minimal PATH)
+# still find npx.
+PATH="$PATH:/usr/local/bin:/opt/homebrew/bin"
+export PATH
 npx lint-staged

@@ -324,6 +324,8 @@ export default function AddAddictionScreen() {
           onPress={() => router.back()}
           style={styles.iconBtn}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Kapat"
         >
           <Text style={styles.iconBtnText}>✕</Text>
         </Pressable>

@@ -157,7 +157,13 @@ function AddictionRow({
   const Wrapper = onEdit ? Pressable : View;
   return (
     <Wrapper
-      {...(onEdit ? { onPress: onEdit } : {})}
+      {...(onEdit
+        ? {
+            onPress: onEdit,
+            accessibilityRole: 'button' as const,
+            accessibilityLabel: `${addiction.name}'i düzenle`,
+          }
+        : {})}
       style={styles.addictionRow}
     >
       <View
@@ -198,6 +204,8 @@ function AddictionRow({
         }}
         hitSlop={10}
         style={styles.removeBtn}
+        accessibilityRole="button"
+        accessibilityLabel={`${addiction.name} bağımlılığını kaldır`}
       >
         <Ionicons name="close" size={14} color="#6B8BA4" />
       </Pressable>

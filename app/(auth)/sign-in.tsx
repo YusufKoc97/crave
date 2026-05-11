@@ -99,6 +99,10 @@ export default function SignInScreen() {
               onPress={() => setShowPassword((v) => !v)}
               style={styles.eyeBtn}
               hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={
+                showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'
+              }
             >
               <Ionicons
                 name={showPassword ? 'eye-off-outline' : 'eye-outline'}

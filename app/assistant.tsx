@@ -92,6 +92,8 @@ export default function AssistantScreen() {
             onPress={() => router.back()}
             style={styles.iconBtn}
             hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Kapat"
           >
             <Text style={styles.iconBtnText}>✕</Text>
           </Pressable>
@@ -191,6 +193,11 @@ export default function AssistantScreen() {
         <Pressable
           onPress={send}
           disabled={input.trim().length === 0 || thinking}
+          accessibilityRole="button"
+          accessibilityLabel="Mesajı gönder"
+          accessibilityState={{
+            disabled: input.trim().length === 0 || thinking,
+          }}
           style={[
             styles.sendBtn,
             {
