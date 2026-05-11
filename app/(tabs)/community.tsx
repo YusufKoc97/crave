@@ -250,9 +250,11 @@ export default function CommunityScreen() {
   if (!user) {
     return (
       <View style={styles.gateRoot}>
-        <View style={styles.gateIcon}>
-          <Ionicons name="people-outline" size={32} color="#7DC3FF" />
-        </View>
+        <Card variant="elevated" style={styles.gateIcon} borderRadius={32}>
+          <View style={styles.gateIconInner}>
+            <Ionicons name="people-outline" size={32} color="#7DC3FF" />
+          </View>
+        </Card>
         <Text style={styles.gateTitle}>Topluluğa katıl</Text>
         <Text style={styles.gateBody}>
           Diğerlerinin hikayelerini gör, kendi zaferlerini paylaş. Önce hesap
@@ -260,11 +262,24 @@ export default function CommunityScreen() {
         </Text>
         <Pressable
           style={styles.gateBtn}
-          onPress={() => {
-            // TODO: hook up real auth flow when sign-in screen exists.
-          }}
+          onPress={() => router.push('/(auth)/sign-up')}
+          accessibilityRole="button"
+          accessibilityLabel="Kayıt ol"
         >
+          <View pointerEvents="none" style={styles.gateBtnHighlight} />
           <Text style={styles.gateBtnText}>Kayıt Ol</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => router.push('/(auth)/sign-in')}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Giriş yap"
+          style={styles.gateSubLink}
+        >
+          <Text style={styles.gateSubLinkText}>
+            Zaten hesabın var?{' '}
+            <Text style={styles.gateSubLinkAccent}>Giriş yap</Text>
+          </Text>
         </Pressable>
       </View>
     );
@@ -643,11 +658,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 18,
     marginTop: 56,
     paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingVertical: 10,
+    // Slightly warmer surface than the page bg + a touch of inset
+    // depth: the top edge picks up the alpha-white highlight via the
+    // inner border-glow trick (inset shadow on web; a thin 1px child
+    // View would work on native but inset is cleaner here).
     backgroundColor: '#0A1628',
     borderWidth: 1,
-    borderColor: '#1A2A45',
-    borderRadius: 11,
+    borderColor: '#1E2D4D',
+    borderRadius: 12,
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
   },
   searchInput: {
     flex: 1,
@@ -674,6 +694,10 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 999,
     borderWidth: 1,
+    // 1px alpha-white inset cap on the top edge so active pills feel
+    // dimensional instead of flat-color washes. Falls off cleanly on
+    // native (boxShadow is a no-op outside RN-Web).
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.05)',
   },
   pillEmoji: {
     fontSize: 12,
@@ -753,13 +777,23 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: '#0A1628',
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     borderTopWidth: 1,
     borderColor: '#1E3050',
     paddingTop: 18,
     paddingBottom: 32,
     paddingHorizontal: 20,
+    // Lift the bottom sheet off the backdrop with a soft top shadow
+    // + the standard 1px alpha-white cap so the rounded lip reads
+    // as a real surface rather than a printed band.
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 18,
+    elevation: 8,
+    boxShadow:
+      '0 -8px 18px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
   },
   sheetKicker: {
     color: '#6B8BA4',
@@ -789,11 +823,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 13,
-    borderRadius: 11,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1A2A45',
+    borderColor: '#1E2D4D',
     backgroundColor: '#0D1E35',
     marginBottom: 8,
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
   },
   sheetReasonText: {
     color: '#F1F5F9',
@@ -818,14 +853,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     alignSelf: 'center',
-    marginTop: 6,
+    marginTop: 8,
     marginBottom: -2,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(125, 195, 255, 0.4)',
-    backgroundColor: 'rgba(59, 130, 246, 0.14)',
+    borderColor: 'rgba(125, 195, 255, 0.5)',
+    backgroundColor: 'rgba(59, 130, 246, 0.16)',
+    // Subtle accent halo — the pill is announcing live news so a touch
+    // of glow earns its keep.
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 4,
+    boxShadow: '0 0 12px rgba(59, 130, 246, 0.28)',
   },
   pendingPillText: {
     color: '#7DC3FF',
@@ -897,6 +940,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.6,
     shadowRadius: 14,
     elevation: 12,
+    boxShadow: '0 0 14px rgba(125, 195, 255, 0.55)',
   },
   gateRoot: {
     flex: 1,
@@ -909,17 +953,17 @@ const styles = StyleSheet.create({
   gateIcon: {
     width: 64,
     height: 64,
-    borderRadius: 32,
-    backgroundColor: '#0D1E35',
-    borderWidth: 1,
-    borderColor: '#1E3050',
+    marginBottom: 22,
+  },
+  gateIconInner: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 18,
   },
   gateTitle: {
     color: '#F1F5F9',
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '500',
     letterSpacing: 0.6,
   },
@@ -932,18 +976,49 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   gateBtn: {
-    marginTop: 22,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
+    marginTop: 26,
+    paddingHorizontal: 28,
+    paddingVertical: 13,
+    borderRadius: 13,
     borderWidth: 1.5,
     borderColor: '#3B82F6',
-    backgroundColor: 'rgba(59,130,246,0.12)',
+    backgroundColor: 'rgba(59, 130, 246, 0.16)',
+    overflow: 'hidden',
+    // Soft accent glow — visible on web via boxShadow, on native via
+    // shadow* tokens. Subtle enough not to feel like a button on a
+    // late-2000s website.
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 4,
+    boxShadow: '0 0 14px rgba(59, 130, 246, 0.35)',
+  },
+  gateBtnHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
   },
   gateBtnText: {
-    color: '#7DC3FF',
+    color: '#BFE0FF',
     fontSize: 13.5,
     fontWeight: '600',
-    letterSpacing: 0.6,
+    letterSpacing: 0.8,
+  },
+  gateSubLink: {
+    marginTop: 14,
+    paddingVertical: 4,
+  },
+  gateSubLinkText: {
+    color: '#94A3B8',
+    fontSize: 12.5,
+    fontWeight: '400',
+  },
+  gateSubLinkAccent: {
+    color: '#7DC3FF',
+    fontWeight: '600',
   },
 });
