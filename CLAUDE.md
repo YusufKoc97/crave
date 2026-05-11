@@ -1,8 +1,8 @@
 # CRAVE — Project Memory
 
 > **Yeni Claude oturumuna not:** Bu dosya bu projedeki sürekliliği taşır. Yeni
-> bir cihazda (Mac/Windows) açıldığında, *önce bu dosyayı oku, sonra
-> codebase'e bak*, kullanıcıyla beraber bıraktığın yerden devam et. Kullanıcı
+> bir cihazda (Mac/Windows) açıldığında, _önce bu dosyayı oku, sonra
+> codebase'e bak_, kullanıcıyla beraber bıraktığın yerden devam et. Kullanıcı
 > Türkçe konuşuyor, kararlarda buna saygı göster.
 
 ---
@@ -14,6 +14,7 @@ uygulaması. Türk kullanıcı odaklı (KVKK uyumlu), recovery topluluğu için
 ciddi/tasarımlı bir ton — gamification yok, dignified.
 
 Temel akış:
+
 1. Kullanıcı bir dürtü hissediyor → ana ekrandaki RESIST orb'una basıyor
 2. Bağımlılık seçici çıkıyor (9 preset + custom eklenebilir)
 3. Bir bağımlılığa tıklayınca timer ekranı açılıyor
@@ -97,38 +98,42 @@ lib/
 
 ## 🧠 Önemli Kararlar (UX/Mimari)
 
-| Karar | Sebep |
-|---|---|
-| **Puanlar asla düşmez** | Recovery'de cezalandırma motivasyon kırar |
-| **Streak kayıpta kırılmaz, donar** | Aynı sebep — dürüst paylaşımı teşvik et |
-| **Custom addiction'lar community'e gitmez** | Kişisel isimler ("eski sevgili") feed'i bozar; preset 9 sabit |
-| **Date.now anchor (setInterval counter değil)** | iOS background timer suspend eder; wall-clock immune |
-| **Sensitivity 1-10 → maxMin 5-15** | İlk testlerde 60dk ceiling cezalandırıcı hissedildi |
-| **Cycle reset + bonus** | 15dk'lık tek bir hedef yerine tekrar eden mini-zaferler |
-| **Onboarding'de açık rıza** | KVKK Madde 9 sağlık verisi için "açık rıza" temeli |
-| **Username ilk paylaşımda sorulur** | Onboarding'i şişirmez; ilgisiz kullanıcıyı rahatsız etmez |
-| **DEV_MODE artık yok** | Auth zorunlu; community ve scoring server-only |
+| Karar                                           | Sebep                                                         |
+| ----------------------------------------------- | ------------------------------------------------------------- |
+| **Puanlar asla düşmez**                         | Recovery'de cezalandırma motivasyon kırar                     |
+| **Streak kayıpta kırılmaz, donar**              | Aynı sebep — dürüst paylaşımı teşvik et                       |
+| **Custom addiction'lar community'e gitmez**     | Kişisel isimler ("eski sevgili") feed'i bozar; preset 9 sabit |
+| **Date.now anchor (setInterval counter değil)** | iOS background timer suspend eder; wall-clock immune          |
+| **Sensitivity 1-10 → maxMin 5-15**              | İlk testlerde 60dk ceiling cezalandırıcı hissedildi           |
+| **Cycle reset + bonus**                         | 15dk'lık tek bir hedef yerine tekrar eden mini-zaferler       |
+| **Onboarding'de açık rıza**                     | KVKK Madde 9 sağlık verisi için "açık rıza" temeli            |
+| **Username ilk paylaşımda sorulur**             | Onboarding'i şişirmez; ilgisiz kullanıcıyı rahatsız etmez     |
+| **DEV_MODE artık yok**                          | Auth zorunlu; community ve scoring server-only                |
 
 ## 🗄️ DB Schema (Supabase)
 
 ### profiles
+
 ```
 id (uuid PK, → auth.users) | username (text) UNIQUE | total_points (int) [LEGACY]
 momentum_score (int) [LEGACY] | momentum (int, default 50) [BUNU KULLAN]
 streak (int, default 0) | onboarding_completed (bool)
 hidden_defaults (text[], default '{}') | created_at
 ```
+
 > ⚠️ `total_points` ve `momentum_score` daha önceki migration'lardan kalma. Kod
 > `momentum` ve `streak` kullanır. `total_points` SessionsContext tarafından
 > sessions sayımıyla derive edilir.
 >
 > **Pending migration**: `username`'in UNIQUE olması gerekiyor — şu an constraint yok,
 > setup-username `23505` (unique_violation) yakalıyor ama önce DB'ye eklenmeli:
+>
 > ```sql
 > ALTER TABLE profiles ADD CONSTRAINT profiles_username_unique UNIQUE (username);
 > ```
 
 ### craving_sessions
+
 ```
 id (uuid) | user_id (uuid → profiles) | addiction_id (text)
 status ('active'|'completed'|'abandoned') | outcome ('resisted'|'gave_in'|null)
@@ -139,6 +144,7 @@ PARTIAL UNIQUE INDEX: (user_id) WHERE status='active'  -- bir aktif session/user
 ```
 
 ### forum_posts
+
 ```
 id (uuid) | user_id (uuid → profiles) | addiction_id (TEXT preset only)
 content (text, 1-500 char) | like_count (int, trigger-managed) | created_at
@@ -148,6 +154,7 @@ CHECK addiction_id IN ('impulse','nicotine','alcohol','caffeine',
 ```
 
 ### forum_likes
+
 ```
 post_id (uuid → forum_posts) | user_id (uuid → profiles) | created_at
 PRIMARY KEY (post_id, user_id)
@@ -156,24 +163,44 @@ TRIGGER: AFTER INSERT/DELETE → forum_posts.like_count ± 1
 ```
 
 ### forum_reports
+
 ```
 id (uuid PK) | post_id (uuid → forum_posts ON DELETE CASCADE)
 reporter_id (uuid → profiles ON DELETE CASCADE) | reason (text 1-64)
 created_at | UNIQUE (post_id, reporter_id)
 ```
+
 > RLS: reporter_insert + reporter_read (kendi raporları). Moderasyon
 > dashboard'u henüz yok — tablo şu an "şikâyet kuyruğu" olarak duruyor.
 
+### reflections
+
+```
+id (uuid PK) | user_id (uuid → profiles ON DELETE CASCADE)
+session_id (uuid → craving_sessions ON DELETE SET NULL, nullable)
+addiction_id (text) | outcome (text CHECK 'resisted' | 'gave_in')
+note (text 1-500) | created_at
+INDEX (user_id, created_at DESC)
+```
+
+> RLS: owner-only (FOR ALL). Write-once — Update tipi
+> `Record<string, never>`; dürüstlüğü korumak için edit yok, sadece
+> delete + re-add. addiction_id + outcome SNAPSHOT'lanır (join'lenmez)
+> çünkü session silinebilir.
+
 ### addictions (custom)
+
 ```
 id (uuid PK) | user_id (uuid → profiles) | name (text) | emoji (text)
 color (text, hex) | sensitivity (int 1-10)
 max_duration_minutes (int) [LEGACY, derive sensitivity'den] | created_at
 ```
+
 > AddictionsContext bunu Supabase'le sync eder (lib/addictionsApi.ts).
 > AsyncStorage offline cache'i; server source of truth.
 
 ### momentum_log (henüz kullanılmıyor)
+
 ```
 id | user_id | value | created_at
 ```
@@ -230,6 +257,7 @@ success:      #10B981
 ```
 
 UI dili karması:
+
 - **İngilizce**: Brand (RESIST), action butonları (I Resisted/I gave in)
 - **Türkçe**: Auth, onboarding, share banner, community, hata mesajları, sensitivity labels
 
@@ -245,10 +273,10 @@ Email confirmation Supabase dashboard'dan OFF.
 
 ## 📋 Bekleyen / Sıradaki İşler
 
-| Önem | İş |
-|---|---|
-| ⭐ | **Push notifications** (expo-notifications) — daily reminder, "ring fills" celebration |
-| ⭐ | **Apple/Google sign-in** — şu an sadece email/password |
+| Önem | İş                                                                                     |
+| ---- | -------------------------------------------------------------------------------------- |
+| ⭐   | **Push notifications** (expo-notifications) — daily reminder, "ring fills" celebration |
+| ⭐   | **Apple/Google sign-in** — şu an sadece email/password                                 |
 
 ### ✅ Yakın Zamanda Kapatılanlar
 

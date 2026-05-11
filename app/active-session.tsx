@@ -563,6 +563,27 @@ export default function ActiveSession() {
                 </Pressable>
               )}
             </View>
+            <Pressable
+              style={styles.reflectLink}
+              onPress={() => {
+                setShareBanner(null);
+                router.replace({
+                  pathname: '/reflect',
+                  params: {
+                    sessionId: sessionId.current ?? '',
+                    addictionId: params.id ?? '',
+                    addictionName: params.name ?? '',
+                    emoji: params.emoji ?? '',
+                    color: accentColor,
+                    outcome: 'resisted',
+                  },
+                });
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Bu ana özel not bırak"
+            >
+              <Text style={styles.reflectLinkText}>+ Bu ana not bırak</Text>
+            </Pressable>
           </View>
         ) : (
           <>
@@ -820,5 +841,17 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '600',
     letterSpacing: 0.4,
+  },
+  reflectLink: {
+    marginTop: 14,
+    alignSelf: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  reflectLinkText: {
+    color: '#7BA8C8',
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
 });

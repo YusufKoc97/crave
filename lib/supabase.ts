@@ -205,6 +205,32 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      reflections: {
+        Row: {
+          id: string;
+          user_id: string;
+          // Nullable because a session row may be missing (DEV bypass)
+          // or deleted later (ON DELETE SET NULL on the FK).
+          session_id: string | null;
+          addiction_id: string;
+          outcome: 'resisted' | 'gave_in';
+          note: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          session_id?: string | null;
+          addiction_id: string;
+          outcome: 'resisted' | 'gave_in';
+          note: string;
+        };
+        // Notes are write-once on purpose — editing a past reflection
+        // erodes its honesty. Delete + re-add if the user really wants
+        // a do-over.
+        Update: Record<string, never>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

@@ -46,13 +46,13 @@ Bu auth ve username gate'lerini atlatır, orb ekranına doğrudan iniş yapar.
 
 ## Komutlar
 
-| Komut | Ne yapar |
-|---|---|
-| `npm start` | Expo dev server |
-| `npm run web` / `ios` / `android` | Platform-spesifik başlatma |
-| `npm test` | Vitest unit test suite (CI-friendly, watch yok) |
-| `npm run test:watch` | Vitest watch modu |
-| `npm run typecheck` | `tsc --noEmit` |
+| Komut                             | Ne yapar                                        |
+| --------------------------------- | ----------------------------------------------- |
+| `npm start`                       | Expo dev server                                 |
+| `npm run web` / `ios` / `android` | Platform-spesifik başlatma                      |
+| `npm test`                        | Vitest unit test suite (CI-friendly, watch yok) |
+| `npm run test:watch`              | Vitest watch modu                               |
+| `npm run typecheck`               | `tsc --noEmit`                                  |
 
 Test scope sadece **pure logic** — puan formülü, streak kuralı, emoji arama,
 Türkçe relative time. RN/Supabase/React bileşenleri Vitest'te yüklenmiyor;
@@ -111,6 +111,24 @@ ALTER TABLE addictions
   ALTER COLUMN max_duration_minutes SET DEFAULT 9;
 ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS hidden_defaults text[] NOT NULL DEFAULT '{}';
+
+-- Reflection journal (private notes after a craving session)
+CREATE TABLE IF NOT EXISTS reflections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  session_id uuid REFERENCES craving_sessions(id) ON DELETE SET NULL,
+  addiction_id text NOT NULL,
+  outcome text NOT NULL CHECK (outcome IN ('resisted', 'gave_in')),
+  note text NOT NULL CHECK (char_length(note) BETWEEN 1 AND 500),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS reflections_user_created_idx
+  ON reflections (user_id, created_at DESC);
+ALTER TABLE reflections ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "owner_all" ON reflections
+  FOR ALL TO authenticated
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
 ```
 
 Hangisinin koştuğu hangisinin koşmadığı sende — `CREATE TABLE IF NOT EXISTS`
