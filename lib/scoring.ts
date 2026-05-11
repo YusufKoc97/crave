@@ -61,3 +61,30 @@ export function nextStreak(args: {
   }
   return 1;
 }
+
+/**
+ * Reduce a list of completed sessions into a 7-element array of
+ * resist counts for the last seven LOCAL calendar days. Index 0 is
+ * six days ago; index 6 is today. `nowMs` is configurable so this
+ * stays a pure function — pass Date.now() in production, a fixed
+ * timestamp in tests.
+ *
+ * Only 'resisted' outcomes count toward each bar. Sessions older than
+ * the 7-day window are silently dropped.
+ */
+export function weeklyResistCounts(args: {
+  sessions: ReadonlyArray<{ outcome: Outcome; createdAt: number }>;
+  nowMs: number;
+}): number[] {
+  const today = localDayKey(args.nowMs);
+  const counts = new Array(7).fill(0) as number[];
+  for (const s of args.sessions) {
+    if (s.outcome !== 'resisted') continue;
+    const day = localDayKey(s.createdAt);
+    // daysBetween returns negative when day > today, positive when older.
+    const delta = daysBetween(day, today);
+    if (delta < 0 || delta > 6) continue;
+    counts[6 - delta] += 1;
+  }
+  return counts;
+}

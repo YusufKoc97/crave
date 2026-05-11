@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,13 +7,23 @@ import { useSessions } from '@/context/SessionsContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAddictions } from '@/context/AddictionsContext';
 import { getUsername } from '@/lib/community';
+import { weeklyResistCounts } from '@/lib/scoring';
+import { WeeklyChart } from '@/components/WeeklyChart';
 import type { Addiction } from '@/constants/addictions';
 
 export default function ProfileScreen() {
-  const { totalPoints, wonToday, lostToday, momentum, streak } = useSessions();
+  const { sessions, totalPoints, wonToday, lostToday, momentum, streak } =
+    useSessions();
   const { user, signOut } = useAuth();
   const { addictions, removeAddiction } = useAddictions();
   const [username, setUsername] = useState<string | null>(null);
+
+  const weekly = useMemo(
+    () => weeklyResistCounts({ sessions, nowMs: Date.now() }),
+    [sessions]
+  );
+  const todayWeekday = new Date().getDay();
+  const hasAnyResist = weekly.some((c) => c > 0);
 
   useEffect(() => {
     if (!user) return;
@@ -83,6 +93,15 @@ export default function ProfileScreen() {
           </View>
         )}
       </View>
+
+      {hasAnyResist && (
+        <View style={styles.weekSection}>
+          <Text style={styles.sectionLabel}>SON 7 GÜN</Text>
+          <View style={styles.weekChartWrap}>
+            <WeeklyChart counts={weekly} todayWeekday={todayWeekday} />
+          </View>
+        </View>
+      )}
 
       <View style={styles.addictionsSection}>
         <View style={styles.sectionHeaderRow}>
@@ -369,8 +388,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
   },
+  weekSection: {
+    marginTop: 32,
+  },
+  weekChartWrap: {
+    marginTop: 12,
+  },
   addictionsSection: {
-    marginTop: 36,
+    marginTop: 32,
   },
   sectionHeaderRow: {
     flexDirection: 'row',

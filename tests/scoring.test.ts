@@ -4,6 +4,7 @@ import {
   daysBetween,
   localDayKey,
   nextStreak,
+  weeklyResistCounts,
 } from '@/lib/scoring';
 
 describe('calculateResistPoints', () => {
@@ -181,5 +182,73 @@ describe('nextStreak', () => {
         currentStreak: 5,
       })
     ).toBe(1);
+  });
+});
+
+describe('weeklyResistCounts', () => {
+  const NOW = new Date('2026-03-05T14:00:00').getTime();
+  const DAY = 86400000;
+
+  it('returns 7 zeros for an empty session list', () => {
+    expect(weeklyResistCounts({ sessions: [], nowMs: NOW })).toEqual([
+      0, 0, 0, 0, 0, 0, 0,
+    ]);
+  });
+
+  it('puts today in slot 6 and six-days-ago in slot 0', () => {
+    const counts = weeklyResistCounts({
+      sessions: [
+        { outcome: 'resisted', createdAt: NOW - 6 * DAY },
+        { outcome: 'resisted', createdAt: NOW },
+      ],
+      nowMs: NOW,
+    });
+    expect(counts[0]).toBe(1);
+    expect(counts[6]).toBe(1);
+    expect(counts.slice(1, 6)).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  it('counts multiple resists on the same day', () => {
+    const counts = weeklyResistCounts({
+      sessions: [
+        { outcome: 'resisted', createdAt: NOW - 3600000 }, // earlier today
+        { outcome: 'resisted', createdAt: NOW - 7200000 }, // earlier today
+        { outcome: 'resisted', createdAt: NOW - 10800000 }, // earlier today
+      ],
+      nowMs: NOW,
+    });
+    expect(counts[6]).toBe(3);
+  });
+
+  it('ignores gave_in sessions', () => {
+    const counts = weeklyResistCounts({
+      sessions: [
+        { outcome: 'gave_in', createdAt: NOW },
+        { outcome: 'gave_in', createdAt: NOW - DAY },
+      ],
+      nowMs: NOW,
+    });
+    expect(counts.every((c) => c === 0)).toBe(true);
+  });
+
+  it('drops sessions older than 7 days', () => {
+    const counts = weeklyResistCounts({
+      sessions: [
+        { outcome: 'resisted', createdAt: NOW - 30 * DAY },
+        { outcome: 'resisted', createdAt: NOW - 7 * DAY }, // exactly 7 days ago = boundary, out
+        { outcome: 'resisted', createdAt: NOW - 6 * DAY }, // 6 days ago = in
+      ],
+      nowMs: NOW,
+    });
+    expect(counts[0]).toBe(1);
+    expect(counts.reduce((a, b) => a + b)).toBe(1);
+  });
+
+  it('drops sessions in the future (delta < 0)', () => {
+    const counts = weeklyResistCounts({
+      sessions: [{ outcome: 'resisted', createdAt: NOW + DAY }],
+      nowMs: NOW,
+    });
+    expect(counts.every((c) => c === 0)).toBe(true);
   });
 });
