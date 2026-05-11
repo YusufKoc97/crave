@@ -13,6 +13,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { DEFAULT_ADDICTIONS } from '@/constants/addictions';
 import {
   COMMUNITY_FILTER_ORDER,
@@ -36,6 +37,7 @@ const PAGE_SIZE = 30;
 
 export default function CommunityScreen() {
   const { user } = useAuth();
+  const toast = useToast();
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -217,6 +219,7 @@ export default function CommunityScreen() {
             : p
         )
       );
+      toast.error('Beğeni kaydedilemedi. Tekrar dene.');
     } finally {
       likeInFlight.current.delete(post.id);
     }
@@ -361,9 +364,11 @@ export default function CommunityScreen() {
               setPosts((prev) => prev.filter((p) => p.id !== item.id));
               try {
                 await deletePost({ postId: item.id, userId: user.id });
+                toast.success('Gönderi silindi');
               } catch {
                 // Restore on failure.
                 setPosts(snapshot);
+                toast.error('Silinemedi. Tekrar dene.');
               }
             }}
             onReport={() => setReportTarget(item)}
@@ -435,6 +440,7 @@ export default function CommunityScreen() {
                 userId: user.id,
                 reason,
               });
+              toast.success('Bildirimin kayıt edildi');
             } catch {
               // Roll back the local mark; user can try again.
               setReportedIds((prev) => {
@@ -442,6 +448,7 @@ export default function CommunityScreen() {
                 next.delete(target.id);
                 return next;
               });
+              toast.error('Bildirim gönderilemedi. Tekrar dene.');
             }
           }}
         />
