@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { Card } from '@/components/Card';
+import { DEV_SKIP_AUTH } from '@/lib/devBypass';
 import { DEFAULT_ADDICTIONS } from '@/constants/addictions';
 import {
   COMMUNITY_FILTER_ORDER,
@@ -42,6 +43,7 @@ export default function CommunityScreen() {
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -247,7 +249,7 @@ export default function CommunityScreen() {
     []
   );
 
-  if (!user) {
+  if (!user && !DEV_SKIP_AUTH) {
     return (
       <View style={styles.gateRoot}>
         <Card variant="elevated" style={styles.gateIcon} borderRadius={32}>
@@ -287,9 +289,19 @@ export default function CommunityScreen() {
 
   return (
     <View style={styles.root}>
-      {/* Search bar */}
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={15} color="#6B8BA4" />
+      {/* Search bar — focus state lights up with the brand accent.
+          Idle is muted so it sits below the filter pills' attention. */}
+      <View
+        style={[
+          styles.searchBar,
+          searchFocused || search.length > 0 ? styles.searchBarActive : null,
+        ]}
+      >
+        <Ionicons
+          name="search"
+          size={15}
+          color={searchFocused || search.length > 0 ? '#7DC3FF' : '#6B8BA4'}
+        />
         <TextInput
           value={search}
           onChangeText={setSearch}
@@ -297,6 +309,8 @@ export default function CommunityScreen() {
           placeholderTextColor="#3D5470"
           style={styles.searchInput}
           returnKeyType="search"
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
         />
         {search.length > 0 && (
           <Pressable
@@ -305,7 +319,7 @@ export default function CommunityScreen() {
             accessibilityRole="button"
             accessibilityLabel="Aramayı temizle"
           >
-            <Ionicons name="close-circle" size={16} color="#3D5470" />
+            <Ionicons name="close-circle" size={16} color="#6B8BA4" />
           </Pressable>
         )}
       </View>
@@ -323,21 +337,49 @@ export default function CommunityScreen() {
             <Pressable
               key={String(pill.id)}
               onPress={() => setActiveFilter(pill.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${pill.label} filtresi`}
+              accessibilityState={{ selected: active }}
               style={[
                 styles.filterPill,
-                {
-                  borderColor: active ? hexToRgba(pill.color, 0.65) : '#1A2A45',
-                  backgroundColor: active
-                    ? hexToRgba(pill.color, 0.14)
-                    : '#0A1628',
-                },
+                active
+                  ? {
+                      // Active state: deeper accent fill + matching
+                      // halo. The 0.22 alpha background makes the
+                      // label readable against the colored fill while
+                      // staying obviously "selected" on a dark page.
+                      borderColor: hexToRgba(pill.color, 0.85),
+                      backgroundColor: hexToRgba(pill.color, 0.22),
+                      shadowColor: pill.color,
+                      shadowOffset: { width: 0, height: 0 },
+                      shadowOpacity: 0.45,
+                      shadowRadius: 8,
+                      elevation: 3,
+                      boxShadow: `0 0 10px ${hexToRgba(pill.color, 0.32)}, inset 0 1px 0 rgba(255,255,255,0.08)`,
+                    }
+                  : {
+                      borderColor: '#1E2D4D',
+                      backgroundColor: '#0A1628',
+                    },
               ]}
             >
-              <Text style={styles.pillEmoji}>{pill.emoji}</Text>
+              <Text
+                style={[
+                  styles.pillEmoji,
+                  active ? styles.pillEmojiActive : null,
+                ]}
+              >
+                {pill.emoji}
+              </Text>
               <Text
                 style={[
                   styles.pillLabel,
-                  { color: active ? hexToRgba(pill.color, 0.95) : '#94A3B8' },
+                  active
+                    ? {
+                        color: '#F1F5F9',
+                        fontWeight: '600',
+                      }
+                    : { color: '#94A3B8' },
                 ]}
               >
                 {pill.label}
@@ -365,7 +407,7 @@ export default function CommunityScreen() {
         renderItem={({ item }) => (
           <PostCard
             post={item}
-            isOwn={item.user_id === user.id}
+            isOwn={!!user && item.user_id === user.id}
             isReported={reportedIds.has(item.id)}
             onLike={() => onLike(item)}
             onEdit={() =>
@@ -375,6 +417,7 @@ export default function CommunityScreen() {
               })
             }
             onDelete={async () => {
+              if (!user) return;
               // Optimistic remove.
               const snapshot = posts;
               setPosts((prev) => prev.filter((p) => p.id !== item.id));
@@ -441,6 +484,7 @@ export default function CommunityScreen() {
           post={reportTarget}
           onCancel={() => setReportTarget(null)}
           onConfirm={async (reason) => {
+            if (!user) return;
             const target = reportTarget;
             setReportTarget(null);
             // Optimistic mark as reported regardless of server outcome —
@@ -659,15 +703,25 @@ const styles = StyleSheet.create({
     marginTop: 56,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    // Slightly warmer surface than the page bg + a touch of inset
-    // depth: the top edge picks up the alpha-white highlight via the
-    // inner border-glow trick (inset shadow on web; a thin 1px child
-    // View would work on native but inset is cleaner here).
     backgroundColor: '#0A1628',
     borderWidth: 1,
     borderColor: '#1E2D4D',
     borderRadius: 12,
     boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+  },
+  searchBarActive: {
+    // Lights up with the brand accent the moment focus lands or
+    // there's a query in flight. Subtle outer glow matches the gate
+    // CTA so primary input affordances feel coherent across screens.
+    borderColor: 'rgba(125, 195, 255, 0.55)',
+    backgroundColor: '#0D1E33',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 3,
+    boxShadow:
+      '0 0 12px rgba(59, 130, 246, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
   },
   searchInput: {
     flex: 1,
@@ -700,7 +754,10 @@ const styles = StyleSheet.create({
     boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.05)',
   },
   pillEmoji: {
-    fontSize: 12,
+    fontSize: 13,
+  },
+  pillEmojiActive: {
+    fontSize: 14,
   },
   pillLabel: {
     fontSize: 11.5,
