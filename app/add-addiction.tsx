@@ -12,6 +12,7 @@ import { useAddictions } from '@/context/AddictionsContext';
 import { maxMinutesFor } from '@/constants/addictions';
 import { emojiMatchesQuery } from '@/constants/emojiKeywords';
 import { useKeyboardShortcut } from '@/lib/useKeyboardShortcut';
+import { hapticCommit } from '@/lib/haptics';
 
 // 24-color curated palette ordered by hue (green → cyan → blue → purple →
 // pink → red → orange → yellow → neutral). Each value is hand-picked to
@@ -289,6 +290,7 @@ export default function AddAddictionScreen() {
 
   const submit = async () => {
     if (!canSubmit) return;
+    hapticCommit();
     setSubmitting(true);
     setSubmitError(null);
     try {

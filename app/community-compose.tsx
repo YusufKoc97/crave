@@ -11,6 +11,7 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { useKeyboardShortcut } from '@/lib/useKeyboardShortcut';
+import { hapticCommit } from '@/lib/haptics';
 import { DEFAULT_ADDICTIONS } from '@/constants/addictions';
 import {
   COMMUNITY_FILTER_ORDER,
@@ -75,6 +76,7 @@ export default function CommunityCompose() {
 
   const submit = async () => {
     if (!canSubmit || !user) return;
+    hapticCommit();
     setSubmitting(true);
     setSubmitError(null);
     try {

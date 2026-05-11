@@ -31,6 +31,7 @@ import {
   savePendingFinish,
   clearPendingFinish,
 } from '@/lib/activeSession';
+import { hapticCelebrate, hapticCommit } from '@/lib/haptics';
 
 const TIMER_SIZE = 220;
 const STROKE_WIDTH = 2;
@@ -274,6 +275,7 @@ export default function ActiveSession() {
       const bonus = sensitivity * 5;
       setCompletedCycles(currentCycle);
       setBonusFlash({ key: Date.now(), amount: bonus });
+      hapticCelebrate();
 
       // Ring/timer pulse: scale + opacity bloom.
       completePulse.value = withSequence(
@@ -338,6 +340,10 @@ export default function ActiveSession() {
   }));
 
   const finish = (outcome: 'resisted' | 'gave_in') => {
+    // Medium impact on either decision — both are "I committed to this".
+    // The win/loss differentiation comes later (celebration tap on the
+    // share banner branch only).
+    hapticCommit();
     const finalSeconds = Math.floor((Date.now() - startedAt.current) / 1000);
     let pointsEarned = 0;
 
@@ -388,6 +394,7 @@ export default function ActiveSession() {
     // On a win, hold the user on this screen and offer to share the moment.
     // On a loss, just bow out cleanly — no celebration prompt.
     if (outcome === 'resisted') {
+      hapticCelebrate();
       setShareBanner({ points: pointsEarned });
       return;
     }
