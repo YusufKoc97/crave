@@ -165,20 +165,45 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.root}>
-      {/* Single radial halo replacing the old three hard concentric discs.
-          A stack of overlapping outer boxShadow rings — each wider than
-          the last, falling in opacity — paints a continuous foggy
-          atmosphere from the center outward. Inner rings are deep blue
-          surfaces (what the three flat discs used to do); the two
-          outermost rings diffuse into faint neon brand-blue so the orb
-          reads as floating in a soft blue mist rather than sitting on
-          stacked PowerPoint plates. One element, one light source,
-          smooth tonal transition. */}
+      {/* Foggy radial atmosphere — single 1×1 anchor painted by a stack
+          of overlapping outer boxShadow rings, falling in opacity from
+          the center outward. The two outermost rings carry faint neon
+          brand-blue so the page bg meets the central area through a
+          soft blue mist instead of a flat black void. This sits BEHIND
+          the three ambient discs below; it doesn't replace them. */}
       <View
         pointerEvents="none"
         style={[
           styles.ambientHalo,
           { left: centerX - 0.5, top: centerY - 0.5 },
+        ]}
+      />
+
+      {/* Original three concentric ambient discs around the orb. Kept
+          as-is — the halo above only paints the atmospheric mist that
+          extends beyond their reach. */}
+      <View
+        pointerEvents="none"
+        style={[
+          styles.ambient,
+          styles.ambientOuter,
+          { left: centerX - 210, top: centerY - 210 },
+        ]}
+      />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.ambient,
+          styles.ambientMid,
+          { left: centerX - 155, top: centerY - 155 },
+        ]}
+      />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.ambient,
+          styles.ambientInner,
+          { left: centerX - 110, top: centerY - 110 },
         ]}
       />
 
@@ -457,6 +482,25 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#020810',
+  },
+  ambient: {
+    position: 'absolute',
+    borderRadius: 9999,
+  },
+  ambientOuter: {
+    width: 420,
+    height: 420,
+    backgroundColor: '#060F1E',
+  },
+  ambientMid: {
+    width: 310,
+    height: 310,
+    backgroundColor: '#091525',
+  },
+  ambientInner: {
+    width: 220,
+    height: 220,
+    backgroundColor: '#0D1E35',
   },
   ambientHalo: {
     // A 1×1 anchor at the center; the visible atmosphere is entirely
