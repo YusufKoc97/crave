@@ -190,6 +190,17 @@ export default function HomeScreen() {
         ]}
       />
 
+      {/* Off-center neon arcs. Two giant circles parked far offscreen so
+          only the very edge of each enters the frame from opposite
+          corners — a faint "rim of light" hint that breaks the symmetry
+          of the concentric ambient circles without touching the orb.
+          Tints split between brand blue (top-right) and a lighter
+          cyan-blue (bottom-left) so the two read as distinct light
+          sources, not a mirrored pair. Painted AFTER ambient circles
+          so the curve sits on top of the dark gradient. */}
+      <View pointerEvents="none" style={styles.accentArcTopRight} />
+      <View pointerEvents="none" style={styles.accentArcBottomLeft} />
+
       <View
         style={[
           styles.centerStack,
@@ -465,6 +476,46 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#020810',
+    // overflow:hidden keeps the off-screen accent arcs from leaking onto
+    // the document scrollbar in web preview.
+    overflow: 'hidden',
+  },
+  accentArcTopRight: {
+    // Quarter-arc parked far enough offscreen (top:-460, right:-380) that
+    // the boundary just clips the upper-right corner. Shadow blur kept
+    // small (24px) so the glow stays tight to the border line — anything
+    // bigger casts light into the orb area and looks dramatic.
+    position: 'absolute',
+    width: 760,
+    height: 760,
+    borderRadius: 380,
+    top: -460,
+    right: -380,
+    borderWidth: 1.4,
+    borderColor: 'rgba(125, 195, 255, 0.28)',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 18,
+    boxShadow: '0 0 24px rgba(59, 130, 246, 0.22)',
+  },
+  accentArcBottomLeft: {
+    // Counter-arc from the bottom-left. Slightly tighter, lighter cyan
+    // tint so the two corner lights read as separate sources, not a
+    // mirrored pair. Same tight-glow rule: 18px blur, no inset wash.
+    position: 'absolute',
+    width: 640,
+    height: 640,
+    borderRadius: 320,
+    bottom: -380,
+    left: -320,
+    borderWidth: 1.2,
+    borderColor: 'rgba(147, 197, 253, 0.22)',
+    shadowColor: '#60A5FA',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    boxShadow: '0 0 22px rgba(96, 165, 250, 0.18)',
   },
   ambient: {
     position: 'absolute',
