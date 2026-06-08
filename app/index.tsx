@@ -54,14 +54,17 @@ export default function Index() {
     );
   }
 
-  if (!onboardingDone) {
-    return <Redirect href="/(onboarding)" />;
-  }
-
-  // Dev bypass — skip every auth/username gate and drop straight on the
-  // orb. Lets the screen be inspected when Supabase is paused/unreachable.
+  // Dev bypass — skip every gate (onboarding + auth + username) and drop
+  // straight on the orb. Lets the screen be inspected when Supabase is
+  // paused/unreachable, and avoids re-doing the age gate on every reload.
+  // Runs BEFORE the onboarding check on purpose: in DEV we never want the
+  // verification screen to block UI iteration.
   if (DEV_SKIP_AUTH) {
     return <Redirect href="/(tabs)" />;
+  }
+
+  if (!onboardingDone) {
+    return <Redirect href="/(onboarding)" />;
   }
 
   if (!session) {
