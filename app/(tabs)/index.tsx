@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -21,6 +22,26 @@ import { router } from 'expo-router';
 import { type Addiction, maxMinutesFor } from '@/constants/addictions';
 import { useAddictions } from '@/context/AddictionsContext';
 import { NeonRing } from '@/components/NeonRing';
+
+// Web-only `animation` shorthand — RN's StyleSheet has no equivalent, but
+// react-native-web passes unrecognised style props straight through to the
+// underlying DOM node. Cast to `any` so TS doesn't choke on the non-RN key.
+// On native these objects are still passed but ignored.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const BREATH_STYLE_INNER: any = Platform.select({
+  web: { animation: 'crave-breath-inner 4400ms ease-in-out infinite' },
+  default: {},
+});
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const BREATH_STYLE_MID: any = Platform.select({
+  web: { animation: 'crave-breath-mid 4400ms ease-in-out infinite' },
+  default: {},
+});
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const BREATH_STYLE_OUTER: any = Platform.select({
+  web: { animation: 'crave-breath-outer 4400ms ease-in-out infinite' },
+  default: {},
+});
 
 const ORB_SIZE = 168;
 const ORB_SELECTING_SCALE = 0.5;
@@ -47,6 +68,44 @@ export default function HomeScreen() {
   const innerGlowOpacity = useSharedValue(0);
   const innerGlowPulse = useSharedValue(0);
   const progress = useSharedValue(0);
+
+  // Slow ambient "breath" — three concentric discs scale ever-so-slightly
+  // in and out on a continuous loop so the screen feels alive instead of
+  // printed. Implementation goes through CSS @keyframes injected into the
+  // document on web; on native this useEffect is a no-op and the discs
+  // render static (Reanimated/Animated paths both failed to drive a
+  // mount-time loop in the RN Web bundle for this layout, so CSS is the
+  // pragmatic answer for the platform that actually matters today).
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const id = 'crave-ambient-breath-keyframes';
+    if (document.getElementById(id)) return;
+    const el = document.createElement('style');
+    el.id = id;
+    el.textContent = `
+      @keyframes crave-breath-inner {
+        0%, 100% { transform: scale(1); }
+        50%      { transform: scale(1.030); }
+      }
+      @keyframes crave-breath-mid {
+        /* Slight counter-phase + smaller amplitude so the layers don't
+           move in lockstep — the eye reads it as organic, not a
+           uniform pulsation. */
+        0%, 100% { transform: scale(1.012); }
+        50%      { transform: scale(1.000); }
+      }
+      @keyframes crave-breath-outer {
+        0%, 100% { transform: scale(1); }
+        50%      { transform: scale(1.010); }
+      }
+    `;
+    document.head.appendChild(el);
+    return () => {
+      // Leave the stylesheet behind on unmount — adding & removing
+      // <style> on every nav causes a frame flash. The keyframes are
+      // cheap.
+    };
+  }, []);
 
   const total = addictions.length;
 
@@ -179,15 +238,16 @@ export default function HomeScreen() {
         ]}
       />
 
-      {/* Original three concentric ambient discs around the orb. Kept
-          as-is — the halo above only paints the atmospheric mist that
-          extends beyond their reach. */}
+      {/* Three concentric ambient discs around the orb. Web bundle gets
+          the CSS @keyframes breath above (innermost most pronounced,
+          outermost barely moves); native renders them static. */}
       <View
         pointerEvents="none"
         style={[
           styles.ambient,
           styles.ambientOuter,
           { left: centerX - 210, top: centerY - 210 },
+          BREATH_STYLE_OUTER,
         ]}
       />
       <View
@@ -196,6 +256,7 @@ export default function HomeScreen() {
           styles.ambient,
           styles.ambientMid,
           { left: centerX - 155, top: centerY - 155 },
+          BREATH_STYLE_MID,
         ]}
       />
       <View
@@ -204,6 +265,7 @@ export default function HomeScreen() {
           styles.ambient,
           styles.ambientInner,
           { left: centerX - 110, top: centerY - 110 },
+          BREATH_STYLE_INNER,
         ]}
       />
 
