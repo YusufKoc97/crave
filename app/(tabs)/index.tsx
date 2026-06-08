@@ -165,41 +165,22 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.root}>
+      {/* Single radial halo replacing the old three hard concentric discs.
+          A stack of overlapping outer boxShadow rings — each wider than
+          the last, falling in opacity — paints a continuous foggy
+          atmosphere from the center outward. Inner rings are deep blue
+          surfaces (what the three flat discs used to do); the two
+          outermost rings diffuse into faint neon brand-blue so the orb
+          reads as floating in a soft blue mist rather than sitting on
+          stacked PowerPoint plates. One element, one light source,
+          smooth tonal transition. */}
       <View
         pointerEvents="none"
         style={[
-          styles.ambient,
-          styles.ambientOuter,
-          { left: centerX - 210, top: centerY - 210 },
+          styles.ambientHalo,
+          { left: centerX - 0.5, top: centerY - 0.5 },
         ]}
       />
-      <View
-        pointerEvents="none"
-        style={[
-          styles.ambient,
-          styles.ambientMid,
-          { left: centerX - 155, top: centerY - 155 },
-        ]}
-      />
-      <View
-        pointerEvents="none"
-        style={[
-          styles.ambient,
-          styles.ambientInner,
-          { left: centerX - 110, top: centerY - 110 },
-        ]}
-      />
-
-      {/* Off-center neon arcs. Two giant circles parked far offscreen so
-          only the very edge of each enters the frame from opposite
-          corners — a faint "rim of light" hint that breaks the symmetry
-          of the concentric ambient circles without touching the orb.
-          Tints split between brand blue (top-right) and a lighter
-          cyan-blue (bottom-left) so the two read as distinct light
-          sources, not a mirrored pair. Painted AFTER ambient circles
-          so the curve sits on top of the dark gradient. */}
-      <View pointerEvents="none" style={styles.accentArcTopRight} />
-      <View pointerEvents="none" style={styles.accentArcBottomLeft} />
 
       <View
         style={[
@@ -476,65 +457,45 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#020810',
-    // overflow:hidden keeps the off-screen accent arcs from leaking onto
-    // the document scrollbar in web preview.
-    overflow: 'hidden',
   },
-  accentArcTopRight: {
-    // Quarter-arc parked far enough offscreen (top:-460, right:-380) that
-    // the boundary just clips the upper-right corner. Shadow blur kept
-    // small (24px) so the glow stays tight to the border line — anything
-    // bigger casts light into the orb area and looks dramatic.
+  ambientHalo: {
+    // A 1×1 anchor at the center; the visible atmosphere is entirely
+    // painted by the stacked boxShadow below. Each ring is wider than
+    // the last (via spread), with falling opacity, so the falloff is
+    // perceptually continuous — no banding, no hard disc edges. The
+    // inner rings carry deep blue surfaces; the two outermost rings
+    // diffuse into faint brand-blue (#3B82F6) so the page bg meets the
+    // halo through a soft neon mist instead of a flat black void.
+    //
+    // Web-only effect — boxShadow with multiple stops is RN Web's only
+    // way to fake a radial gradient. Native iOS/Android render the
+    // first (innermost) shadow and ignore the rest, which still looks
+    // better than the three flat discs we had before.
     position: 'absolute',
-    width: 760,
-    height: 760,
-    borderRadius: 380,
-    top: -460,
-    right: -380,
-    borderWidth: 1.4,
-    borderColor: 'rgba(125, 195, 255, 0.28)',
-    shadowColor: '#3B82F6',
+    width: 1,
+    height: 1,
+    borderRadius: 0.5,
+    backgroundColor: 'transparent',
+    shadowColor: '#0D1E35',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 18,
-    boxShadow: '0 0 24px rgba(59, 130, 246, 0.22)',
-  },
-  accentArcBottomLeft: {
-    // Counter-arc from the bottom-left. Slightly tighter, lighter cyan
-    // tint so the two corner lights read as separate sources, not a
-    // mirrored pair. Same tight-glow rule: 18px blur, no inset wash.
-    position: 'absolute',
-    width: 640,
-    height: 640,
-    borderRadius: 320,
-    bottom: -380,
-    left: -320,
-    borderWidth: 1.2,
-    borderColor: 'rgba(147, 197, 253, 0.22)',
-    shadowColor: '#60A5FA',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    boxShadow: '0 0 22px rgba(96, 165, 250, 0.18)',
-  },
-  ambient: {
-    position: 'absolute',
-    borderRadius: 9999,
-  },
-  ambientOuter: {
-    width: 420,
-    height: 420,
-    backgroundColor: '#060F1E',
-  },
-  ambientMid: {
-    width: 310,
-    height: 310,
-    backgroundColor: '#091525',
-  },
-  ambientInner: {
-    width: 220,
-    height: 220,
-    backgroundColor: '#0D1E35',
+    shadowOpacity: 1,
+    shadowRadius: 80,
+    boxShadow: [
+      // Inner dense core — replaces what the old ambientInner disc did.
+      '0 0 50px 70px rgba(15, 36, 66, 0.65)',
+      // First fade — replaces ambientMid.
+      '0 0 90px 110px rgba(12, 30, 56, 0.45)',
+      // Second fade — replaces ambientOuter, slightly bluer.
+      '0 0 140px 150px rgba(10, 26, 50, 0.32)',
+      // Atmospheric extension — pulls the halo well beyond the icon ring.
+      '0 0 200px 190px rgba(14, 30, 56, 0.18)',
+      // Neon brand-blue diffuse — the "buğulu mavi" hint the page bg
+      // was missing. Faint enough to read as atmosphere, not a ring.
+      '0 0 280px 220px rgba(59, 130, 246, 0.08)',
+      // Far-edge soft neon — feathers into the page bg so the boundary
+      // between halo and #020810 is imperceptible.
+      '0 0 380px 260px rgba(96, 165, 250, 0.04)',
+    ].join(', '),
   },
   centerStack: {
     position: 'absolute',
