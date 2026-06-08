@@ -42,6 +42,15 @@ const BREATH_STYLE_OUTER: any = Platform.select({
   web: { animation: 'crave-breath-outer 4400ms ease-in-out infinite' },
   default: {},
 });
+// Main RESIST orb breath — same 4.4s cycle as the discs so the whole
+// composition shares one cadence, but a much gentler amplitude
+// (1.000 ↔ 1.008) since the orb is the focal element; anything larger
+// would distract from RESIST.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const BREATH_STYLE_ORB: any = Platform.select({
+  web: { animation: 'crave-breath-orb 4400ms ease-in-out infinite' },
+  default: {},
+});
 
 const ORB_SIZE = 168;
 const ORB_SELECTING_SCALE = 0.5;
@@ -97,6 +106,14 @@ export default function HomeScreen() {
       @keyframes crave-breath-outer {
         0%, 100% { transform: scale(1); }
         50%      { transform: scale(1.010); }
+      }
+      @keyframes crave-breath-orb {
+        /* Same phase as the inner disc so the focal element and its
+           closest frame share one breath. Amplitude is ~3.5x smaller
+           than the inner disc — gentle enough that the eye reads
+           "alive" without the orb itself feeling busy. */
+        0%, 100% { transform: scale(1); }
+        50%      { transform: scale(1.008); }
       }
     `;
     document.head.appendChild(el);
@@ -289,7 +306,10 @@ export default function HomeScreen() {
         />
 
         <Animated.View style={[styles.orbWrap, orbStyle]}>
-          <Pressable onPress={onOrbPress} style={styles.orb}>
+          <Pressable
+            onPress={onOrbPress}
+            style={[styles.orb, BREATH_STYLE_ORB]}
+          >
             <Animated.Text style={[styles.orbText, orbTextStyle]}>
               RESIST
             </Animated.Text>
