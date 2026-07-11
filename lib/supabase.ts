@@ -19,14 +19,12 @@ const supabaseAnonKey =
  * Missing any of those slots collapses the inferred row types to `never`,
  * which is why the codebase used to be peppered with TS2769 / TS2339 noise.
  *
- * Insert-only tables (forum_likes, forum_reports, momentum_log) keep an
- * empty `Update` object — postgrest-js requires the slot, but the table
- * is RLS-locked against UPDATE on the server.
+ * Insert-only tables (momentum_log) keep an empty `Update` object —
+ * postgrest-js requires the slot, but the table is RLS-locked against
+ * UPDATE on the server.
  *
- * Relationships are listed where postgrest-js needs them to resolve embed
- * queries (forum_posts → profiles via the explicit FK). Tables we don't
- * embed from leave Relationships empty so the type still satisfies
- * GenericTable.
+ * Relationships are empty for all tables here — we don't do any embed
+ * queries after the Faz 1 cleanup removed the community feed.
  */
 export type Database = {
   public: {
@@ -142,92 +140,6 @@ export type Database = {
           user_id: string;
           value: number;
         };
-        Update: Record<string, never>;
-        Relationships: [];
-      };
-      forum_posts: {
-        Row: {
-          id: string;
-          user_id: string;
-          addiction_id: string;
-          content: string;
-          like_count: number;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          addiction_id: string;
-          content: string;
-        };
-        Update: {
-          content?: string;
-        };
-        // Embedded select uses this FK alias verbatim; see lib/community.ts
-        // (`profiles!forum_posts_user_id_fkey(username)`).
-        Relationships: [
-          {
-            foreignKeyName: 'forum_posts_user_id_fkey';
-            columns: ['user_id'];
-            isOneToOne: false;
-            referencedRelation: 'profiles';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
-      forum_likes: {
-        Row: {
-          post_id: string;
-          user_id: string;
-          created_at: string;
-        };
-        Insert: {
-          post_id: string;
-          user_id: string;
-        };
-        Update: Record<string, never>;
-        Relationships: [];
-      };
-      forum_reports: {
-        Row: {
-          id: string;
-          post_id: string;
-          reporter_id: string;
-          reason: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          post_id: string;
-          reporter_id: string;
-          reason: string;
-        };
-        Update: Record<string, never>;
-        Relationships: [];
-      };
-      reflections: {
-        Row: {
-          id: string;
-          user_id: string;
-          // Nullable because a session row may be missing (DEV bypass)
-          // or deleted later (ON DELETE SET NULL on the FK).
-          session_id: string | null;
-          addiction_id: string;
-          outcome: 'resisted' | 'gave_in';
-          note: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          session_id?: string | null;
-          addiction_id: string;
-          outcome: 'resisted' | 'gave_in';
-          note: string;
-        };
-        // Notes are write-once on purpose — editing a past reflection
-        // erodes its honesty. Delete + re-add if the user really wants
-        // a do-over.
         Update: Record<string, never>;
         Relationships: [];
       };

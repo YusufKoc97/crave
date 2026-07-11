@@ -33,8 +33,8 @@ export default defineConfig({
       include: [
         'lib/scoring.ts',
         'lib/auth.ts',
-        'lib/community.ts',
         'lib/onboarding.ts',
+        'lib/profile.ts',
         'constants/emojiKeywords.ts',
       ],
     },

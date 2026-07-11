@@ -3,7 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { isOnboardingCompleted } from '@/lib/onboarding';
-import { getUsername } from '@/lib/community';
+import { getUsername } from '@/lib/profile';
 import { DEV_SKIP_AUTH } from '@/lib/devBypass';
 import { colors } from '@/constants/theme';
 

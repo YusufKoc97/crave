@@ -406,24 +406,6 @@ export default function ActiveSession() {
     router.back();
   };
 
-  const goShare = () => {
-    if (!params.id || !params.name) return;
-    // Custom addictions are not eligible — guard at the call site too.
-    if (params.id.startsWith('custom-')) {
-      dismissAfterShareDecision();
-      return;
-    }
-    // Replace this modal with the compose modal so closing compose returns
-    // straight to the home tab, not back to a now-finished active-session.
-    router.replace({
-      pathname: '/community-compose',
-      params: {
-        addictionId: params.id,
-        prefill: `Az önce ${params.name}'a karşı dayanıp kazandım. `,
-      },
-    });
-  };
-
   return (
     <View style={styles.root}>
       {Platform.OS === 'web' && (
@@ -531,13 +513,13 @@ export default function ActiveSession() {
 
       <View style={styles.btnArea}>
         {shareBanner ? (
+          // Community feed Faz 1'de kaldırıldı — banner artık sadece
+          // "kazandın" onayı gösteriyor + Bitir. Ne şuraya paylaş linki
+          // ne de yoğunluk sorusu var (yoğunluk Faz 5'te gelecek).
           <View style={styles.shareBanner}>
             <Text style={styles.shareTitle}>
               <Text style={{ color: accentColor }}>+{shareBanner.points} </Text>
               <Text style={{ color: '#F1F5F9' }}>puan kazandın</Text>
-            </Text>
-            <Text style={styles.shareSubtitle}>
-              Bu anı toplulukla paylaşmak ister misin?
             </Text>
             <View style={styles.shareBtnRow}>
               <Pressable
@@ -546,50 +528,7 @@ export default function ActiveSession() {
               >
                 <Text style={styles.dismissText}>Bitir</Text>
               </Pressable>
-              {!params.id?.startsWith('custom-') && (
-                <Pressable
-                  style={[
-                    styles.shareBtn,
-                    {
-                      borderColor: accentColor,
-                      backgroundColor: hexWithAlpha(accentColor, 0.16),
-                      shadowColor: accentColor,
-                      shadowOffset: { width: 0, height: 0 },
-                      shadowOpacity: 0.5,
-                      shadowRadius: 10,
-                      elevation: 3,
-                      boxShadow: `0 0 12px ${hexWithAlpha(accentColor, 0.28)}, inset 0 1px 0 rgba(255, 255, 255, 0.08)`,
-                    },
-                  ]}
-                  onPress={goShare}
-                >
-                  <Text style={[styles.shareBtnText, { color: accentColor }]}>
-                    Bunu paylaş
-                  </Text>
-                </Pressable>
-              )}
             </View>
-            <Pressable
-              style={styles.reflectLink}
-              onPress={() => {
-                setShareBanner(null);
-                router.replace({
-                  pathname: '/reflect',
-                  params: {
-                    sessionId: sessionId.current ?? '',
-                    addictionId: params.id ?? '',
-                    addictionName: params.name ?? '',
-                    emoji: params.emoji ?? '',
-                    color: accentColor,
-                    outcome: 'resisted',
-                  },
-                });
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Bu ana özel not bırak"
-            >
-              <Text style={styles.reflectLinkText}>+ Bu ana not bırak</Text>
-            </Pressable>
           </View>
         ) : (
           <>
@@ -844,12 +783,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
-  shareSubtitle: {
-    marginTop: 4,
-    color: '#94A3B8',
-    fontSize: 12.5,
-    fontWeight: '400',
-  },
   shareBtnRow: {
     flexDirection: 'row',
     gap: 10,
@@ -871,30 +804,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     letterSpacing: 0.5,
-  },
-  shareBtn: {
-    flex: 1.4,
-    height: 44,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shareBtnText: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-  },
-  reflectLink: {
-    marginTop: 14,
-    alignSelf: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  reflectLinkText: {
-    color: '#7BA8C8',
-    fontSize: 12,
-    fontWeight: '500',
-    letterSpacing: 0.3,
   },
 });

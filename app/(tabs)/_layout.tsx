@@ -11,10 +11,11 @@ type IoniconName = keyof typeof Ionicons.glyphMap;
 const TAB_ICONS: Record<string, { idle: IoniconName; active: IoniconName }> = {
   profile: { idle: 'person-outline', active: 'person' },
   index: { idle: 'home-outline', active: 'home' },
-  community: { idle: 'chatbubble-outline', active: 'chatbubble' },
 };
 
-const TAB_ORDER = ['profile', 'index', 'community'];
+// Community sekmesi Faz 1 cleanup'ta kaldırıldı. Yerine Faz 4'te "Bilgi"
+// sekmesi gelecek — o zaman bu listeye 'info' eklenecek.
+const TAB_ORDER = ['profile', 'index'];
 
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const orderedRoutes = TAB_ORDER.map((name) =>
@@ -89,7 +90,6 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="profile" />
       <Tabs.Screen name="index" />
-      <Tabs.Screen name="community" />
     </Tabs>
   );
 }

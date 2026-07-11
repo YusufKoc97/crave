@@ -6,7 +6,7 @@ import { colors } from '@/constants/theme';
 import { useSessions } from '@/context/SessionsContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAddictions } from '@/context/AddictionsContext';
-import { getUsername } from '@/lib/community';
+import { getUsername } from '@/lib/profile';
 import { weeklyResistCounts } from '@/lib/scoring';
 import { WeeklyChart } from '@/components/WeeklyChart';
 import { Card } from '@/components/Card';
@@ -142,18 +142,6 @@ export default function ProfileScreen() {
 
       {user && (
         <View style={styles.bottomSection}>
-          <Pressable
-            onPress={() => router.push('/assistant')}
-            style={styles.assistantBtn}
-            hitSlop={6}
-          >
-            <Ionicons
-              name="chatbubble-ellipses-outline"
-              size={14}
-              color="#7DC3FF"
-            />
-            <Text style={styles.assistantBtnText}>Yardımcıyla konuş</Text>
-          </Pressable>
           <Text style={styles.emailLabel}>{user.email}</Text>
           <Pressable onPress={onSignOut} style={styles.signOutBtn} hitSlop={6}>
             <Text style={styles.signOutText}>Çıkış yap</Text>
@@ -511,31 +499,6 @@ const styles = StyleSheet.create({
   bottomSection: {
     alignItems: 'center',
     marginTop: 36,
-  },
-  assistantBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(125, 195, 255, 0.5)',
-    backgroundColor: 'rgba(59, 130, 246, 0.14)',
-    marginBottom: 18,
-    shadowColor: '#3B82F6',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 3,
-    boxShadow:
-      '0 0 12px rgba(59, 130, 246, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
-  },
-  assistantBtnText: {
-    color: '#7DC3FF',
-    fontSize: 12.5,
-    fontWeight: '600',
-    letterSpacing: 0.4,
   },
   emailLabel: {
     color: '#6B8BA4',

@@ -4,8 +4,7 @@ Türkçe konuşulan, dürüstlüğe dayalı bir bağımlılık geri kazanım uyg
 Bir dürtü hissettiğinde **RESIST** orb'una basarsın; tetiklediğin dürtü için
 bir zamanlayıcı başlar. Saniyeler geçtikçe puan birikir; dolduran her cycle
 ekstra bonus verir. Sonunda **I Resisted** ya da **I gave in** dersin —
-ikincisi puan kırmaz, streak'i sadece dondurur. Kazandığında anı toplulukla
-paylaşabilirsin.
+ikincisi puan kırmaz, streak'i sadece dondurur.
 
 Gamification yok. Cezalandırma yok. Dignified bir ton.
 
@@ -15,9 +14,8 @@ Gamification yok. Cezalandırma yok. Dignified bir ton.
 - **expo-router 6** (file-based routing)
 - **Reanimated 4** (worklets, UI thread animasyonları)
 - **react-native-svg** (timer arc)
-- **Supabase JS v2** (auth + Postgres + realtime + edge functions)
+- **Supabase JS v2** (auth + Postgres + edge functions)
 - **AsyncStorage** (offline cache + active session snapshot)
-- **Anthropic SDK** (yardımcı chat — Supabase Edge Function proxy üzerinden)
 
 ## Kurulum
 
@@ -28,8 +26,6 @@ npm install
 cat > .env.local << 'EOF'
 EXPO_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 EXPO_PUBLIC_SUPABASE_ANON_KEY=YOUR_ANON_KEY
-# İsteğe bağlı — AI asistan için (aşağıdaki migration + edge function bölümüne bak)
-# EXPO_PUBLIC_ASSISTANT_URL=https://YOUR_PROJECT.supabase.co/functions/v1/assistant
 EOF
 npx expo start --web    # ya da --ios / --android
 ```
@@ -71,38 +67,17 @@ trigger ve RLS politikalarını oluşturan ilk SQL — repo'nun ilk commit'inde.
 ### Sonraki additive migrasyonlar
 
 ```sql
--- Community özelliği
-CREATE TABLE IF NOT EXISTS forum_posts (...);
-CREATE TABLE IF NOT EXISTS forum_likes (...);
--- forum_posts.like_count trigger'ı
 -- profiles'a momentum + streak kolonları
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS momentum int NOT NULL DEFAULT 50,
+  ADD COLUMN IF NOT EXISTS streak int NOT NULL DEFAULT 0;
 
--- Username uniqueness
+-- Username uniqueness (handle, Modül 4 için saklanıyor)
 ALTER TABLE profiles
   ADD CONSTRAINT profiles_username_unique UNIQUE (username);
 
--- Post moderation (rapor mekanizması)
-CREATE TABLE IF NOT EXISTS forum_reports (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  post_id uuid NOT NULL REFERENCES forum_posts(id) ON DELETE CASCADE,
-  reporter_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  reason text NOT NULL CHECK (char_length(reason) BETWEEN 1 AND 64),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (post_id, reporter_id)
-);
-ALTER TABLE forum_reports ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "reporter_insert" ON forum_reports
-  FOR INSERT TO authenticated WITH CHECK (reporter_id = auth.uid());
-CREATE POLICY "reporter_read" ON forum_reports
-  FOR SELECT TO authenticated USING (reporter_id = auth.uid());
-
--- forum_likes cascade on post delete (gerekirse)
-ALTER TABLE forum_likes
-  DROP CONSTRAINT forum_likes_post_id_fkey,
-  ADD CONSTRAINT forum_likes_post_id_fkey
-    FOREIGN KEY (post_id) REFERENCES forum_posts(id) ON DELETE CASCADE;
-
 -- Custom addiction multi-device sync
+-- (Faz 2'de 20 sabit katalog gelecek, bu tablo o zaman revize edilecek.)
 ALTER TABLE addictions
   ADD COLUMN IF NOT EXISTS color text NOT NULL DEFAULT '#10B981',
   ADD COLUMN IF NOT EXISTS sensitivity int NOT NULL DEFAULT 5;
@@ -111,74 +86,23 @@ ALTER TABLE addictions
   ALTER COLUMN max_duration_minutes SET DEFAULT 9;
 ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS hidden_defaults text[] NOT NULL DEFAULT '{}';
-
--- Reflection journal (private notes after a craving session)
-CREATE TABLE IF NOT EXISTS reflections (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  session_id uuid REFERENCES craving_sessions(id) ON DELETE SET NULL,
-  addiction_id text NOT NULL,
-  outcome text NOT NULL CHECK (outcome IN ('resisted', 'gave_in')),
-  note text NOT NULL CHECK (char_length(note) BETWEEN 1 AND 500),
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS reflections_user_created_idx
-  ON reflections (user_id, created_at DESC);
-ALTER TABLE reflections ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "owner_all" ON reflections
-  FOR ALL TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid());
 ```
 
 Hangisinin koştuğu hangisinin koşmadığı sende — `CREATE TABLE IF NOT EXISTS`
 ve `ADD COLUMN IF NOT EXISTS` ile tekrar çalıştırmak güvenli.
 
-## AI Yardımcı (İsteğe Bağlı)
+### Faz 1 cleanup DROP
 
-`/assistant` ekranı, kullanıcı dürtü anında konuşabileceği Türkçe bir asistan
-sunuyor. Anthropic API anahtarı **client'ta tutulamaz** — bir Supabase Edge
-Function üzerinden proxy edilir.
+Community feed, reflection journal ve AI asistan Faz 1'de kaldırıldı.
+DB'de kalan tablolar aşağıdaki SQL ile bırakılır:
 
-`supabase/functions/assistant/index.ts`:
-
-```ts
-import Anthropic from 'npm:@anthropic-ai/sdk';
-
-const client = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
-
-Deno.serve(async (req) => {
-  // verify JWT (verify-jwt=true on deploy)
-  const { messages, system } = await req.json();
-  const result = await client.messages.create({
-    model: 'claude-haiku-4-5',
-    max_tokens: 1024,
-    system,
-    messages,
-  });
-  const text = result.content
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text)
-    .join('');
-  return Response.json({ text });
-});
+```sql
+DROP TABLE IF EXISTS forum_reports CASCADE;
+DROP TABLE IF EXISTS forum_likes   CASCADE;
+DROP TABLE IF EXISTS forum_posts   CASCADE;
+DROP TABLE IF EXISTS reflections   CASCADE;
+-- profiles.username kolonu Modül 4 için tutuluyor (handle bilgisi).
 ```
-
-Deploy:
-
-```bash
-supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-supabase functions deploy assistant   # verify-jwt=true varsayılan
-```
-
-`.env.local`'a `EXPO_PUBLIC_ASSISTANT_URL` ekle. Eklenmezse `/assistant` ekranı
-"henüz ayarlı değil" empty state'i gösterir, çökmez.
-
-## Realtime
-
-Community feed Supabase realtime channel kullanıyor. Supabase dashboard →
-**Database → Replication → `supabase_realtime` publication**'da `forum_posts`
-için INSERT olayını enable etmek gerekiyor.
 
 ## Proje Hafızası
 

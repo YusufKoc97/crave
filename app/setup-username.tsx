@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
-import { setUsername as persistUsername } from '@/lib/community';
+import { setUsername as persistUsername } from '@/lib/profile';
 
 async function handleSignOut(signOut: () => Promise<void>) {
   await signOut();
@@ -20,10 +20,11 @@ const MIN_LEN = 3;
 const MAX_LEN = 24;
 
 /**
- * One-shot post-auth gate that captures a community handle. Routed into
- * by app/index.tsx whenever the active session has a profile with a
- * null/empty username. Once saved we send the user back to '/' so the
- * router decides where they truly belong (typically /(tabs)).
+ * Post-auth handle capture. Optional after the Faz 1 cleanup — community
+ * feed is gone, so a handle is no longer needed to participate; it will
+ * become relevant again when Modül 4 (Anonim Kıyaslama) lands. A skip
+ * button below "Devam et" lets the user proceed to /(tabs) without
+ * setting one; they can revisit the setup from the profile screen later.
  */
 export default function SetupUsernameScreen() {
   const { user, signOut } = useAuth();
@@ -61,10 +62,10 @@ export default function SetupUsernameScreen() {
     <View style={styles.root}>
       <View style={styles.center}>
         <Text style={styles.kicker}>NEREDEYSE BİTTİ</Text>
-        <Text style={styles.title}>Toplulukta nasıl görünmek istersin?</Text>
+        <Text style={styles.title}>Nasıl görünmek istersin?</Text>
         <Text style={styles.subtitle}>
-          Bu kullanıcı adı, paylaşımlarında görünür. Sonra profil ekranından
-          değiştirebilirsin.
+          İleride kıyaslama ve profil ekranında bu ad kullanılacak. Şimdi
+          atlayabilirsin, sonra profil ekranından ayarlayabilirsin.
         </Text>
 
         <View style={styles.fieldGroup}>
@@ -130,6 +131,17 @@ export default function SetupUsernameScreen() {
               Devam et
             </Text>
           )}
+        </Pressable>
+        {/* Skip → community feed'in kaldırılmasından sonra handle artık
+            zorunlu değil. Kullanıcı doğrudan /(tabs)'e düşer; profil
+            ekranından sonra ayarlayabilir. */}
+        <Pressable
+          onPress={() => router.replace('/')}
+          disabled={saving}
+          hitSlop={8}
+          style={styles.skipLink}
+        >
+          <Text style={styles.skipLinkText}>Şimdilik atla</Text>
         </Pressable>
       </View>
     </View>
@@ -231,5 +243,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  skipLink: {
+    alignSelf: 'center',
+    marginTop: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  skipLinkText: {
+    color: '#7BA8C8',
+    fontSize: 12.5,
+    fontWeight: '500',
+    letterSpacing: 0.4,
   },
 });
