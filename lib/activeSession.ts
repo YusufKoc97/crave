@@ -2,7 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ID_KEY = 'active_craving_session_id';
 const SNAPSHOT_KEY = 'active_craving_snapshot';
-const PENDING_FINISH_KEY = 'pending_finish_v1';
+// Bumped in Faz 3 — payload shape changed from a full craving_sessions
+// UPDATE to a resolve-craving invoke. Old blobs on disk from v1 are
+// silently ignored so the client doesn't try to replay a dead schema.
+const PENDING_FINISH_KEY = 'pending_finish_v2';
 
 /**
  * Lightweight snapshot of an in-flight craving so the app can resume even
@@ -69,25 +72,25 @@ export async function getActiveSnapshot(): Promise<ActiveSnapshot | null> {
 }
 
 /**
- * The UPDATE that finalises a craving_sessions row to status='completed'
- * is fire-and-forget — if the network drops between the user tapping "I
- * Resisted" and the request hitting Supabase, the row stays stuck at
- * 'active' forever and the row's PARTIAL UNIQUE INDEX (user_id where
- * status='active') blocks the next session.
+ * The `resolve-craving` Edge Function invocation is fire-and-forget —
+ * if the network drops between the user tapping "I Resisted" and the
+ * request hitting Supabase, the row stays stuck at 'active' forever
+ * and the PARTIAL UNIQUE INDEX (user_id where status='active') blocks
+ * the next session.
  *
- * We stash the finish payload locally the moment we kick off the call,
- * clear it on success, and ActiveSessionRestorer replays whatever's
- * left on the next cold launch.
+ * We stash the resolve request the moment we kick it off, clear it on
+ * success, and ActiveSessionRestorer replays whatever's left on the
+ * next cold launch. Faz 3: score/momentum/streak are computed
+ * server-side, so this payload no longer carries them — the Edge
+ * Function derives everything from session_id + outcome.
  */
 export type PendingFinish = {
   sessionId: string;
   payload: {
-    status: 'completed';
-    outcome: 'resisted' | 'gave_in';
+    status: 'resolved';
+    outcome: 'resisted' | 'failed';
     ended_at: string;
     duration_seconds: number;
-    points_earned: number;
-    completed_cycles: number;
   };
 };
 
@@ -108,13 +111,11 @@ export async function getPendingFinish(): Promise<PendingFinish | null> {
       parsed &&
       typeof parsed.sessionId === 'string' &&
       parsed.payload &&
-      parsed.payload.status === 'completed' &&
+      parsed.payload.status === 'resolved' &&
       (parsed.payload.outcome === 'resisted' ||
-        parsed.payload.outcome === 'gave_in') &&
+        parsed.payload.outcome === 'failed') &&
       typeof parsed.payload.ended_at === 'string' &&
-      typeof parsed.payload.duration_seconds === 'number' &&
-      typeof parsed.payload.points_earned === 'number' &&
-      typeof parsed.payload.completed_cycles === 'number'
+      typeof parsed.payload.duration_seconds === 'number'
     ) {
       return parsed;
     }

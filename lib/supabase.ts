@@ -81,36 +81,89 @@ export type Database = {
           id: string;
           user_id: string;
           addiction_id: string;
-          status: 'active' | 'completed' | 'abandoned';
-          outcome: 'resisted' | 'gave_in' | null;
+          // Faz 3 enum rename: 'completed' → 'resolved'.
+          status: 'active' | 'resolved' | 'abandoned';
+          // Faz 3 enum rename: 'gave_in' → 'failed'.
+          outcome: 'resisted' | 'failed' | null;
           started_at: string;
           ended_at: string | null;
           duration_seconds: number | null;
-          points_earned: number;
+          // Faz 3 rename: `points_earned` → `points_delta`. Signed:
+          // positive on resist, negative on failure, 0 for active /
+          // abandoned. Written exclusively by the resolve-craving
+          // Edge Function — client never authors this column.
+          points_delta: number;
+          // Snapshot at session start. Kept even after Faz 3 makes
+          // sensitivity a server-side lookup, because we don't want
+          // catalog recalibrations to retroactively change history.
           sensitivity: number;
-          completed_cycles: number;
+          // 1-5 rating captured post-resolve. Populated only when the
+          // Faz 5 intensity question ships; nullable until then.
+          intensity: number | null;
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
           addiction_id: string;
-          status?: 'active' | 'completed' | 'abandoned';
-          outcome?: 'resisted' | 'gave_in' | null;
+          status?: 'active' | 'resolved' | 'abandoned';
+          outcome?: 'resisted' | 'failed' | null;
           started_at: string;
           ended_at?: string | null;
           duration_seconds?: number | null;
-          points_earned?: number;
+          points_delta?: number;
           sensitivity?: number;
-          completed_cycles?: number;
+          intensity?: number | null;
         };
         Update: {
-          status?: 'active' | 'completed' | 'abandoned';
-          outcome?: 'resisted' | 'gave_in' | null;
+          status?: 'active' | 'resolved' | 'abandoned';
+          outcome?: 'resisted' | 'failed' | null;
           ended_at?: string | null;
           duration_seconds?: number | null;
-          points_earned?: number;
-          completed_cycles?: number;
+          points_delta?: number;
+          intensity?: number | null;
+        };
+        Relationships: [];
+      };
+      user_addiction_scores: {
+        // Per-addiction score storage. Written exclusively by the
+        // resolve-craving Edge Function; users have SELECT-only
+        // policy so they can render their own scores but cannot
+        // author them.
+        Row: {
+          user_id: string;
+          addiction_id: string;
+          score: number;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          addiction_id: string;
+          score?: number;
+        };
+        Update: {
+          score?: number;
+        };
+        Relationships: [];
+      };
+      rate_limits: {
+        // Faz 3 log-only rate limit substrate: (user_id, endpoint,
+        // hour_bucket) => count. Enforcement flag flips on in a later
+        // phase; today the Edge Function just increments and warns.
+        Row: {
+          user_id: string;
+          endpoint: string;
+          hour_bucket: string;
+          count: number;
+        };
+        Insert: {
+          user_id: string;
+          endpoint: string;
+          hour_bucket: string;
+          count?: number;
+        };
+        Update: {
+          count?: number;
         };
         Relationships: [];
       };
@@ -129,7 +182,18 @@ export type Database = {
         Relationships: [];
       };
     };
-    Views: Record<string, never>;
+    Views: {
+      user_total_score: {
+        // SUM(score) over user_addiction_scores grouped by user.
+        // Read-only; profile screen and future rank system both
+        // consume this instead of summing sessions client-side.
+        Row: {
+          user_id: string | null;
+          total_score: number | null;
+        };
+        Relationships: [];
+      };
+    };
     Functions: Record<string, never>;
   };
 };

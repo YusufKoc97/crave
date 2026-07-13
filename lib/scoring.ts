@@ -1,76 +1,41 @@
 /**
- * Pure scoring + streak logic. Kept in its own module (no React, no
- * Supabase imports) so it can be unit-tested by Vitest without the
- * react-native runtime, and so the formulas have a single owner.
+ * Faz 3: scoring formulas moved to `shared/scoring.ts` so the Edge
+ * Function and the client compute identical numbers from a single
+ * source. This file used to hold the primary implementation; it now
+ * re-exports the shared module and adds the client-only helpers that
+ * the Edge Function has no reason to run (weekly bar chart
+ * aggregation).
  *
- *   base   = max(1, round(minutes * sensitivity))    // floor at 1pt
- *   bonus  = sensitivity * 5 * completedCycles       // each full cycle
- *   total  = base + bonus                            // 0 if gave_in
+ * The `Outcome` union changed from `'resisted' | 'gave_in'` to
+ * `'resisted' | 'failed'` in this phase to match the DB rename.
  */
 
-export type Outcome = 'resisted' | 'gave_in';
+import { daysBetween, localDayKey, type Outcome } from '@/shared/scoring';
 
-export type ScoringInput = {
-  outcome: Outcome;
-  durationSeconds: number;
-  sensitivity: number;
-  completedCycles: number;
-};
-
-export function calculateResistPoints(input: ScoringInput): number {
-  if (input.outcome !== 'resisted') return 0;
-  const minutes = input.durationSeconds / 60;
-  const base = Math.max(1, Math.round(minutes * input.sensitivity));
-  const bonus = input.sensitivity * 5 * input.completedCycles;
-  return base + bonus;
-}
-
-/** Local-time YYYY-MM-DD key for grouping sessions by calendar day. */
-export function localDayKey(ts: number): string {
-  const d = new Date(ts);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-/** Whole calendar days from `from` to `to` (negative if from is later). */
-export function daysBetween(from: string, to: string): number {
-  const a = new Date(`${from}T00:00:00`).getTime();
-  const b = new Date(`${to}T00:00:00`).getTime();
-  return Math.round((b - a) / 86400000);
-}
+export {
+  applyOutcome,
+  calculateResistPoints,
+  daysBetween,
+  failurePenalty,
+  localDayKey,
+  nextMomentum,
+  nextStreak,
+  FAILURE_PENALTY_MAX,
+  FAILURE_PENALTY_PCT,
+  MAX_SESSION_MINUTES,
+  RATE_LIMIT_MAX_PER_HOUR,
+} from '@/shared/scoring';
+export type { Outcome, SessionStatus } from '@/shared/scoring';
 
 /**
- * "Consecutive days with >=1 resist" streak. Pass the most recent prior
- * resist day (null = no prior), today's day key, and the current streak;
- * returns what the streak should be after recording another resist now.
+ * Reduce a list of resolved sessions into a 7-element array of resist
+ * counts for the last seven LOCAL calendar days. Index 0 is six days
+ * ago; index 6 is today. `nowMs` is configurable so this stays a pure
+ * function — pass Date.now() in production, a fixed timestamp in
+ * tests.
  *
- *   same day as last resist → no bump (already counted today)
- *   exactly 1 day later      → streak + 1
- *   any other gap or none    → streak reset to 1 (a new chain begins)
- */
-export function nextStreak(args: {
-  lastResistDay: string | null;
-  today: string;
-  currentStreak: number;
-}): number {
-  if (args.lastResistDay === args.today) return args.currentStreak;
-  if (args.lastResistDay && daysBetween(args.lastResistDay, args.today) === 1) {
-    return args.currentStreak + 1;
-  }
-  return 1;
-}
-
-/**
- * Reduce a list of completed sessions into a 7-element array of
- * resist counts for the last seven LOCAL calendar days. Index 0 is
- * six days ago; index 6 is today. `nowMs` is configurable so this
- * stays a pure function — pass Date.now() in production, a fixed
- * timestamp in tests.
- *
- * Only 'resisted' outcomes count toward each bar. Sessions older than
- * the 7-day window are silently dropped.
+ * Client-only: the Edge Function has no reason to shape the weekly
+ * bar chart, so this stays out of shared/.
  */
 export function weeklyResistCounts(args: {
   sessions: ReadonlyArray<{ outcome: Outcome; createdAt: number }>;
@@ -81,7 +46,6 @@ export function weeklyResistCounts(args: {
   for (const s of args.sessions) {
     if (s.outcome !== 'resisted') continue;
     const day = localDayKey(s.createdAt);
-    // daysBetween returns negative when day > today, positive when older.
     const delta = daysBetween(day, today);
     if (delta < 0 || delta > 6) continue;
     counts[6 - delta] += 1;

@@ -104,6 +104,33 @@ DROP TABLE IF EXISTS reflections   CASCADE;
 -- profiles.username kolonu Modül 4 için tutuluyor (handle bilgisi).
 ```
 
+### Faz 3 backend scoring migration
+
+Enum rename (`completed → resolved`, `gave_in → failed`), column
+rename (`points_earned → points_delta`), and the per-addiction score
+storage. Full SQL lives at
+[`supabase/migrations/003_backend_scoring.sql`](supabase/migrations/003_backend_scoring.sql)
+— open it in the SQL Editor and run top-to-bottom.
+
+After the migration lands, deploy the resolve-craving Edge Function:
+
+```bash
+# One-time login (skip if already authenticated).
+supabase login
+
+# Link the CLI to the project (skip if `supabase/config.toml` exists).
+supabase link --project-ref scdedlhpbcddoqphauxo
+
+# Deploy — the shared/ directory is imported by the function, so
+# `--no-verify-jwt=false` (the default) is what we want; users must
+# be authenticated to call resolve-craving.
+supabase functions deploy resolve-craving
+```
+
+No env vars need setting beyond the defaults — the Edge Function
+reads `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and
+`SUPABASE_SERVICE_ROLE_KEY` from Supabase's built-in secrets.
+
 ### Faz 2 katalog migration
 
 10 sabit katalog + soft-delete tracking tablosu. Custom addictions

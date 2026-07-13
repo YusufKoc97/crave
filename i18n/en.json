@@ -72,6 +72,6 @@
   },
   "active": {
     "resist": "I Resisted",
-    "gave_in": "I gave in"
+    "failed": "I Failed"
   }
 }

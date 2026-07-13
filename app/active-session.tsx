@@ -33,6 +33,7 @@ import {
 } from '@/lib/activeSession';
 import { hapticCelebrate, hapticCommit } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
+import type { Outcome } from '@/shared/scoring';
 
 const TIMER_SIZE = 220;
 const STROKE_WIDTH = 2;
@@ -340,53 +341,74 @@ export default function ActiveSession() {
     transform: [{ translateY: -bonusFloat.value * 38 }],
   }));
 
-  const finish = (outcome: 'resisted' | 'gave_in') => {
+  const finish = (outcome: Outcome) => {
     // Medium impact on either decision — both are "I committed to this".
     // The win/loss differentiation comes later (celebration tap on the
     // share banner branch only).
     hapticCommit();
     const finalSeconds = Math.floor((Date.now() - startedAt.current) / 1000);
-    let pointsEarned = 0;
+
+    // Optimistic estimate: the exact same formula the Edge Function
+    // will run server-side (shared/scoring.ts). Renders the "+X
+    // points" banner immediately; when resolve-craving lands we
+    // quietly reconcile with the server's authoritative number. In
+    // practice they match unless the client's clock drifted.
+    // NOTE: this is a display estimate only. The DB never writes a
+    // client-authored score anymore.
+    const estimatedPoints = calculateResistPoints({
+      outcome,
+      durationSeconds: finalSeconds,
+      sensitivity,
+    });
 
     if (params.id) {
-      pointsEarned = calculateResistPoints({
-        outcome,
-        durationSeconds: finalSeconds,
-        sensitivity,
-        completedCycles,
-      });
+      // Local cache push for instant UI (Won/Lost Today counters,
+      // weekly bar chart). The server-side `user_total_score` view is
+      // the truth for cumulative scores; this record is only used for
+      // the "today at a glance" tallies.
       recordSession({
         addictionId: params.id,
         outcome,
         durationSeconds: finalSeconds,
         sensitivity,
-        completedCycles,
+        pointsDelta: outcome === 'resisted' ? estimatedPoints : 0,
       });
 
       if (sessionId.current && user) {
-        // Fire-and-forget but with a retry path: if the network drops
-        // mid-finish we still want to mark the row 'completed' on the
-        // server eventually. Stash the payload locally so the next
-        // app launch can replay it via ActiveSessionRestorer (which
-        // already runs on cold start).
-        const finishPayload = {
-          status: 'completed' as const,
-          outcome,
-          ended_at: new Date().toISOString(),
-          duration_seconds: finalSeconds,
-          points_earned: pointsEarned,
-          completed_cycles: completedCycles,
-        };
+        // Call the resolve-craving Edge Function. Score computation +
+        // momentum + streak all happen server-side. Stash the request
+        // in pending-finish first so a mid-flight network drop can be
+        // replayed on next cold start via ActiveSessionRestorer.
         const rowId = sessionId.current;
-        savePendingFinish({ sessionId: rowId, payload: finishPayload });
-        supabase
-          .from('craving_sessions')
-          .update(finishPayload)
-          .eq('id', rowId)
-          .then(({ error }) => {
-            if (!error) clearPendingFinish();
-            // On error, the pending blob stays on disk and the next
-            // ActiveSessionRestorer pass picks it up.
+        savePendingFinish({
+          sessionId: rowId,
+          payload: {
+            status: 'resolved',
+            outcome,
+            ended_at: new Date().toISOString(),
+            duration_seconds: finalSeconds,
+          },
+        });
+        supabase.functions
+          .invoke('resolve-craving', {
+            body: { session_id: rowId, outcome },
+          })
+          .then(({ data, error }) => {
+            if (error) {
+              // Leave pending blob on disk for replay. UI already
+              // committed the optimistic estimate so the user sees no
+              // interruption.
+              return;
+            }
+            clearPendingFinish();
+            // Reconcile the banner with the server-authoritative
+            // delta if it differs from the estimate. Only surfaces
+            // for 'resisted' — 'failed' shows no banner.
+            const serverDelta = (data as { points_delta?: number } | null)
+              ?.points_delta;
+            if (typeof serverDelta === 'number' && outcome === 'resisted') {
+              setShareBanner({ points: Math.max(0, serverDelta) });
+            }
           });
       }
     }
@@ -396,7 +418,7 @@ export default function ActiveSession() {
     // On a loss, just bow out cleanly — no celebration prompt.
     if (outcome === 'resisted') {
       hapticCelebrate();
-      setShareBanner({ points: pointsEarned });
+      setShareBanner({ points: estimatedPoints });
       return;
     }
     router.back();
@@ -556,9 +578,9 @@ export default function ActiveSession() {
             </Pressable>
             <Pressable
               style={styles.gaveInBtn}
-              onPress={() => finish('gave_in')}
+              onPress={() => finish('failed')}
             >
-              <Text style={styles.gaveInText}>{t('active.gave_in')}</Text>
+              <Text style={styles.gaveInText}>{t('active.failed')}</Text>
             </Pressable>
           </>
         )}

@@ -34,16 +34,20 @@ function ActiveSessionRestorer() {
     (async () => {
       // Authenticated path: server is the source of truth.
       if (user) {
-        // First, replay any finish UPDATE that didn't make it to the
-        // server (network drop between "I Resisted" tap and the RPC).
-        // We do this BEFORE checking the active-session id so a stuck
-        // 'active' row gets cleared instead of resuming forever.
+        // Faz 3: replay any resolve-craving invoke that didn't reach
+        // the server (network drop between "I Resisted" tap and the
+        // Edge Function). We do this BEFORE checking the
+        // active-session id so a stuck 'active' row gets resolved
+        // instead of resuming forever. The Edge Function is
+        // idempotent on session_id, so a double-replay is safe.
         const pending = await getPendingFinish();
         if (pending) {
-          const { error } = await supabase
-            .from('craving_sessions')
-            .update(pending.payload)
-            .eq('id', pending.sessionId);
+          const { error } = await supabase.functions.invoke('resolve-craving', {
+            body: {
+              session_id: pending.sessionId,
+              outcome: pending.payload.outcome,
+            },
+          });
           if (!error) {
             await clearPendingFinish();
             await clearActiveSessionId();

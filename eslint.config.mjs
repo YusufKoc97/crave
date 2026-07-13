@@ -31,6 +31,7 @@ export default [
       'lib/assistant.ts', // JSDoc-only file with a heredoc Deno snippet that confuses the parser.
       'metro.config.js', // Expo's metro shim must use CJS require.
       'babel.config.js', // Same — Expo expects CJS.
+      'supabase/functions/**', // Deno runtime — lint via `deno lint`, not this config.
     ],
   },
   js.configs.recommended,

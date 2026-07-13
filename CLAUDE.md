@@ -75,11 +75,19 @@ lib/
   profile.ts           ─ getUsername / setUsername (handle for Modül 4)
   i18n.ts              ─ Tiny t(key, params) helper — Faz 2 EN-only
   relativeTime.ts      ─ Pure ISO→"5dk önce" Turkish formatter
-  scoring.ts           ─ Pure: calculateResistPoints, nextStreak, day helpers
+  scoring.ts           ─ Re-exports shared/scoring + weeklyResistCounts
   activeSession.ts     ─ AsyncStorage snapshot + pending finish replay
   addictionsApi.ts     ─ user_addictions CRUD (activate / deactivate / fetch)
   onboarding.ts        ─ Onboarding completion tracker, calculateAge()
   devBypass.ts         ─ EXPO_PUBLIC_DEV_SKIP_AUTH flag
+
+shared/
+  scoring.ts           ─ Cross-runtime scoring — Vitest + Deno import same file
+  catalog.ts           ─ id → sensitivity whitelist (Edge Function cross-check)
+
+supabase/
+  migrations/003_backend_scoring.sql   ─ Faz 3 SQL (enum rename + views + tables)
+  functions/resolve-craving/index.ts   ─ Server-authoritative resolve endpoint
 ```
 
 ## ✅ Yapılan Özellikler (Kronolojik)
@@ -109,6 +117,20 @@ lib/
 false` + craving_sessions history saklanır → re-add kaldığı yerden
     devam eder. Tüm görünür metin `t()` üzerinden (`lib/i18n.ts` tiny
     helper, `i18n/en.json` sözlük). Kullanıcı sensitivity görmez.
+14. **Faz 3 Backend Puan**: Puan/momentum/streak hesabı client'tan
+    Supabase Edge Function'a (`resolve-craving`) taşındı. `shared/`
+    modülü Vitest + Deno ikisinden import edilebilen pure scoring —
+    kural değişince tek dosya. Client mevcut formulü sadece
+    **optimistic estimate** için kullanıyor (banner anında görünsün
+    diye); server response ile sessizce reconcile. Enum rename:
+    `completed → resolved`, `gave_in → failed`. Kolon rename:
+    `points_earned → points_delta` (signed). Yeni tablolar:
+    `user_addiction_scores` (per-addiction, SELECT-only RLS),
+    `rate_limits` (log-only, Faz X'te enforce). Yeni view:
+    `user_total_score` (SUM). Edge Function idempotent
+    (session_id-based) — network flake retry-safe. Duration server-side
+    hesaplanır (started_at diff'i), client-reported süre kabul
+    edilmez.
 
 ## 🧠 Önemli Kararlar (UX/Mimari)
 
