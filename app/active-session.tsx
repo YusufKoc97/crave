@@ -32,6 +32,7 @@ import {
   clearPendingFinish,
 } from '@/lib/activeSession';
 import { hapticCelebrate, hapticCommit } from '@/lib/haptics';
+import { t } from '@/lib/i18n';
 
 const TIMER_SIZE = 220;
 const STROKE_WIDTH = 2;
@@ -550,14 +551,14 @@ export default function ActiveSession() {
               onPress={() => finish('resisted')}
             >
               <Text style={[styles.resistText, { color: accentColor }]}>
-                I Resisted
+                {t('active.resist')}
               </Text>
             </Pressable>
             <Pressable
               style={styles.gaveInBtn}
               onPress={() => finish('gave_in')}
             >
-              <Text style={styles.gaveInText}>I gave in</Text>
+              <Text style={styles.gaveInText}>{t('active.gave_in')}</Text>
             </Pressable>
           </>
         )}

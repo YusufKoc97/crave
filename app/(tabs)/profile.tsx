@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
@@ -10,6 +17,7 @@ import { getUsername } from '@/lib/profile';
 import { weeklyResistCounts } from '@/lib/scoring';
 import { WeeklyChart } from '@/components/WeeklyChart';
 import { Card } from '@/components/Card';
+import { t } from '@/lib/i18n';
 import type { Addiction } from '@/constants/addictions';
 
 export default function ProfileScreen() {
@@ -97,7 +105,7 @@ export default function ProfileScreen() {
 
       {hasAnyResist && (
         <View style={styles.weekSection}>
-          <Text style={styles.sectionLabel}>SON 7 GÜN</Text>
+          <Text style={styles.sectionLabel}>LAST 7 DAYS</Text>
           <View style={styles.weekChartWrap}>
             <WeeklyChart counts={weekly} todayWeekday={todayWeekday} />
           </View>
@@ -106,35 +114,37 @@ export default function ProfileScreen() {
 
       <View style={styles.addictionsSection}>
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionLabel}>BAĞIMLILIKLARIM</Text>
+          <Text style={styles.sectionLabel}>{t('profile.my_addictions')}</Text>
           <Pressable
             onPress={() => router.push('/add-addiction')}
             hitSlop={8}
             style={styles.addLinkBtn}
           >
             <Ionicons name="add" size={13} color="#7DC3FF" />
-            <Text style={styles.addLinkText}>Ekle</Text>
+            <Text style={styles.addLinkText}>{t('profile.add_pill')}</Text>
           </Pressable>
         </View>
         {addictions.length === 0 ? (
-          <Text style={styles.emptyAddictions}>
-            Hiç bağımlılık yok. Ana ekrandan ekleyebilirsin.
-          </Text>
+          <Text style={styles.emptyAddictions}>{t('home.empty_subtitle')}</Text>
         ) : (
           addictions.map((a) => (
             <AddictionRow
               key={a.id}
               addiction={a}
-              onRemove={() => removeAddiction(a.id)}
-              onEdit={
-                a.id.startsWith('custom-')
-                  ? () =>
-                      router.push({
-                        pathname: '/add-addiction',
-                        params: { id: a.id },
-                      })
-                  : undefined
-              }
+              onRemove={() => {
+                Alert.alert(
+                  t('removal.title', { name: a.name }),
+                  t('removal.message'),
+                  [
+                    { text: t('removal.cancel'), style: 'cancel' },
+                    {
+                      text: t('removal.confirm'),
+                      style: 'destructive',
+                      onPress: () => removeAddiction(a.id),
+                    },
+                  ]
+                );
+              }}
             />
           ))
         )}
@@ -144,7 +154,7 @@ export default function ProfileScreen() {
         <View style={styles.bottomSection}>
           <Text style={styles.emailLabel}>{user.email}</Text>
           <Pressable onPress={onSignOut} style={styles.signOutBtn} hitSlop={6}>
-            <Text style={styles.signOutText}>Çıkış yap</Text>
+            <Text style={styles.signOutText}>Sign out</Text>
           </Pressable>
         </View>
       )}
@@ -155,25 +165,12 @@ export default function ProfileScreen() {
 function AddictionRow({
   addiction,
   onRemove,
-  onEdit,
 }: {
   addiction: Addiction;
   onRemove: () => void;
-  onEdit?: () => void;
 }) {
-  const isCustom = addiction.id.startsWith('custom-');
-  const Wrapper = onEdit ? Pressable : View;
   return (
-    <Wrapper
-      {...(onEdit
-        ? {
-            onPress: onEdit,
-            accessibilityRole: 'button' as const,
-            accessibilityLabel: `${addiction.name}'i düzenle`,
-          }
-        : {})}
-      style={styles.addictionRow}
-    >
+    <View style={styles.addictionRow}>
       <View
         style={[
           styles.addictionTile,
@@ -190,34 +187,21 @@ function AddictionRow({
           {addiction.name}
         </Text>
         <Text style={styles.addictionMeta}>
-          <Text style={{ color: hexToRgba(addiction.color, 0.85) }}>
-            {isCustom ? 'özel' : 'varsayılan'}
-          </Text>
-          <Text style={{ color: '#3D5470' }}>{'  ·  '}</Text>
           <Text style={{ color: '#94A3B8' }}>
-            hassasiyet {addiction.sensitivity}
+            {t(`categories.${addiction.category}`)}
           </Text>
         </Text>
       </View>
       <Pressable
-        onPress={(e) => {
-          // RN-Web bubbles the click into the parent Pressable (which
-          // would otherwise open the edit screen). Native's responder
-          // system already prevents this; calling stopPropagation here
-          // is the no-op-on-native, fix-on-web path.
-          (
-            e as unknown as { stopPropagation?: () => void }
-          )?.stopPropagation?.();
-          onRemove();
-        }}
+        onPress={onRemove}
         hitSlop={10}
         style={styles.removeBtn}
         accessibilityRole="button"
-        accessibilityLabel={`${addiction.name} bağımlılığını kaldır`}
+        accessibilityLabel={`Remove ${addiction.name}`}
       >
         <Ionicons name="close" size={14} color="#6B8BA4" />
       </Pressable>
-    </Wrapper>
+    </View>
   );
 }
 

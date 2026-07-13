@@ -1,0 +1,77 @@
+{
+  "addictions": {
+    "nicotine": {
+      "name": "Nicotine",
+      "description": "Cigarettes"
+    },
+    "alcohol": {
+      "name": "Alcohol",
+      "description": "Beer, wine, spirits"
+    },
+    "caffeine": {
+      "name": "Caffeine",
+      "description": "Coffee, tea, energy drinks"
+    },
+    "vape": {
+      "name": "Vape",
+      "description": "E-cigarettes, puff bars, mods"
+    },
+    "gambling": {
+      "name": "Gambling",
+      "description": "Sports betting, casino, online games of chance"
+    },
+    "junk_food": {
+      "name": "Junk Food",
+      "description": "Fast food, chips, chocolate, sweets"
+    },
+    "shopping": {
+      "name": "Online Shopping",
+      "description": "Impulse buying, endless browsing"
+    },
+    "pmo": {
+      "name": "Porn & Masturbation",
+      "description": "Adult content and compulsive behavior"
+    },
+    "doomscroll": {
+      "name": "Doomscrolling",
+      "description": "Instagram, TikTok, Twitter, Reels, Shorts, news"
+    },
+    "gaming": {
+      "name": "Video Games",
+      "description": "PC, console, mobile gaming"
+    }
+  },
+  "categories": {
+    "substance": "Substance",
+    "behavioral": "Behavioral",
+    "digital": "Digital"
+  },
+  "picker": {
+    "title": "Add addiction",
+    "add_button": "Add",
+    "added_button": "Added",
+    "limit_reached": "Limit reached — remove one first"
+  },
+  "removal": {
+    "title": "Remove {{name}}?",
+    "message": "Your data will be saved. You can re-add anytime to continue.",
+    "cancel": "Cancel",
+    "confirm": "Remove"
+  },
+  "errors": {
+    "addiction_limit_reached": "Remove an addiction or upgrade to premium to add more"
+  },
+  "home": {
+    "empty_title": "Add your first addiction",
+    "empty_subtitle": "Tap the plus button below to choose from the catalog.",
+    "empty_cta": "Add addiction"
+  },
+  "profile": {
+    "my_addictions": "MY ADDICTIONS",
+    "add_pill": "Add"
+  },
+  "active": {
+    "resist": "I Resisted",
+    "gave_in": "I gave in"
+  }
+}

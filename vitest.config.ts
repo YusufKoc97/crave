@@ -35,6 +35,8 @@ export default defineConfig({
         'lib/auth.ts',
         'lib/onboarding.ts',
         'lib/profile.ts',
+        'lib/i18n.ts',
+        'constants/addictions.ts',
         'constants/emojiKeywords.ts',
       ],
     },

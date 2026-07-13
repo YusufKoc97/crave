@@ -36,10 +36,6 @@ export type Database = {
           onboarding_completed: boolean;
           momentum: number;
           streak: number;
-          // Default addiction ids the user has removed from their orb
-          // (e.g. ['nicotine']). Stored as text[] so RLS / writes are
-          // straightforward; client always replaces the whole array.
-          hidden_defaults: string[];
           created_at: string;
         };
         Insert: {
@@ -48,46 +44,35 @@ export type Database = {
           onboarding_completed?: boolean;
           momentum?: number;
           streak?: number;
-          hidden_defaults?: string[];
         };
         Update: {
           username?: string | null;
           onboarding_completed?: boolean;
           momentum?: number;
           streak?: number;
-          hidden_defaults?: string[];
         };
         Relationships: [];
       };
-      addictions: {
+      user_addictions: {
+        // Faz 2 tracking table. Users pick from the fixed catalog and
+        // toggle rows here on/off via `is_active`. Soft-delete only —
+        // a removed addiction just goes `is_active=false`, its
+        // craving_sessions history stays intact so re-adding resumes
+        // exactly where it left off.
         Row: {
-          id: string;
           user_id: string;
-          name: string;
-          emoji: string;
-          // LEGACY: kept for the original SQL migration that NOT-NULL'd
-          // this column. New code reads `sensitivity` and derives the
-          // ceiling via maxMinutesFor() — pass any number when inserting.
-          max_duration_minutes: number;
-          color: string;
-          sensitivity: number;
-          created_at: string;
+          addiction_id: string;
+          added_at: string;
+          is_active: boolean;
         };
         Insert: {
-          id?: string;
           user_id: string;
-          name: string;
-          emoji: string;
-          max_duration_minutes?: number;
-          color: string;
-          sensitivity: number;
+          addiction_id: string;
+          added_at?: string;
+          is_active?: boolean;
         };
         Update: {
-          name?: string;
-          emoji?: string;
-          max_duration_minutes?: number;
-          color?: string;
-          sensitivity?: number;
+          is_active?: boolean;
         };
         Relationships: [];
       };

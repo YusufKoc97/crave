@@ -50,7 +50,7 @@ app/
     index.tsx          ─ Ana ekran: orb + neon ring + 9 addiction + wiggle
     profile.tsx        ─ Stats (Total/Won/Lost/Momentum/Streak) + sign-out
   active-session.tsx   ─ Timer (modal): Date.now-based, cycle bonus, share banner
-  add-addiction.tsx    ─ Custom addiction modal (sensitivity 1-10, minimal)
+  add-addiction.tsx    ─ Catalog picker (10 sabit, kategorilere göre gruplu)
   setup-username.tsx   ─ Handle capture (opsiyonel, "Şimdilik atla" ile)
 
 components/
@@ -58,7 +58,11 @@ components/
 
 constants/
   theme.ts             ─ colors, spacing, radius, font
-  addictions.ts        ─ DEFAULT_ADDICTIONS[], maxMinutesFor(s) 5-15dk
+  addictions.ts        ─ ADDICTION_CATALOG (10 fixed) + toAddiction() +
+                          FREE_ACTIVE_LIMIT / PREMIUM_ACTIVE_LIMIT + maxMinutesFor()
+
+i18n/
+  en.json              ─ Single-language dictionary (Faz 2: EN only)
 
 context/
   AuthContext.tsx      ─ Supabase session + signOut
@@ -69,10 +73,11 @@ lib/
   supabase.ts          ─ Client + Database<T> tipi
   auth.ts              ─ translateAuthError() (EN→TR), isValidEmail()
   profile.ts           ─ getUsername / setUsername (handle for Modül 4)
+  i18n.ts              ─ Tiny t(key, params) helper — Faz 2 EN-only
   relativeTime.ts      ─ Pure ISO→"5dk önce" Turkish formatter
   scoring.ts           ─ Pure: calculateResistPoints, nextStreak, day helpers
   activeSession.ts     ─ AsyncStorage snapshot + pending finish replay
-  addictionsApi.ts     ─ CRUD wrappers on addictions + profiles.hidden_defaults
+  addictionsApi.ts     ─ user_addictions CRUD (activate / deactivate / fetch)
   onboarding.ts        ─ Onboarding completion tracker, calculateAge()
   devBypass.ts         ─ EXPO_PUBLIC_DEV_SKIP_AUTH flag
 ```
@@ -95,6 +100,15 @@ lib/
     `lib/community.ts` (feed + handle karışık) sil, handle mantığı
     yeni dosyaya taşındı. Setup-username artık opsiyonel ("Şimdilik atla"
     linki). Yerine Bilgi sekmesi + 4-modül sistemi gelecek (Faz 4).
+13. **Faz 2 Katalog**: Custom addiction yaratma tamamen kaldırıldı.
+    10 sabit katalog (`constants/addictions.ts` içinde
+    `ADDICTION_CATALOG`) — nicotine, alcohol, caffeine, vape, gambling,
+    junk_food, shopping, pmo, doomscroll, gaming. Kullanıcı sadece
+    picker'dan seçer (`app/add-addiction.tsx` artık picker). Free 1 /
+    Premium 5 aktif limit. Soft-delete: `user_addictions.is_active =
+false` + craving_sessions history saklanır → re-add kaldığı yerden
+    devam eder. Tüm görünür metin `t()` üzerinden (`lib/i18n.ts` tiny
+    helper, `i18n/en.json` sözlük). Kullanıcı sensitivity görmez.
 
 ## 🧠 Önemli Kararlar (UX/Mimari)
 

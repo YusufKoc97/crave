@@ -104,6 +104,44 @@ DROP TABLE IF EXISTS reflections   CASCADE;
 -- profiles.username kolonu Modül 4 için tutuluyor (handle bilgisi).
 ```
 
+### Faz 2 katalog migration
+
+10 sabit katalog + soft-delete tracking tablosu. Custom addictions
+kalktığı için `addictions` tablosu ve `profiles.hidden_defaults`
+kolonu da drop. Dev'de gerçek kullanıcı verisi yok — hepsi TRUNCATE
+edilir.
+
+```sql
+-- Dev-only clean slate: test verisi + eski custom addictions.
+TRUNCATE craving_sessions RESTART IDENTITY CASCADE;
+TRUNCATE addictions       RESTART IDENTITY CASCADE;
+UPDATE profiles SET momentum = 50, streak = 0;
+
+-- Legacy custom-addictions tablosu ve hidden_defaults kolonu artık
+-- kullanılmıyor. is_active soft-delete tam ikame.
+DROP TABLE  IF EXISTS addictions               CASCADE;
+ALTER TABLE profiles DROP COLUMN IF EXISTS hidden_defaults;
+
+-- Yeni user_addictions tablosu — hangi katalog id'leri user takip
+-- ediyor + soft-delete. addiction_id CHECK constraint ile
+-- katalog dışına kilitlenmiş.
+CREATE TABLE IF NOT EXISTS user_addictions (
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  addiction_id text NOT NULL
+    CHECK (addiction_id IN (
+      'nicotine','alcohol','caffeine','vape','gambling',
+      'junk_food','shopping','pmo','doomscroll','gaming'
+    )),
+  added_at timestamptz NOT NULL DEFAULT now(),
+  is_active boolean NOT NULL DEFAULT true,
+  PRIMARY KEY (user_id, addiction_id)
+);
+ALTER TABLE user_addictions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "owner_all" ON user_addictions FOR ALL TO authenticated
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+```
+
 ## Proje Hafızası
 
 [`CLAUDE.md`](./CLAUDE.md) projenin "neden" sorularını kayıt altında tutuyor:

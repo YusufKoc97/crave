@@ -9,60 +9,56 @@ import {
   type ReactNode,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DEFAULT_ADDICTIONS, type Addiction } from '@/constants/addictions';
+import {
+  ADDICTION_CATALOG,
+  toAddiction,
+  FREE_ACTIVE_LIMIT,
+  PREMIUM_ACTIVE_LIMIT,
+  type Addiction,
+} from '@/constants/addictions';
 import { useAuth } from '@/context/AuthContext';
 import {
-  createAddiction,
-  deleteAddictionRow,
-  fetchCustomAddictions,
-  fetchHiddenDefaults,
-  persistHiddenDefaults,
-  updateAddictionRow,
+  activateUserAddiction,
+  deactivateUserAddiction,
+  fetchUserAddictions,
 } from '@/lib/addictionsApi';
 
-type NewAddictionInput = {
-  name: string;
-  emoji: string;
-  color: string;
-  sensitivity: number;
-};
-
-type AddictionPatch = Partial<NewAddictionInput>;
+/**
+ * Faz 2 model. State = which catalog ids the user has currently
+ * activated. `addictions` (the array consumers render) is derived from
+ * the catalog + activeIds intersection. Non-active rows are just
+ * hidden — their craving_sessions history remains, so re-adding an
+ * addiction picks up right where it left off.
+ */
 
 type AddictionsContextValue = {
+  /** Currently visible / trackable addictions (is_active = true). */
   addictions: Addiction[];
-  addAddiction: (input: NewAddictionInput) => Promise<Addiction>;
+  /** Set of catalog ids currently active for the user. */
+  activeIds: Set<string>;
+  /** Free vs premium ceiling on how many can be active at once. */
+  limit: number;
+  /** True when a limit-reached state should block further adds. */
+  atLimit: boolean;
+  addAddiction: (id: string) => Promise<void>;
   removeAddiction: (id: string) => Promise<void>;
-  /**
-   * Update fields on an existing custom addiction. Updates on default
-   * (preset) addictions are a no-op — defaults are intentionally
-   * read-only so the community filters and seed icons stay stable.
-   */
-  updateAddiction: (id: string, patch: AddictionPatch) => Promise<void>;
 };
 
 const AddictionsContext = createContext<AddictionsContextValue | undefined>(
   undefined
 );
 
-const STORAGE_KEY_CUSTOM = 'addictions_custom_v1';
-const STORAGE_KEY_HIDDEN = 'addictions_hidden_defaults_v1';
+const STORAGE_KEY_ACTIVE = 'user_addictions_active_v1';
 
-function hexToRgba(hex: string, alpha: number) {
-  const h = hex.replace('#', '');
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
+// Premium gating is off in Faz 2 — every test user is treated as free.
+// Wired through here so Faz X (paywall) only needs to change one flag.
+const IS_PREMIUM = false;
 
 export function AddictionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [custom, setCustom] = useState<Addiction[]>([]);
-  const [hiddenDefaults, setHiddenDefaults] = useState<Set<string>>(new Set());
-  // Don't persist back to disk until we've finished the initial read,
-  // otherwise the effect runs once with empty state and overwrites the
-  // saved blob.
+  const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
+  // Don't persist back to disk until the initial read finishes; the
+  // first render otherwise overwrites the saved blob with an empty set.
   const hydrated = useRef(false);
 
   // ── Hydrate fast from AsyncStorage on mount (offline cache) ─────────
@@ -70,25 +66,14 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const [customRaw, hiddenRaw] = await AsyncStorage.multiGet([
-          STORAGE_KEY_CUSTOM,
-          STORAGE_KEY_HIDDEN,
-        ]);
+        const raw = await AsyncStorage.getItem(STORAGE_KEY_ACTIVE);
         if (cancelled) return;
-        if (customRaw[1]) {
+        if (raw) {
           try {
-            const parsed = JSON.parse(customRaw[1]);
-            if (Array.isArray(parsed)) setCustom(parsed);
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) setActiveIds(new Set(parsed));
           } catch {
             /* corrupt blob — start fresh */
-          }
-        }
-        if (hiddenRaw[1]) {
-          try {
-            const parsed = JSON.parse(hiddenRaw[1]);
-            if (Array.isArray(parsed)) setHiddenDefaults(new Set(parsed));
-          } catch {
-            /* same */
           }
         }
       } finally {
@@ -100,22 +85,18 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // ── Refresh from Supabase whenever the auth user becomes known ─────
-  // The local cache from AsyncStorage already painted the UI; the server
-  // pull replaces it once the network responds. If the call fails we
-  // keep the cached values rather than blanking the screen.
+  // ── Refresh from Supabase once the auth user is known ──────────────
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     (async () => {
       try {
-        const [serverCustom, serverHidden] = await Promise.all([
-          fetchCustomAddictions(user.id),
-          fetchHiddenDefaults(user.id),
-        ]);
+        const rows = await fetchUserAddictions(user.id);
         if (cancelled) return;
-        setCustom(serverCustom);
-        setHiddenDefaults(serverHidden);
+        const next = new Set(
+          rows.filter((r) => r.isActive).map((r) => r.addictionId)
+        );
+        setActiveIds(next);
       } catch {
         /* keep local cache */
       }
@@ -125,144 +106,74 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  // ── Mirror to AsyncStorage on every change (post-hydration only) ──
-  useEffect(() => {
-    if (!hydrated.current) return;
-    AsyncStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(custom)).catch(
-      () => {
-        /* device storage failure — surface a banner later if needed */
-      }
-    );
-  }, [custom]);
-
+  // ── Mirror to AsyncStorage on every change ─────────────────────────
   useEffect(() => {
     if (!hydrated.current) return;
     AsyncStorage.setItem(
-      STORAGE_KEY_HIDDEN,
-      JSON.stringify(Array.from(hiddenDefaults))
-    ).catch(() => {});
-  }, [hiddenDefaults]);
+      STORAGE_KEY_ACTIVE,
+      JSON.stringify(Array.from(activeIds))
+    ).catch(() => {
+      /* device storage failure — surface a banner later if needed */
+    });
+  }, [activeIds]);
+
+  const limit = IS_PREMIUM ? PREMIUM_ACTIVE_LIMIT : FREE_ACTIVE_LIMIT;
+  const atLimit = activeIds.size >= limit;
 
   const addAddiction = useCallback(
-    async (input: NewAddictionInput): Promise<Addiction> => {
-      const sanitized: NewAddictionInput = {
-        ...input,
-        sensitivity: Math.max(1, Math.min(10, Math.round(input.sensitivity))),
-      };
-      // Optimistic — show the new tile immediately under a temp id.
-      const tempId = `custom-temp-${Date.now()}`;
-      const optimistic: Addiction = {
-        id: tempId,
-        name: sanitized.name,
-        emoji: sanitized.emoji,
-        iconLib: 'mci',
-        iconName: 'star-circle',
-        color: sanitized.color,
-        bgGlow: hexToRgba(sanitized.color, 0.16),
-        sensitivity: sanitized.sensitivity,
-      };
-      setCustom((prev) => [...prev, optimistic]);
-
-      if (!user) {
-        // Offline / dev-bypass — keep the optimistic row, no server hop.
-        return optimistic;
-      }
+    async (id: string) => {
+      if (activeIds.has(id)) return;
+      if (activeIds.size >= limit) return; // hard guard — UI enforces earlier
+      const snapshot = activeIds;
+      const next = new Set(activeIds);
+      next.add(id);
+      setActiveIds(next);
+      if (!user) return;
       try {
-        const real = await createAddiction({ ...sanitized, userId: user.id });
-        setCustom((prev) => prev.map((a) => (a.id === tempId ? real : a)));
-        return real;
+        await activateUserAddiction(user.id, id);
       } catch {
-        // Roll back the optimistic tile on failure.
-        setCustom((prev) => prev.filter((a) => a.id !== tempId));
-        throw new Error('Eklenemedi. İnternet bağlantını kontrol et.');
+        setActiveIds(snapshot);
+        throw new Error('Could not add. Check your connection.');
       }
     },
-    [user]
+    [activeIds, limit, user]
   );
 
   const removeAddiction = useCallback(
     async (id: string) => {
-      if (id.startsWith('custom-')) {
-        const snapshot = custom;
-        setCustom((prev) => prev.filter((a) => a.id !== id));
-        if (!user) return;
-        try {
-          await deleteAddictionRow(id);
-        } catch {
-          // Network failed — restore the row so the user knows it's still there.
-          setCustom(snapshot);
-        }
-      } else {
-        const next = new Set(hiddenDefaults);
-        next.add(id);
-        const snapshot = hiddenDefaults;
-        setHiddenDefaults(next);
-        if (!user) return;
-        try {
-          await persistHiddenDefaults(user.id, next);
-        } catch {
-          setHiddenDefaults(snapshot);
-        }
-      }
-    },
-    [custom, hiddenDefaults, user]
-  );
-
-  const updateAddiction = useCallback(
-    async (id: string, patch: AddictionPatch) => {
-      if (!id.startsWith('custom-')) return;
-      const snapshot = custom;
-      const sanitizedSensitivity =
-        patch.sensitivity != null
-          ? Math.max(1, Math.min(10, Math.round(patch.sensitivity)))
-          : undefined;
-      setCustom((prev) =>
-        prev.map((a) => {
-          if (a.id !== id) return a;
-          const nextColor = patch.color ?? a.color;
-          return {
-            ...a,
-            name: patch.name ?? a.name,
-            emoji: patch.emoji ?? a.emoji,
-            color: nextColor,
-            bgGlow: patch.color ? hexToRgba(nextColor, 0.16) : a.bgGlow,
-            sensitivity: sanitizedSensitivity ?? a.sensitivity,
-          };
-        })
-      );
-      if (!user || id.startsWith('custom-temp-')) {
-        // No server roundtrip when offline or when the row is still
-        // optimistic-pending (the create call will pick up the latest
-        // state when it resolves… in practice we never expose the temp
-        // id to UI long enough for an edit to matter, but be safe).
-        return;
-      }
+      if (!activeIds.has(id)) return;
+      const snapshot = activeIds;
+      const next = new Set(activeIds);
+      next.delete(id);
+      setActiveIds(next);
+      if (!user) return;
       try {
-        await updateAddictionRow(id, {
-          ...(patch.name != null ? { name: patch.name } : {}),
-          ...(patch.emoji != null ? { emoji: patch.emoji } : {}),
-          ...(patch.color != null ? { color: patch.color } : {}),
-          ...(sanitizedSensitivity != null
-            ? { sensitivity: sanitizedSensitivity }
-            : {}),
-        });
+        await deactivateUserAddiction(user.id, id);
       } catch {
-        setCustom(snapshot);
+        setActiveIds(snapshot);
       }
     },
-    [custom, user]
+    [activeIds, user]
   );
 
-  const addictions = useMemo(() => {
-    const visibleDefaults = DEFAULT_ADDICTIONS.filter(
-      (a) => !hiddenDefaults.has(a.id)
-    );
-    return [...visibleDefaults, ...custom];
-  }, [custom, hiddenDefaults]);
+  const addictions = useMemo(
+    () =>
+      ADDICTION_CATALOG.filter((entry) => activeIds.has(entry.id)).map(
+        toAddiction
+      ),
+    [activeIds]
+  );
 
   return (
     <AddictionsContext.Provider
-      value={{ addictions, addAddiction, removeAddiction, updateAddiction }}
+      value={{
+        addictions,
+        activeIds,
+        limit,
+        atLimit,
+        addAddiction,
+        removeAddiction,
+      }}
     >
       {children}
     </AddictionsContext.Provider>

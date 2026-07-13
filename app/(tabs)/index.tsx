@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
+  Alert,
   Platform,
   Pressable,
   StyleSheet,
@@ -22,6 +23,7 @@ import { router } from 'expo-router';
 import { type Addiction, maxMinutesFor } from '@/constants/addictions';
 import { useAddictions } from '@/context/AddictionsContext';
 import { NeonRing } from '@/components/NeonRing';
+import { t } from '@/lib/i18n';
 
 // Web-only `animation` shorthand — RN's StyleSheet has no equivalent, but
 // react-native-web passes unrecognised style props straight through to the
@@ -180,6 +182,12 @@ export default function HomeScreen() {
       setWiggleMode(false);
       return;
     }
+    // Empty state — tapping the orb goes straight to the picker so the
+    // user isn't stuck cycling through a hollow "selecting" state.
+    if (addictions.length === 0) {
+      router.push('/add-addiction');
+      return;
+    }
     if (phase === 'idle') enterSelecting();
     else exitSelecting();
   };
@@ -212,11 +220,29 @@ export default function HomeScreen() {
   };
 
   const onDeleteAddiction = (id: string) => {
-    removeAddiction(id);
-    // If the user just deleted the last visible addiction, drop wiggle mode.
-    if (addictions.length <= 1) {
-      setWiggleMode(false);
-    }
+    const target = addictions.find((a) => a.id === id);
+    if (!target) return;
+    // Native Alert on both platforms — no custom modal needed and the
+    // Cancel / Confirm affordance is already familiar to users.
+    Alert.alert(
+      t('removal.title', { name: target.name }),
+      t('removal.message'),
+      [
+        { text: t('removal.cancel'), style: 'cancel' },
+        {
+          text: t('removal.confirm'),
+          style: 'destructive',
+          onPress: () => {
+            removeAddiction(id);
+            // If the user just deleted the last visible addiction,
+            // drop wiggle mode.
+            if (addictions.length <= 1) {
+              setWiggleMode(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const orbStyle = useAnimatedStyle(() => ({
@@ -384,6 +410,24 @@ export default function HomeScreen() {
               onDelete={() => onDeleteAddiction(a.id)}
             />
           ))}
+        </View>
+      )}
+
+      {/* Empty-state hint under the orb — visible when idle AND the
+          user hasn't picked any catalog items yet. Tap the orb to jump
+          to the picker (handled in onOrbPress). */}
+      {phase === 'idle' && addictions.length === 0 && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.emptyHint,
+            { left: 0, right: 0, top: centerY + ORB_SIZE / 2 + 44 },
+          ]}
+        >
+          <Text style={styles.emptyHintTitle}>{t('home.empty_title')}</Text>
+          <Text style={styles.emptyHintSubtitle}>
+            {t('home.empty_subtitle')}
+          </Text>
         </View>
       )}
 
@@ -746,5 +790,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '300',
     lineHeight: 20,
+  },
+  emptyHint: {
+    position: 'absolute',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyHintTitle: {
+    color: '#F1F5F9',
+    fontSize: 15,
+    fontWeight: '500',
+    letterSpacing: 0.4,
+    textAlign: 'center',
+  },
+  emptyHintSubtitle: {
+    marginTop: 8,
+    color: '#94A3B8',
+    fontSize: 12.5,
+    lineHeight: 18,
+    textAlign: 'center',
   },
 });

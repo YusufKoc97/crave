@@ -1,133 +1,85 @@
 import { supabase } from './supabase';
-import type { Addiction } from '@/constants/addictions';
 
 /**
- * DB <-> client mappers + CRUD wrappers for the `addictions` and
- * `profiles.hidden_defaults` tables. AddictionsContext drives all of its
- * persistence through here so the storage shape lives in one place.
+ * `user_addictions` CRUD wrappers. AddictionsContext talks to the
+ * database only through this module so the storage shape lives in one
+ * place. The addiction catalog itself is hardcoded in
+ * `constants/addictions.ts`; this file only tracks which catalog rows
+ * a given user is currently following.
  *
  * NOTE — additive migration required before this hits production:
  *
- *   ALTER TABLE addictions
- *     ADD COLUMN IF NOT EXISTS color text NOT NULL DEFAULT '#10B981',
- *     ADD COLUMN IF NOT EXISTS sensitivity int NOT NULL DEFAULT 5;
- *   ALTER TABLE addictions
- *     ALTER COLUMN max_duration_minutes DROP NOT NULL,
- *     ALTER COLUMN max_duration_minutes SET DEFAULT 9;
- *   ALTER TABLE profiles
- *     ADD COLUMN IF NOT EXISTS hidden_defaults text[] NOT NULL DEFAULT '{}';
+ *   CREATE TABLE user_addictions (
+ *     user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+ *     addiction_id text NOT NULL
+ *       CHECK (addiction_id IN (
+ *         'nicotine','alcohol','caffeine','vape','gambling',
+ *         'junk_food','shopping','pmo','doomscroll','gaming'
+ *       )),
+ *     added_at timestamptz NOT NULL DEFAULT now(),
+ *     is_active boolean NOT NULL DEFAULT true,
+ *     PRIMARY KEY (user_id, addiction_id)
+ *   );
+ *   ALTER TABLE user_addictions ENABLE ROW LEVEL SECURITY;
+ *   CREATE POLICY "owner_all" ON user_addictions FOR ALL TO authenticated
+ *     USING (user_id = auth.uid())
+ *     WITH CHECK (user_id = auth.uid());
  */
 
-function hexToRgba(hex: string, alpha: number) {
-  const h = hex.replace('#', '');
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
+export type UserAddictionRow = {
+  addictionId: string;
+  isActive: boolean;
+  addedAt: string;
+};
 
-function rowToAddiction(row: {
-  id: string;
-  name: string;
-  emoji: string;
-  color: string;
-  sensitivity: number;
-}): Addiction {
-  return {
-    // Custom rows on the server use the bare uuid; prefix client-side so
-    // the existing isCustom check (id.startsWith('custom-')) keeps
-    // working without changes downstream.
-    id: `custom-${row.id}`,
-    name: row.name,
-    emoji: row.emoji,
-    iconLib: 'mci',
-    iconName: 'star-circle',
-    color: row.color,
-    bgGlow: hexToRgba(row.color, 0.16),
-    sensitivity: Math.max(1, Math.min(10, Math.round(row.sensitivity))),
-  };
-}
-
-/** Strip the 'custom-' prefix to recover the row's uuid. */
-function rawId(prefixedId: string): string {
-  return prefixedId.replace(/^custom-/, '');
-}
-
-export async function fetchCustomAddictions(
+export async function fetchUserAddictions(
   userId: string
-): Promise<Addiction[]> {
+): Promise<UserAddictionRow[]> {
   const { data, error } = await supabase
-    .from('addictions')
-    .select('id, name, emoji, color, sensitivity')
+    .from('user_addictions')
+    .select('addiction_id, is_active, added_at')
     .eq('user_id', userId)
-    .order('created_at', { ascending: true });
+    .order('added_at', { ascending: true });
   if (error) throw error;
-  return (data ?? []).map(rowToAddiction);
+  return (data ?? []).map((row) => ({
+    addictionId: row.addiction_id,
+    isActive: row.is_active,
+    addedAt: row.added_at,
+  }));
 }
 
-export async function fetchHiddenDefaults(
-  userId: string
-): Promise<Set<string>> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('hidden_defaults')
-    .eq('id', userId)
-    .single();
-  if (error) throw error;
-  const arr = (data?.hidden_defaults ?? []) as string[];
-  return new Set(arr);
-}
-
-export async function createAddiction(input: {
-  userId: string;
-  name: string;
-  emoji: string;
-  color: string;
-  sensitivity: number;
-}): Promise<Addiction> {
-  const { data, error } = await supabase
-    .from('addictions')
-    .insert({
-      user_id: input.userId,
-      name: input.name,
-      emoji: input.emoji,
-      color: input.color,
-      sensitivity: input.sensitivity,
-      // Legacy column — derive a reasonable value but don't expose it.
-      max_duration_minutes: Math.max(5, input.sensitivity * 1.5),
-    })
-    .select('id, name, emoji, color, sensitivity')
-    .single();
-  if (error) throw error;
-  return rowToAddiction(data);
-}
-
-export async function updateAddictionRow(
-  prefixedId: string,
-  patch: { name?: string; emoji?: string; color?: string; sensitivity?: number }
-): Promise<void> {
-  const { error } = await supabase
-    .from('addictions')
-    .update(patch)
-    .eq('id', rawId(prefixedId));
-  if (error) throw error;
-}
-
-export async function deleteAddictionRow(prefixedId: string): Promise<void> {
-  const { error } = await supabase
-    .from('addictions')
-    .delete()
-    .eq('id', rawId(prefixedId));
-  if (error) throw error;
-}
-
-export async function persistHiddenDefaults(
+/**
+ * Add a catalog addiction to the user's list. If the row already
+ * exists (soft-deleted previously), flip it back to `is_active=true`
+ * so the addiction's craving history seamlessly resumes.
+ */
+export async function activateUserAddiction(
   userId: string,
-  hidden: Set<string>
+  addictionId: string
+): Promise<void> {
+  // upsert with onConflict — insert if new, update is_active if
+  // returning after a soft-delete. `added_at` is left alone on update
+  // so the first-added timestamp is preserved for lifetime stats.
+  const { error } = await supabase.from('user_addictions').upsert(
+    {
+      user_id: userId,
+      addiction_id: addictionId,
+      is_active: true,
+    },
+    { onConflict: 'user_id,addiction_id' }
+  );
+  if (error) throw error;
+}
+
+/** Soft-delete: flip `is_active=false`. Data is preserved. */
+export async function deactivateUserAddiction(
+  userId: string,
+  addictionId: string
 ): Promise<void> {
   const { error } = await supabase
-    .from('profiles')
-    .update({ hidden_defaults: Array.from(hidden) })
-    .eq('id', userId);
+    .from('user_addictions')
+    .update({ is_active: false })
+    .eq('user_id', userId)
+    .eq('addiction_id', addictionId);
   if (error) throw error;
 }
