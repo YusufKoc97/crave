@@ -46,6 +46,7 @@ import { IntensityModal } from '@/components/IntensityModal';
 import { FailureConfirmModal } from '@/components/FailureConfirmModal';
 import { ToolkitPickerModal } from '@/components/ToolkitPickerModal';
 import { TechniqueRunnerModal } from '@/components/TechniqueRunnerModal';
+import { PresenceIndicator } from '@/components/PresenceIndicator';
 import type { Technique } from '@/constants/toolkitCatalog';
 
 const TIMER_SIZE = 220;
@@ -659,6 +660,14 @@ export default function ActiveSession() {
           style={[styles.quoteLine, { backgroundColor: `${accentColor}70` }]}
         />
       </View>
+
+      {/* Faz 7 — live "you're not alone" indicator. Placed between
+          the motivational quote and the primary action buttons
+          (karar #3): close enough to the CTAs to feel like a
+          nudge, far enough from the quote to preserve its beat.
+          Fails silent; the wrapper doesn't reserve space when the
+          component renders null (first fetch error / count = 0). */}
+      <PresenceIndicator />
 
       <View style={styles.btnArea}>
         {shareBanner ? (

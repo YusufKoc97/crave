@@ -350,6 +350,10 @@
     "step_1": "Notice 1 thing you can taste",
     "checkbox_item": "Noticed"
   },
+  "presence": {
+    "you_and_others": "You and {{count}} others are resisting right now",
+    "among_resisting": "You're among those resisting"
+  },
   "body_scan": {
     "intro": "Scan your body slowly",
     "instruction": "Notice any tension. Don't try to change it — just observe.",

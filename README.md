@@ -104,6 +104,18 @@ DROP TABLE IF EXISTS reflections   CASCADE;
 -- profiles.username kolonu Modül 4 için tutuluyor (handle bilgisi).
 ```
 
+### Faz 7 live presence counter
+
+No DB migration — reads aggregate off the existing
+`craving_sessions` table. Only the new Edge Function to deploy:
+
+```bash
+supabase functions deploy active-presence
+```
+
+Same secrets as the other functions; nothing to add to Supabase
+config.
+
 ### Faz 6 toolkit invocation migration
 
 Adds `technique_uses` for the Craving Toolkit (Modül 2). Client-

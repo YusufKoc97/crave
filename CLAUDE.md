@@ -65,6 +65,7 @@ constants/
   rankLadder.ts        ─ 9-rank i18n wrapper over shared/ranks.ts
   triggerCatalog.ts    ─ Faz 5: 8 common + 79 addiction-specific triggers
   toolkitCatalog.ts    ─ Faz 6: 4 guided techniques + feedback options
+  presence.ts          ─ Faz 7: threshold + poll interval + active window
 
 i18n/
   en.json              ─ Single-language dictionary (Faz 2: EN only)
@@ -101,6 +102,7 @@ components/
   ToolkitGrid.tsx          ─ Faz 6: 4-card 2×2 grid (used by Info + active picker)
   ToolkitPickerModal.tsx   ─ Faz 6: bottom-sheet picker for active-session
   TechniqueRunnerModal.tsx ─ Faz 6: guided flow + feedback (all 4 techniques)
+  PresenceIndicator.tsx    ─ Faz 7: 10s polling "you're not alone" line
   technique/               ─ Faz 6: one file per guided screen
     Breathing478Screen.tsx
     UrgeSurfingScreen.tsx
@@ -123,6 +125,7 @@ supabase/
   migrations/006_technique_uses.sql           ─ Faz 6 toolkit invocation log
   functions/resolve-craving/index.ts        ─ Server-authoritative resolve endpoint
                                               (Faz 4: rank unlocks + Faz 5: intensity)
+  functions/active-presence/index.ts        ─ Faz 7: count(*) other active sessions
 ```
 
 ## ✅ Yapılan Özellikler (Kronolojik)
@@ -226,6 +229,20 @@ false` + craving_sessions history saklanır → re-add kaldığı yerden
     'info_tab' + nullable `addiction_id` (Modül 3 cross-analysis
     için, karar #7). Client-only writes, Edge Function
     `technique_uses`'a dokunmaz.
+18. **Faz 7 Live Presence Counter**: active-session mount olunca
+    `<PresenceIndicator>` (quote alt / buttons üst konumunda)
+    `active-presence` Edge Function'a 10s polling yapıyor. Server
+    `user_id != auth.uid()` filter'ı ile başkalarını sayıyor
+    (karar #1, race koruması). `count >= 5` → "You and X others
+    are resisting right now"; `0 < count < 5` → "You're among
+    those resisting"; `count = 0` veya fetch fail → sessizce
+    gizlenir (asla "0 kişi" gösterme). AppState background →
+    polling durur (batarya), foreground → immediate fetch +
+    interval yeniden başlar (karar #2). Stale sessions >2h
+    filtreleniyor server-side. Tuning knob'lar
+    `constants/presence.ts`'te (threshold, interval, window).
+    DB migration yok — mevcut `craving_sessions` tablosuna aggregate
+    okuma.
 
 ## 🧠 Önemli Kararlar (UX/Mimari)
 
