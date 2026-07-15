@@ -146,6 +146,38 @@ export type Database = {
         };
         Relationships: [];
       };
+      technique_uses: {
+        // Faz 6. INSERT on technique start, UPDATE with completed +
+        // feedback when the guided flow ends. Client-owned RLS —
+        // Edge Function does not touch this table.
+        Row: {
+          id: string;
+          user_id: string;
+          technique_id: string;
+          context: 'active_craving' | 'info_tab';
+          addiction_id: string | null;
+          session_id: string | null;
+          used_at: string;
+          completed: boolean;
+          feedback: 'much_better' | 'better' | 'same' | 'worse' | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          technique_id: string;
+          context: 'active_craving' | 'info_tab';
+          addiction_id?: string | null;
+          session_id?: string | null;
+          used_at?: string;
+          completed?: boolean;
+          feedback?: 'much_better' | 'better' | 'same' | 'worse' | null;
+        };
+        Update: {
+          completed?: boolean;
+          feedback?: 'much_better' | 'better' | 'same' | 'worse' | null;
+        };
+        Relationships: [];
+      };
       craving_session_triggers: {
         // Faz 5. One row per (session, trigger). Client-owned:
         // INSERT on session start, DELETE + INSERT on failure

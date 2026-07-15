@@ -287,5 +287,82 @@
   "celebration": {
     "kicker": "NEW RANK UNLOCKED",
     "continue": "Continue"
+  },
+  "toolkit": {
+    "tab_title": "Toolkit",
+    "grid_header": "Techniques to try during a craving",
+    "duration_minutes": "{{minutes}} min",
+    "start": "Start",
+    "quit": "Quit",
+    "next": "Next",
+    "done": "Done",
+    "how_did_this_feel": "How did this feel?",
+    "feedback_skip": "Skip",
+    "try_a_technique": "Try a technique",
+    "feedback": {
+      "much_better": "Much better",
+      "better": "Better",
+      "same": "Same",
+      "worse": "Worse"
+    },
+    "techniques": {
+      "breathing_478": {
+        "name": "4-7-8 Breathing",
+        "short_description": "Calm your body",
+        "long_description": "Inhale for 4, hold for 7, exhale for 8. Extended exhales activate the parasympathetic nervous system."
+      },
+      "urge_surfing": {
+        "name": "Urge Surfing",
+        "short_description": "Ride the wave",
+        "long_description": "Watch the craving like a wave — it rises, peaks, and falls. You don't need to act on it. Just observe."
+      },
+      "grounding_54321": {
+        "name": "5-4-3-2-1 Grounding",
+        "short_description": "Return to the present",
+        "long_description": "Notice 5 things you see, 4 you touch, 3 you hear, 2 you smell, 1 you taste. Pulls you out of the craving loop."
+      },
+      "body_scan": {
+        "name": "Body Scan",
+        "short_description": "Find the tension",
+        "long_description": "Slowly scan from head to feet. Notice where tension lives. Awareness without judgment."
+      }
+    }
+  },
+  "breathing": {
+    "inhale": "Breathe in",
+    "hold": "Hold",
+    "exhale": "Breathe out",
+    "cycle_of": "Cycle {{current}} of {{total}}"
+  },
+  "urge_surfing": {
+    "intro": "Watch your craving like a wave",
+    "rising": "It's rising",
+    "peaking": "It's at its peak",
+    "falling": "It's falling",
+    "gone": "It has passed",
+    "instruction": "Don't fight it. Just observe."
+  },
+  "grounding": {
+    "step_5": "Notice 5 things you can see",
+    "step_4": "Notice 4 things you can touch",
+    "step_3": "Notice 3 things you can hear",
+    "step_2": "Notice 2 things you can smell",
+    "step_1": "Notice 1 thing you can taste",
+    "checkbox_item": "Noticed"
+  },
+  "body_scan": {
+    "intro": "Scan your body slowly",
+    "instruction": "Notice any tension. Don't try to change it — just observe.",
+    "tap_hint": "Tap anywhere to move on",
+    "regions": {
+      "head": "Head and face",
+      "neck": "Neck and shoulders",
+      "chest": "Chest",
+      "arms": "Arms and hands",
+      "belly": "Stomach",
+      "back": "Back",
+      "hips": "Hips",
+      "legs": "Legs and feet"
+    }
   }
 }
