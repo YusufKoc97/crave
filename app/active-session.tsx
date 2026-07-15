@@ -36,6 +36,13 @@ import { t } from '@/lib/i18n';
 import type { Outcome } from '@/shared/scoring';
 import { RankUnlockModal } from '@/components/RankUnlockModal';
 import { useAddictionScores } from '@/context/AddictionScoresContext';
+import {
+  fetchSessionTriggers,
+  insertSessionTriggers,
+  replaceSessionTriggers,
+} from '@/lib/triggerSessions';
+import { IntensityModal } from '@/components/IntensityModal';
+import { FailureConfirmModal } from '@/components/FailureConfirmModal';
 
 const TIMER_SIZE = 220;
 const STROKE_WIDTH = 2;
@@ -118,6 +125,8 @@ export default function ActiveSession() {
     resumeId?: string;
     /** ISO timestamp the original craving started — anchors the wall-clock timer. */
     resumeStartedAt?: string;
+    /** Faz 5: comma-separated trigger ids from /craving-start. */
+    triggers?: string;
   }>();
 
   const accentColor = params.color ?? colors.blue;
@@ -127,6 +136,17 @@ export default function ActiveSession() {
     Math.min(10, Number(params.sensitivity ?? 5))
   );
   const cycleSeconds = Math.max(60, maxMinutes * 60);
+
+  // Faz 5: trigger ids arrive from /craving-start as a comma-joined
+  // string. Empty string / missing → []. Held in a ref rather than
+  // state because the value is fixed after mount and doesn't need
+  // to re-render anything.
+  const initialTriggerIds = useRef<string[]>(
+    (params.triggers ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  );
 
   const { recordSession } = useSessions();
   const { user } = useAuth();
@@ -150,6 +170,15 @@ export default function ActiveSession() {
   // list = modal closed.
   const [unlockQueue, setUnlockQueue] = useState<string[]>([]);
   const { refresh: refreshScores } = useAddictionScores();
+
+  // Faz 5 modal gates. On "I Resisted" we open intensityOpen; on
+  // "I Failed" we open failureOpen. Neither hits resolve-craving
+  // until the user commits (or, for failure, cancels via ×).
+  const [intensityOpen, setIntensityOpen] = useState(false);
+  const [failureOpen, setFailureOpen] = useState(false);
+  const [failureInitialTriggers, setFailureInitialTriggers] = useState<
+    string[]
+  >([]);
 
   // Wall-clock anchor — survives JS thread pauses (background/foreground).
   // For a resumed session we anchor to the ORIGINAL started_at so elapsed
@@ -206,6 +235,17 @@ export default function ActiveSession() {
           startedAt: startedAt.current,
           sessionId: data.id,
         });
+        // Faz 5 — best-effort trigger INSERT. Non-blocking: the
+        // craving session is already alive and scoring; if this
+        // fails Modül 3 loses the trigger metadata for THIS session
+        // but nothing else breaks.
+        if (initialTriggerIds.current.length > 0) {
+          insertSessionTriggers(data.id, initialTriggerIds.current).catch(
+            (err) => {
+              console.warn('[active-session] trigger insert failed', err);
+            }
+          );
+        }
       }
     })();
     return () => {
@@ -348,11 +388,59 @@ export default function ActiveSession() {
     transform: [{ translateY: -bonusFloat.value * 38 }],
   }));
 
-  const finish = (outcome: Outcome) => {
-    // Medium impact on either decision — both are "I committed to this".
-    // The win/loss differentiation comes later (celebration tap on the
-    // share banner branch only).
+  // Faz 5 entry points — invoked directly from the action buttons.
+  // Both gate the actual resolve behind a modal so we can capture
+  // the intensity rating (on resist) or confirm/edit triggers (on
+  // failure) before hitting the Edge Function.
+  const onResistPress = () => {
+    // Light commit haptic to acknowledge the tap; the celebration
+    // haptic fires later when the banner shows.
     hapticCommit();
+    setIntensityOpen(true);
+  };
+
+  const onFailPress = async () => {
+    hapticCommit();
+    // Pre-populate the confirmation with whatever the user picked
+    // at the craving-start screen. Fall back to a fresh DB fetch
+    // if the client didn't carry them across (e.g. this is a
+    // resumed session — params.triggers is empty).
+    let initial = initialTriggerIds.current;
+    if (initial.length === 0 && sessionId.current) {
+      initial = await fetchSessionTriggers(sessionId.current);
+    }
+    setFailureInitialTriggers(initial);
+    setFailureOpen(true);
+  };
+
+  const onIntensityPick = (intensity: number | null) => {
+    setIntensityOpen(false);
+    resolveAndFinish('resisted', { intensity });
+  };
+
+  const onFailureConfirm = async (finalTriggers: string[], edited: boolean) => {
+    setFailureOpen(false);
+    if (edited && sessionId.current) {
+      // Persist the revised trigger set client-side BEFORE the
+      // Edge Function call so a network drop still leaves the DB
+      // consistent. Non-blocking — resolve doesn't wait for it.
+      replaceSessionTriggers(sessionId.current, finalTriggers).catch((err) => {
+        console.warn('[active-session] trigger replace failed', err);
+      });
+    }
+    resolveAndFinish('failed', { intensity: null });
+  };
+
+  const onFailureCancel = () => {
+    // Cancel — session stays 'active', user can hit either button
+    // again. No side effects.
+    setFailureOpen(false);
+  };
+
+  const resolveAndFinish = (
+    outcome: Outcome,
+    extras: { intensity: number | null }
+  ) => {
     const finalSeconds = Math.floor((Date.now() - startedAt.current) / 1000);
 
     // Optimistic estimate: the exact same formula the Edge Function
@@ -398,7 +486,14 @@ export default function ActiveSession() {
         });
         supabase.functions
           .invoke('resolve-craving', {
-            body: { session_id: rowId, outcome },
+            // Faz 5: intensity is optional (only meaningful on
+            // resisted); the Edge Function accepts null and
+            // stores it as such on craving_sessions.intensity.
+            body: {
+              session_id: rowId,
+              outcome,
+              intensity: extras.intensity,
+            },
           })
           .then(({ data, error }) => {
             if (error) {
@@ -555,20 +650,23 @@ export default function ActiveSession() {
 
       <View style={styles.btnArea}>
         {shareBanner ? (
-          // Community feed Faz 1'de kaldırıldı — banner artık sadece
-          // "kazandın" onayı gösteriyor + Bitir. Ne şuraya paylaş linki
-          // ne de yoğunluk sorusu var (yoğunluk Faz 5'te gelecek).
+          // Post-resolve banner: "+X points earned" + Finish. The
+          // Faz 5 intensity modal fires BEFORE this banner shows,
+          // so by the time the user sees Finish the intensity is
+          // already in flight.
           <View style={styles.shareBanner}>
             <Text style={styles.shareTitle}>
               <Text style={{ color: accentColor }}>+{shareBanner.points} </Text>
-              <Text style={{ color: '#F1F5F9' }}>puan kazandın</Text>
+              <Text style={{ color: '#F1F5F9' }}>
+                {t('active.points_earned')}
+              </Text>
             </Text>
             <View style={styles.shareBtnRow}>
               <Pressable
                 style={[styles.dismissBtn]}
                 onPress={dismissAfterShareDecision}
               >
-                <Text style={styles.dismissText}>Bitir</Text>
+                <Text style={styles.dismissText}>{t('active.finish')}</Text>
               </Pressable>
             </View>
           </View>
@@ -589,16 +687,13 @@ export default function ActiveSession() {
                   boxShadow: `0 0 16px ${hexWithAlpha(accentColor, 0.32)}, inset 0 1px 0 rgba(255, 255, 255, 0.08)`,
                 },
               ]}
-              onPress={() => finish('resisted')}
+              onPress={onResistPress}
             >
               <Text style={[styles.resistText, { color: accentColor }]}>
                 {t('active.resist')}
               </Text>
             </Pressable>
-            <Pressable
-              style={styles.gaveInBtn}
-              onPress={() => finish('failed')}
-            >
+            <Pressable style={styles.gaveInBtn} onPress={onFailPress}>
               <Text style={styles.gaveInText}>{t('active.failed')}</Text>
             </Pressable>
           </>
@@ -610,11 +705,34 @@ export default function ActiveSession() {
           newly_unlocked_ranks. Sitting inside the active-session
           root means it can steal focus while the share banner is
           still on screen; user dismisses celebration → sees the
-          banner underneath → taps Bitir to close the session. */}
+          banner underneath → taps Finish to close the session. */}
       <RankUnlockModal
         queue={unlockQueue}
         accentColor={accentColor}
         onDone={() => setUnlockQueue([])}
+      />
+
+      {/* Faz 5 — post-resist intensity rating. Opens on I Resisted;
+          closes on any selection (including Skip = null). Resolve
+          fires from onIntensityPick handler above. */}
+      <IntensityModal
+        visible={intensityOpen}
+        accentColor={accentColor}
+        onSelect={onIntensityPick}
+      />
+
+      {/* Faz 5 — post-fail trigger confirmation. Opens on I Failed
+          with the initial trigger set pre-selected; user either
+          confirms as-is, edits & saves, or × cancels (session
+          stays active). */}
+      <FailureConfirmModal
+        visible={failureOpen}
+        accentColor={accentColor}
+        addictionId={params.id ?? ''}
+        addictionName={params.name ?? ''}
+        initialTriggerIds={failureInitialTriggers}
+        onConfirm={onFailureConfirm}
+        onCancel={onFailureCancel}
       />
     </View>
   );

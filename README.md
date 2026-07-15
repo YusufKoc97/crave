@@ -104,6 +104,25 @@ DROP TABLE IF EXISTS reflections   CASCADE;
 -- profiles.username kolonu Modül 4 için tutuluyor (handle bilgisi).
 ```
 
+### Faz 5 craving-session triggers migration
+
+Adds `craving_session_triggers` for Modül 3's future heatmap. Runs
+in the SQL Editor top-to-bottom:
+
+```
+supabase/migrations/005_craving_session_triggers.sql
+```
+
+Client-owned RLS (INSERT + DELETE + SELECT policies scoped by
+session ownership); the Edge Function does not touch this table.
+
+Then re-deploy the Edge Function — Faz 5 adds intensity persistence
+to the `craving_sessions` UPDATE:
+
+```bash
+supabase functions deploy resolve-craving
+```
+
 ### Faz 4 rank ladder migration
 
 Adds the `user_unlocked_ranks` table for Module 1 (Resistance Journey).

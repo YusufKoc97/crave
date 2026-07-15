@@ -146,6 +146,22 @@ export type Database = {
         };
         Relationships: [];
       };
+      craving_session_triggers: {
+        // Faz 5. One row per (session, trigger). Client-owned:
+        // INSERT on session start, DELETE + INSERT on failure
+        // confirmation if the user edited. The Edge Function does
+        // NOT touch this table.
+        Row: {
+          session_id: string;
+          trigger_id: string;
+        };
+        Insert: {
+          session_id: string;
+          trigger_id: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
       user_unlocked_ranks: {
         // Faz 4 rank ladder. Once a threshold is crossed the row
         // stays forever — failure penalties never demote. Read-only

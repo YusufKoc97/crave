@@ -329,6 +329,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // Finalise the session row.
+  // Faz 5: `intensity` is captured only on 'resisted' via the
+  // post-resist rating modal. On 'failed' we always pass null so
+  // an old cached value can't linger — though the client already
+  // sends null in that case, defence in depth here.
+  const persistIntensity = outcome === 'resisted' ? intensity : null;
   await svc
     .from('craving_sessions')
     .update({
@@ -337,7 +342,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       ended_at: new Date(nowMs).toISOString(),
       duration_seconds: durationSeconds,
       points_delta: delta,
-      intensity,
+      intensity: persistIntensity,
     })
     .eq('id', session.id);
 

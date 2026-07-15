@@ -49,8 +49,10 @@ app/
     _layout.tsx        ─ Custom pill tab bar (Ionicons), session-loss guard
     index.tsx          ─ Ana ekran: orb + neon ring + 9 addiction + wiggle
     profile.tsx        ─ Stats (Total/Won/Lost/Momentum/Streak) + sign-out
-  active-session.tsx   ─ Timer (modal): Date.now-based, cycle bonus, share banner
+  active-session.tsx   ─ Timer (modal): Date.now-based, cycle bonus, share banner,
+                          intensity + failure modals wired (Faz 5)
   add-addiction.tsx    ─ Catalog picker (10 sabit, kategorilere göre gruplu)
+  craving-start.tsx    ─ Faz 5 modal: addiction chip + trigger picker → active-session
   setup-username.tsx   ─ Handle capture (opsiyonel, "Şimdilik atla" ile)
 
 components/
@@ -61,6 +63,7 @@ constants/
   addictions.ts        ─ ADDICTION_CATALOG (10 fixed) + toAddiction() +
                           FREE_ACTIVE_LIMIT / PREMIUM_ACTIVE_LIMIT + maxMinutesFor()
   rankLadder.ts        ─ 9-rank i18n wrapper over shared/ranks.ts
+  triggerCatalog.ts    ─ Faz 5: 8 common + 79 addiction-specific triggers
 
 i18n/
   en.json              ─ Single-language dictionary (Faz 2: EN only)
@@ -79,6 +82,7 @@ lib/
   scoring.ts           ─ Re-exports shared/scoring + weeklyResistCounts
   activeSession.ts     ─ AsyncStorage snapshot + pending finish replay
   addictionsApi.ts     ─ user_addictions CRUD (activate / deactivate / fetch)
+  triggerSessions.ts   ─ Faz 5: insert/replace/fetch on craving_session_triggers
   onboarding.ts        ─ Onboarding completion tracker, calculateAge()
   devBypass.ts         ─ EXPO_PUBLIC_DEV_SKIP_AUTH flag
 
@@ -88,8 +92,10 @@ shared/
   ranks.ts             ─ 9-rank ladder + unlock diff (Vitest + Deno)
 
 components/
-  JourneyBar.tsx       ─ Horizontal compact + vertical ladder for Module 1
-  RankUnlockModal.tsx  ─ Full-screen celebration, queue support, particle burst
+  JourneyBar.tsx           ─ Horizontal compact + vertical ladder for Module 1
+  RankUnlockModal.tsx      ─ Full-screen celebration, queue support, particle burst
+  IntensityModal.tsx       ─ Faz 5: 5-emoji ladder + Skip (post-resist)
+  FailureConfirmModal.tsx  ─ Faz 5: trigger toggle + Looks right / Edit + × cancel
 
 context/
   AddictionScoresContext.tsx ─ Per-addiction score + unlocks hydration
@@ -100,10 +106,11 @@ app/(tabs)/info/
   [addictionId].tsx    ─ Landing page with 4 sub-tabs (Journey implemented)
 
 supabase/
-  migrations/003_backend_scoring.sql   ─ Faz 3 SQL (enum rename + views + tables)
-  migrations/004_rank_ladder.sql       ─ Faz 4 user_unlocked_ranks table
-  functions/resolve-craving/index.ts   ─ Server-authoritative resolve endpoint
-                                         (Faz 4: also writes user_unlocked_ranks)
+  migrations/003_backend_scoring.sql        ─ Faz 3 SQL (enum rename + views + tables)
+  migrations/004_rank_ladder.sql            ─ Faz 4 user_unlocked_ranks table
+  migrations/005_craving_session_triggers.sql ─ Faz 5 client-owned trigger capture
+  functions/resolve-craving/index.ts        ─ Server-authoritative resolve endpoint
+                                              (Faz 4: rank unlocks + Faz 5: intensity)
 ```
 
 ## ✅ Yapılan Özellikler (Kronolojik)
@@ -168,6 +175,24 @@ false` + craving_sessions history saklanır → re-add kaldığı yerden
     `TAB_ORDER.length * 56 + padding` — 4. tab için hazır. Yeni
     context: `AddictionScoresContext` (per-addiction score +
     unlocks hydrate, `refresh()` active-session'dan çağrılıyor).
+16. **Faz 5 Craving Akışı**: Orb → addiction tap artık doğrudan
+    timer'a atlamıyor, önce yeni modal ekran
+    (`/craving-start`) — chosen addiction chip + Common (8) +
+    addiction-specific trigger chip'leri. Min 1 trigger zorunlu.
+    Start → `/active-session`'a triggers comma-joined param olarak
+    geçer. Timer mount olduğunda `craving_sessions` INSERT + arka
+    planda `craving_session_triggers` INSERT (best-effort, timer
+    beklemez). Post-resist: **IntensityModal** (5 emoji ladder
+    Mild → Unbearable + Skip = null). Post-fail:
+    **FailureConfirmModal** (pre-selected chips + "Looks right" /
+    "Edit and save" + × cancel → session `active` kalır). Shame-free
+    "This is data too. See you next craving." mesajı. Trigger
+    catalog client-only (`constants/triggerCatalog.ts` — 8 common
+    - 79 addiction-specific = 87 total; no shared/, no DB CHECK).
+      Trigger persist tamamen client (`lib/triggerSessions.ts` —
+      insert/replace/fetch, RLS scoped by session ownership).
+      resolve-craving Edge Function sadece `intensity` alanını
+      handle eder — trigger'lara dokunmaz.
 
 ## 🧠 Önemli Kararlar (UX/Mimari)
 

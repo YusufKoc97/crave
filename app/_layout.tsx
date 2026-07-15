@@ -159,6 +159,13 @@ function RootStack() {
             animation: 'slide_from_bottom',
           }}
         />
+        <Stack.Screen
+          name="craving-start"
+          options={{
+            presentation: 'modal',
+            animation: 'slide_from_bottom',
+          }}
+        />
       </Stack>
     </>
   );

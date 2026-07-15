@@ -20,7 +20,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { type Addiction, maxMinutesFor } from '@/constants/addictions';
+import type { Addiction } from '@/constants/addictions';
 import { useAddictions } from '@/context/AddictionsContext';
 import { NeonRing } from '@/components/NeonRing';
 import { t } from '@/lib/i18n';
@@ -201,14 +201,18 @@ export default function HomeScreen() {
     }
     exitSelecting();
     setTimeout(() => {
+      // Faz 5: interstitial trigger-selection screen sits between
+      // the orb and the timer. It re-hydrates the addiction from
+      // the same params shape, adds a `triggers` field, and
+      // router.replace's into /active-session so the back button
+      // from the timer doesn't bounce through this modal.
       router.push({
-        pathname: '/active-session',
+        pathname: '/craving-start',
         params: {
           id: a.id,
           name: a.name,
           emoji: a.emoji,
           color: a.color,
-          maxMinutes: String(maxMinutesFor(a.sensitivity)),
           sensitivity: String(a.sensitivity),
         },
       });

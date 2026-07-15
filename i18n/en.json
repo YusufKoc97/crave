@@ -72,7 +72,146 @@
   },
   "active": {
     "resist": "I Resisted",
-    "failed": "I Failed"
+    "failed": "I Failed",
+    "points_earned": "points earned",
+    "finish": "Finish"
+  },
+  "craving_flow": {
+    "start_title": "Craving now",
+    "select_addiction_label": "ADDICTION",
+    "select_triggers_title": "What triggered this?",
+    "select_triggers_hint": "Pick one or more",
+    "common_section": "Common",
+    "specific_section": "{{name}} specific",
+    "start_button": "Start",
+    "min_one_trigger": "Select at least one trigger",
+    "intensity_question": "How intense was this craving?",
+    "intensity_subtitle": "Optional — helps you see patterns later.",
+    "intensity_skip": "Skip",
+    "intensity": {
+      "mild": "Mild",
+      "moderate": "Moderate",
+      "strong": "Strong",
+      "very_strong": "Very strong",
+      "unbearable": "Unbearable"
+    },
+    "confirm_trigger_question": "What triggered this?",
+    "confirm_trigger_hint": "Confirm or adjust",
+    "confirm_button": "Looks right",
+    "edit_button": "Edit and save",
+    "cancel_button": "Cancel",
+    "failed_message": "This is data too. See you next craving."
+  },
+  "triggers": {
+    "common": {
+      "stress": "Stress",
+      "loneliness": "Loneliness",
+      "boredom": "Boredom",
+      "anxiety": "Anxiety",
+      "sadness": "Sadness",
+      "tiredness": "Tiredness",
+      "anger": "Anger",
+      "social_situation": "Social situation"
+    },
+    "nicotine": {
+      "after_coffee": "After coffee",
+      "after_meal": "After a meal",
+      "with_alcohol": "With alcohol",
+      "someone_smoking": "Someone smoking nearby",
+      "morning_routine": "Morning routine",
+      "driving": "Driving",
+      "break_time": "Break time",
+      "phone_in_hand": "Phone in hand"
+    },
+    "alcohol": {
+      "evening_after_work": "Evening / after work",
+      "weekend": "Weekend",
+      "social_gathering": "Social gathering",
+      "restaurant_bar": "Restaurant / bar",
+      "stressed_at_work": "Stressed at work",
+      "watching_tv": "Watching TV or movie",
+      "someone_offered": "Someone offered",
+      "special_occasion": "Special occasion"
+    },
+    "caffeine": {
+      "morning_routine": "Morning routine",
+      "afternoon_slump": "Afternoon slump",
+      "meeting_break": "Meeting break",
+      "studying": "Studying",
+      "need_focus": "Need focus",
+      "warm_drink_craving": "Warm drink craving",
+      "habit_routine": "Habit / routine"
+    },
+    "vape": {
+      "phone_in_hand": "Phone in hand",
+      "break_time": "Break time",
+      "someone_vaping": "Someone vaping nearby",
+      "hidden_spot": "Hidden / private spot",
+      "boredom_scroll": "Boredom scrolling",
+      "after_meal": "After a meal",
+      "morning_routine": "Morning routine",
+      "concert_event": "Concert or event"
+    },
+    "gambling": {
+      "app_notification": "App notification",
+      "money_worry": "Money worry",
+      "big_game": "Big game or match",
+      "payday": "Payday",
+      "chasing_loss": "Chasing a loss",
+      "friend_won": "A friend won",
+      "weekend_evening": "Weekend evening",
+      "alone_at_night": "Alone at night"
+    },
+    "junk_food": {
+      "late_night": "Late night",
+      "after_argument": "After an argument",
+      "watching_tv": "Watching TV",
+      "passing_fast_food": "Passing fast food",
+      "sweet_craving": "Sweet craving",
+      "salty_craving": "Salty craving",
+      "cheat_day_thought": "Cheat day thought",
+      "emotional_pain": "Emotional pain"
+    },
+    "shopping": {
+      "notification_email": "Notification / email",
+      "payday": "Payday",
+      "social_media_ad": "Social media ad",
+      "bad_mood": "Bad mood",
+      "sale_announcement": "Sale announcement",
+      "comparing_others": "Comparing to others",
+      "bored_scrolling": "Bored scrolling",
+      "feeling_deserving": "Feeling deserving"
+    },
+    "pmo": {
+      "alone_private": "Alone / private",
+      "before_sleep": "Before sleep",
+      "after_waking": "After waking",
+      "phone_in_hand": "Phone in hand",
+      "suggestive_content": "Suggestive content",
+      "sexual_thought": "Sexual thought",
+      "post_argument": "After argument",
+      "winding_down": "Winding down"
+    },
+    "doomscroll": {
+      "notification": "Notification",
+      "waking_up": "Just woke up",
+      "before_sleep": "Before sleep",
+      "bathroom": "Bathroom",
+      "waiting_somewhere": "Waiting somewhere",
+      "after_stressful": "After stressful moment",
+      "habit_autopilot": "Habit / autopilot",
+      "fear_missing_out": "Fear of missing out"
+    },
+    "gaming": {
+      "one_more_round": "Just one more round",
+      "friends_online": "Friends online",
+      "new_release": "New release",
+      "bad_day_escape": "Escape from a bad day",
+      "weekend": "Weekend",
+      "game_notification": "Game notification",
+      "ranking_pressure": "Ranking pressure",
+      "habit_after_work": "Habit after work"
+    }
   },
   "info": {
     "tab_label": "Info",
