@@ -354,6 +354,73 @@
     "you_and_others": "You and {{count}} others are resisting right now",
     "among_resisting": "You're among those resisting"
   },
+  "trigger_map": {
+    "period": {
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "all": "All time"
+    },
+    "heatmap": {
+      "title": "When cravings happen",
+      "subtitle": "Darker = more cravings",
+      "days": {
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "sun": "Sun"
+      },
+      "days_long": {
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday"
+      },
+      "cell_detail_title": "{{day}} at {{hour}}:00",
+      "cell_cravings_count": "{{count}} cravings",
+      "cell_top_triggers": "TOP TRIGGERS",
+      "cell_avg_intensity": "Avg intensity: {{level}}",
+      "cell_no_triggers": "No triggers recorded"
+    },
+    "peak_hours": {
+      "title": "Your hardest hours",
+      "subtitle": "Top 3 windows",
+      "row_range": "{{day}} {{startHour}}:00–{{endHour}}:00",
+      "row_count": "{{count}} cravings"
+    },
+    "distribution": {
+      "title": "Your triggers ({{period}})",
+      "mostly": "Mostly {{level}}",
+      "percent": "{{percent}}%",
+      "no_triggers": "No triggers recorded yet"
+    },
+    "empty": {
+      "zero_title": "No cravings tracked yet",
+      "zero_body": "Your first craving unlocks this view. Tap the orb and log one when it happens.",
+      "sparse_title": "Just getting started",
+      "sparse_body": "Keep tracking — after a few more sessions patterns become visible."
+    },
+    "free_gate": {
+      "title": "Unlock the full trigger map",
+      "body": "Premium reveals your heatmap, peak hours, and trigger distribution.",
+      "cta": "Upgrade to Premium"
+    },
+    "intensity_levels": {
+      "mild": "mild",
+      "moderate": "moderate",
+      "strong": "strong",
+      "very_strong": "very strong",
+      "unbearable": "unbearable"
+    },
+    "error": {
+      "load_failed": "Couldn't load your data — pull to refresh."
+    }
+  },
   "body_scan": {
     "intro": "Scan your body slowly",
     "instruction": "Notice any tension. Don't try to change it — just observe.",

@@ -47,6 +47,7 @@ import { FailureConfirmModal } from '@/components/FailureConfirmModal';
 import { ToolkitPickerModal } from '@/components/ToolkitPickerModal';
 import { TechniqueRunnerModal } from '@/components/TechniqueRunnerModal';
 import { PresenceIndicator } from '@/components/PresenceIndicator';
+import { invalidateTriggerMaps } from '@/lib/queryClient';
 import type { Technique } from '@/constants/toolkitCatalog';
 
 const TIMER_SIZE = 220;
@@ -536,6 +537,10 @@ export default function ActiveSession() {
               setUnlockQueue(unlocks);
             }
             refreshScores();
+            // Faz 8a — a fresh resolve invalidates every cached
+            // trigger-map query so the Info tab reflects the new
+            // session next time the user visits.
+            invalidateTriggerMaps();
           });
       }
     }

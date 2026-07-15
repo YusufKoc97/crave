@@ -66,6 +66,8 @@ constants/
   triggerCatalog.ts    ─ Faz 5: 8 common + 79 addiction-specific triggers
   toolkitCatalog.ts    ─ Faz 6: 4 guided techniques + feedback options
   presence.ts          ─ Faz 7: threshold + poll interval + active window
+  heatmap.ts           ─ Faz 8a: grid dims, DAY_KEYS, PERIOD_ORDER, 5-color
+                          ramp + heatmapColor() + sparse/full thresholds
 
 i18n/
   en.json              ─ Single-language dictionary (Faz 2: EN only)
@@ -86,6 +88,9 @@ lib/
   addictionsApi.ts     ─ user_addictions CRUD (activate / deactivate / fetch)
   triggerSessions.ts   ─ Faz 5: insert/replace/fetch on craving_session_triggers
   techniqueUses.ts     ─ Faz 6: logTechniqueStart / logTechniqueEnd
+  premium.ts           ─ Faz 8a: app-wide useIsPremium() hook (single knob)
+  queryClient.ts       ─ Faz 8a: React Query singleton + invalidateTriggerMaps()
+  triggerMap.ts        ─ Faz 8a: useTriggerMap(addictionId, period) + types
   onboarding.ts        ─ Onboarding completion tracker, calculateAge()
   devBypass.ts         ─ EXPO_PUBLIC_DEV_SKIP_AUTH flag
 
@@ -109,6 +114,15 @@ components/
     Grounding54321Screen.tsx
     BodyScanScreen.tsx
     types.ts               ─ Shared TechniqueScreenProps contract
+  triggerMap/              ─ Faz 8a: Modül 3 root + sub-components
+    TriggersPane.tsx       ─ Root — progressive disclosure (zero/sparse/full)
+    PeriodFilter.tsx       ─ 3-pill segmented (7d / 30d / all)
+    FreeTierGate.tsx       ─ Blur + upgrade overlay for non-premium
+    EmptyStates.tsx        ─ 'zero' + 'sparse' variants
+    HeatmapGrid.tsx        ─ SVG 7×24 grid + intensity dots + Pressable overlay
+    PeakHoursList.tsx      ─ Top-3 rank rows (server-sorted)
+    TriggerDistribution.tsx─ Horizontal bar chart + "Mostly {level}"
+    CellDetailSheet.tsx    ─ @gorhom/bottom-sheet, imperative open()
 
 context/
   AddictionScoresContext.tsx ─ Per-addiction score + unlocks hydration
@@ -126,6 +140,8 @@ supabase/
   functions/resolve-craving/index.ts        ─ Server-authoritative resolve endpoint
                                               (Faz 4: rank unlocks + Faz 5: intensity)
   functions/active-presence/index.ts        ─ Faz 7: count(*) other active sessions
+  functions/trigger-map-data/index.ts       ─ Faz 8a: heatmap + peaks + triggers
+                                              aggregation (JWT, no new DB)
 ```
 
 ## ✅ Yapılan Özellikler (Kronolojik)
@@ -243,6 +259,38 @@ false` + craving_sessions history saklanır → re-add kaldığı yerden
     `constants/presence.ts`'te (threshold, interval, window).
     DB migration yok — mevcut `craving_sessions` tablosuna aggregate
     okuma.
+19. **Faz 8a Trigger Map (Modül 3, Section 2/3/4)**: Info tab 3. sub-tab
+    (Triggers) artık placeholder değil — full pipeline. Edge Function
+    `trigger-map-data` (JWT, service-role privileged read) tek
+    çağrıda `craving_sessions` + `craving_session_triggers` join'ini
+    period-filtered (7d / 30d / all) çekiyor, sunucu tarafında
+    aggregate ediyor: `heatmap[7][24]` (Mon=0 shift), `intensity_map`
+    (avg rounded per cell), `peak_hours` (top-3 flat cells desc),
+    `triggers` (percentage + `most_common_intensity` mode). `insights`
+    field response'ta var ama Faz 8a'da `[]` — kural motoru 8b'de.
+    Client (`useTriggerMap` React Query hook, 5min stale) →
+    `TriggersPane` progressive disclosure:
+    `count=0` → EmptyState zero;
+    `count 1-5` → Heatmap + sparse nudge (peak/dist gizli);
+    `count 6+` → Heatmap + PeakHoursList + TriggerDistribution.
+    HeatmapGrid = react-native-svg 7×24 (`CELL_SIZE=12`,
+    5-color indigo ramp `heatmap.ts`), avg intensity ≥ 4 hücrelerde
+    beyaz dot marker, invisible Pressable overlay (SVG onPress
+    web'de flaky). Cell tap → `CellDetailSheet` (@gorhom/bottom-sheet
+    imperative `open()` ref, 30% snap) → day/hour + count + avg
+    intensity label. Free-tier (default): `FreeTierGate` blur veil
+    - Upgrade CTA content üzerine binder (web: `filter/backdropFilter`
+      blur, native: opacity + `rgba(2,8,16,0.55)` veil). Premium hook
+      (`lib/premium.ts`) app-wide extract edildi — AddictionsContext
+      limit hesabı da bu hook'u kullanıyor. React Query provider root
+      layout'ta (`app/_layout.tsx`), `GestureHandlerRootView` bottom
+      sheet gesture'ları için root'a taşındı. active-session
+      resolve sonrası `invalidateTriggerMaps()` çağrılıyor →
+      Info tab bir sonraki açılışta fresh data. Yeni migration
+      yok — mevcut Faz 5 tablolarını okur. Tests: 12 yeni case
+      (`tests/heatmap.test.ts`) — grid dims, DAY_KEYS order,
+      period order/default, stale time, heatmapColor bucket
+      thresholds (0/1/2/3-4/5+), ramp monotonicity.
 
 ## 🧠 Önemli Kararlar (UX/Mimari)
 

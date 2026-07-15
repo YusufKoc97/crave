@@ -22,6 +22,7 @@ import {
   deactivateUserAddiction,
   fetchUserAddictions,
 } from '@/lib/addictionsApi';
+import { useIsPremium } from '@/lib/premium';
 
 /**
  * Faz 2 model. State = which catalog ids the user has currently
@@ -50,12 +51,9 @@ const AddictionsContext = createContext<AddictionsContextValue | undefined>(
 
 const STORAGE_KEY_ACTIVE = 'user_addictions_active_v1';
 
-// Premium gating is off in Faz 2 — every test user is treated as free.
-// Wired through here so Faz X (paywall) only needs to change one flag.
-const IS_PREMIUM = false;
-
 export function AddictionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const isPremium = useIsPremium();
   const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
   // Don't persist back to disk until the initial read finishes; the
   // first render otherwise overwrites the saved blob with an empty set.
@@ -117,7 +115,7 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
     });
   }, [activeIds]);
 
-  const limit = IS_PREMIUM ? PREMIUM_ACTIVE_LIMIT : FREE_ACTIVE_LIMIT;
+  const limit = isPremium ? PREMIUM_ACTIVE_LIMIT : FREE_ACTIVE_LIMIT;
   const atLimit = activeIds.size >= limit;
 
   const addAddiction = useCallback(

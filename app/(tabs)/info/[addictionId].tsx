@@ -20,6 +20,7 @@ import { useAddictionScores } from '@/context/AddictionScoresContext';
 import { JourneyBar } from '@/components/JourneyBar';
 import { ToolkitGrid } from '@/components/ToolkitGrid';
 import { TechniqueRunnerModal } from '@/components/TechniqueRunnerModal';
+import { TriggersPane } from '@/components/triggerMap/TriggersPane';
 import type { Technique } from '@/constants/toolkitCatalog';
 import { t } from '@/lib/i18n';
 
@@ -94,7 +95,7 @@ export default function AddictionLandingScreen() {
             />
           </View>
         )}
-        {subTab === 'triggers' && <ComingSoonPane />}
+        {subTab === 'triggers' && <TriggersPane addiction={addiction} />}
         {subTab === 'comparison' && <ComingSoonPane />}
       </ScrollView>
 
