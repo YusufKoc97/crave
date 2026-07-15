@@ -18,6 +18,9 @@ import {
 import { useAddictions } from '@/context/AddictionsContext';
 import { useAddictionScores } from '@/context/AddictionScoresContext';
 import { JourneyBar } from '@/components/JourneyBar';
+import { ToolkitGrid } from '@/components/ToolkitGrid';
+import { TechniqueRunnerModal } from '@/components/TechniqueRunnerModal';
+import type { Technique } from '@/constants/toolkitCatalog';
 import { t } from '@/lib/i18n';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
@@ -42,6 +45,12 @@ export default function AddictionLandingScreen() {
   const params = useLocalSearchParams<{ addictionId: string }>();
   const addictionId = params.addictionId ?? '';
   const [subTab, setSubTab] = useState<SubTab>('journey');
+  // Faz 6 — toolkit modal state. Info-tab launches carry no
+  // session_id (context = 'info_tab'); active-session launches use
+  // their own modal state.
+  const [runningTechnique, setRunningTechnique] = useState<Technique | null>(
+    null
+  );
 
   const catalog = getCatalogEntry(addictionId);
   if (!catalog) {
@@ -77,10 +86,30 @@ export default function AddictionLandingScreen() {
         showsVerticalScrollIndicator={false}
       >
         {subTab === 'journey' && <JourneyPane addiction={addiction} />}
-        {subTab === 'toolkit' && <ComingSoonPane />}
+        {subTab === 'toolkit' && (
+          <View style={{ paddingHorizontal: 20 }}>
+            <ToolkitGrid
+              accentColor={addiction.color}
+              onSelect={setRunningTechnique}
+            />
+          </View>
+        )}
         {subTab === 'triggers' && <ComingSoonPane />}
         {subTab === 'comparison' && <ComingSoonPane />}
       </ScrollView>
+
+      {/* Faz 6 — guided-flow overlay. Sits on top of the Info tab
+          via RN Modal so the tab bar stays reachable underneath
+          for cancel-and-navigate flows. Info-tab context passes
+          addictionId but no session_id. */}
+      <TechniqueRunnerModal
+        technique={runningTechnique}
+        accentColor={addiction.color}
+        context="info_tab"
+        addictionId={addiction.id}
+        sessionId={null}
+        onClose={() => setRunningTechnique(null)}
+      />
     </View>
   );
 }
