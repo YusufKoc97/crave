@@ -64,6 +64,7 @@ constants/
                           FREE_ACTIVE_LIMIT / PREMIUM_ACTIVE_LIMIT + maxMinutesFor()
   rankLadder.ts        ─ 9-rank i18n wrapper over shared/ranks.ts
   triggerCatalog.ts    ─ Faz 5: 8 common + 79 addiction-specific triggers
+  toolkitCatalog.ts    ─ Faz 6: 4 guided techniques + feedback options
 
 i18n/
   en.json              ─ Single-language dictionary (Faz 2: EN only)
@@ -83,6 +84,7 @@ lib/
   activeSession.ts     ─ AsyncStorage snapshot + pending finish replay
   addictionsApi.ts     ─ user_addictions CRUD (activate / deactivate / fetch)
   triggerSessions.ts   ─ Faz 5: insert/replace/fetch on craving_session_triggers
+  techniqueUses.ts     ─ Faz 6: logTechniqueStart / logTechniqueEnd
   onboarding.ts        ─ Onboarding completion tracker, calculateAge()
   devBypass.ts         ─ EXPO_PUBLIC_DEV_SKIP_AUTH flag
 
@@ -96,6 +98,15 @@ components/
   RankUnlockModal.tsx      ─ Full-screen celebration, queue support, particle burst
   IntensityModal.tsx       ─ Faz 5: 5-emoji ladder + Skip (post-resist)
   FailureConfirmModal.tsx  ─ Faz 5: trigger toggle + Looks right / Edit + × cancel
+  ToolkitGrid.tsx          ─ Faz 6: 4-card 2×2 grid (used by Info + active picker)
+  ToolkitPickerModal.tsx   ─ Faz 6: bottom-sheet picker for active-session
+  TechniqueRunnerModal.tsx ─ Faz 6: guided flow + feedback (all 4 techniques)
+  technique/               ─ Faz 6: one file per guided screen
+    Breathing478Screen.tsx
+    UrgeSurfingScreen.tsx
+    Grounding54321Screen.tsx
+    BodyScanScreen.tsx
+    types.ts               ─ Shared TechniqueScreenProps contract
 
 context/
   AddictionScoresContext.tsx ─ Per-addiction score + unlocks hydration
@@ -109,6 +120,7 @@ supabase/
   migrations/003_backend_scoring.sql        ─ Faz 3 SQL (enum rename + views + tables)
   migrations/004_rank_ladder.sql            ─ Faz 4 user_unlocked_ranks table
   migrations/005_craving_session_triggers.sql ─ Faz 5 client-owned trigger capture
+  migrations/006_technique_uses.sql           ─ Faz 6 toolkit invocation log
   functions/resolve-craving/index.ts        ─ Server-authoritative resolve endpoint
                                               (Faz 4: rank unlocks + Faz 5: intensity)
 ```
@@ -193,6 +205,27 @@ false` + craving_sessions history saklanır → re-add kaldığı yerden
       insert/replace/fetch, RLS scoped by session ownership).
       resolve-craving Edge Function sadece `intensity` alanını
       handle eder — trigger'lara dokunmaz.
+17. **Faz 6 Craving Toolkit (Modül 2)**: 4 guided technique
+    (breathing_478 / urge_surfing / grounding_54321 / body_scan)
+    aynı `TechniqueRunnerModal` içinde çalışıyor. İki entry:
+    (a) Info Toolkit sub-tab `ToolkitGrid` (öğrenme), (b)
+    active-session'ın "Try a technique" secondary CTA'sı →
+    `ToolkitPickerModal` bottom sheet (kriz anı yardımı) — her
+    ikisi de aynı 4 kartı gösteriyor, aynı runner'a yönlendiriyor.
+    Runner phase-based: `guiding` (teknik-özel screen —
+    Breathing478Screen scale animasyonlu circle, UrgeSurfingScreen
+    SVG wave + narrative timeline, Grounding54321Screen 5-4-3-2-1
+    checklist, BodyScanScreen 8 region segmented bar +
+    tap-forward-to-skip) → `feedback` (4 emoji Much better/Better/
+    Same/Worse + Skip). RN `<Modal>` overlay — Stack.Screen değil
+    ki active-session timer altta çalışmaya devam etsin (Faz 6
+    karar #1). AppState foreground → in-place restart (`resetSeed`
+    remount, karar #6). Two-write DB lifecycle:
+    `logTechniqueStart` INSERT'te row id, `logTechniqueEnd` UPDATE
+    ile `completed` + `feedback`. `context` = 'active_craving' |
+    'info_tab' + nullable `addiction_id` (Modül 3 cross-analysis
+    için, karar #7). Client-only writes, Edge Function
+    `technique_uses`'a dokunmaz.
 
 ## 🧠 Önemli Kararlar (UX/Mimari)
 

@@ -20,6 +20,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { calculateResistPoints, useSessions } from '@/context/SessionsContext';
 import { useAuth } from '@/context/AuthContext';
@@ -43,6 +44,9 @@ import {
 } from '@/lib/triggerSessions';
 import { IntensityModal } from '@/components/IntensityModal';
 import { FailureConfirmModal } from '@/components/FailureConfirmModal';
+import { ToolkitPickerModal } from '@/components/ToolkitPickerModal';
+import { TechniqueRunnerModal } from '@/components/TechniqueRunnerModal';
+import type { Technique } from '@/constants/toolkitCatalog';
 
 const TIMER_SIZE = 220;
 const STROKE_WIDTH = 2;
@@ -179,6 +183,14 @@ export default function ActiveSession() {
   const [failureInitialTriggers, setFailureInitialTriggers] = useState<
     string[]
   >([]);
+  // Faz 6: toolkit picker + runner state. Picker is the bottom
+  // sheet; runner is the full-screen guided flow. Both are RN
+  // Modals so they overlay the running timer without unmounting
+  // it.
+  const [toolkitPickerOpen, setToolkitPickerOpen] = useState(false);
+  const [runningTechnique, setRunningTechnique] = useState<Technique | null>(
+    null
+  );
 
   // Wall-clock anchor — survives JS thread pauses (background/foreground).
   // For a resumed session we anchor to the ORIGINAL started_at so elapsed
@@ -672,6 +684,21 @@ export default function ActiveSession() {
           </View>
         ) : (
           <>
+            {/* Faz 6: subtle secondary CTA for the toolkit picker.
+                Sits above the primary resist/fail buttons so the
+                user's eye lands on the decision buttons first, but
+                the escape hatch is always reachable. */}
+            <Pressable
+              style={styles.toolkitBtn}
+              onPress={() => setToolkitPickerOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={t('toolkit.try_a_technique')}
+            >
+              <Ionicons name="sparkles-outline" size={14} color="#7BA8C8" />
+              <Text style={styles.toolkitBtnText}>
+                {t('toolkit.try_a_technique')}
+              </Text>
+            </Pressable>
             <Pressable
               style={[
                 styles.resistBtn,
@@ -733,6 +760,31 @@ export default function ActiveSession() {
         initialTriggerIds={failureInitialTriggers}
         onConfirm={onFailureConfirm}
         onCancel={onFailureCancel}
+      />
+
+      {/* Faz 6 — toolkit picker bottom sheet. Timer keeps ticking
+          underneath. Selecting a card closes the sheet and
+          mounts TechniqueRunnerModal below. */}
+      <ToolkitPickerModal
+        visible={toolkitPickerOpen}
+        accentColor={accentColor}
+        onClose={() => setToolkitPickerOpen(false)}
+        onSelect={(tech) => {
+          setToolkitPickerOpen(false);
+          setRunningTechnique(tech);
+        }}
+      />
+
+      {/* Faz 6 — guided-flow overlay. Runs on top of the timer;
+          context = 'active_craving' so telemetry ties this
+          technique_use back to the specific craving session. */}
+      <TechniqueRunnerModal
+        technique={runningTechnique}
+        accentColor={accentColor}
+        context="active_craving"
+        addictionId={params.id ?? null}
+        sessionId={sessionId.current}
+        onClose={() => setRunningTechnique(null)}
       />
     </View>
   );
@@ -931,6 +983,27 @@ const styles = StyleSheet.create({
     color: '#3D5470',
     fontSize: 14,
     fontWeight: '400',
+  },
+  toolkitBtn: {
+    // Secondary CTA — deliberately muted so it doesn't compete
+    // with the primary resist/fail buttons. Sparkle icon + gap
+    // matches the Info-tab visual language for toolkit surfaces.
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1E2D4D',
+    backgroundColor: '#0A1628',
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+  },
+  toolkitBtnText: {
+    color: '#7BA8C8',
+    fontSize: 12.5,
+    fontWeight: '600',
+    letterSpacing: 0.4,
   },
   shareBanner: {
     backgroundColor: '#0A1628',

@@ -104,6 +104,18 @@ DROP TABLE IF EXISTS reflections   CASCADE;
 -- profiles.username kolonu Modül 4 için tutuluyor (handle bilgisi).
 ```
 
+### Faz 6 toolkit invocation migration
+
+Adds `technique_uses` for the Craving Toolkit (Modül 2). Client-
+owned RLS — the Edge Function does not touch this table, so no
+redeploy needed.
+
+```
+supabase/migrations/006_technique_uses.sql
+```
+
+Run in the SQL Editor top-to-bottom. Idempotent.
+
 ### Faz 5 craving-session triggers migration
 
 Adds `craving_session_triggers` for Modül 3's future heatmap. Runs
