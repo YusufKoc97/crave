@@ -73,5 +73,80 @@
   "active": {
     "resist": "I Resisted",
     "failed": "I Failed"
+  },
+  "info": {
+    "tab_label": "Info",
+    "screen_title": "Info",
+    "section_tracking": "TRACKING",
+    "section_all": "ALL ADDICTIONS",
+    "not_tracked": "Not tracked",
+    "current_rank_prefix": "",
+    "empty_tracking": "You aren't tracking anything yet — pick from the list below."
+  },
+  "landing": {
+    "start_tracking_title": "Not tracking {{name}} yet",
+    "start_tracking_body": "Start tracking to unlock the resistance journey and personalised insights for {{name}}.",
+    "start_tracking_cta": "Start tracking"
+  },
+  "modules": {
+    "journey": "Journey",
+    "toolkit": "Toolkit",
+    "triggers": "Triggers",
+    "comparison": "Comparison",
+    "coming_soon_title": "Coming soon",
+    "coming_soon_body": "This module is being built — we'll turn it on once the shape settles."
+  },
+  "journey": {
+    "your_rank": "YOUR RANK",
+    "score_label": "SCORE",
+    "next_rank_progress": "{{remaining}} more to {{name}}",
+    "at_ceiling": "You've reached the top of the ladder",
+    "ladder_title": "THE LADDER",
+    "unlocked": "Unlocked",
+    "current": "Current",
+    "locked": "Locked",
+    "unlocked_at": "Unlocked {{date}}"
+  },
+  "ranks": {
+    "traveler": {
+      "name": "Traveler",
+      "description": "Your journey begins"
+    },
+    "first_step": {
+      "name": "First Step",
+      "description": "You showed you can resist"
+    },
+    "steady": {
+      "name": "Steady",
+      "description": "Not a one-time thing — a habit forming"
+    },
+    "persistent": {
+      "name": "Persistent",
+      "description": "You didn't back down when it got hard"
+    },
+    "disciplined": {
+      "name": "Disciplined",
+      "description": "Discipline is showing"
+    },
+    "aware": {
+      "name": "Aware",
+      "description": "You know your patterns now"
+    },
+    "master": {
+      "name": "Master",
+      "description": "Master of your own responses"
+    },
+    "expert": {
+      "name": "Expert",
+      "description": "You lead by example"
+    },
+    "free": {
+      "name": "Free",
+      "description": "Freedom from the pull"
+    }
+  },
+  "celebration": {
+    "kicker": "NEW RANK UNLOCKED",
+    "continue": "Continue"
   }
 }

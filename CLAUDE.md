@@ -60,6 +60,7 @@ constants/
   theme.ts             ─ colors, spacing, radius, font
   addictions.ts        ─ ADDICTION_CATALOG (10 fixed) + toAddiction() +
                           FREE_ACTIVE_LIMIT / PREMIUM_ACTIVE_LIMIT + maxMinutesFor()
+  rankLadder.ts        ─ 9-rank i18n wrapper over shared/ranks.ts
 
 i18n/
   en.json              ─ Single-language dictionary (Faz 2: EN only)
@@ -84,10 +85,25 @@ lib/
 shared/
   scoring.ts           ─ Cross-runtime scoring — Vitest + Deno import same file
   catalog.ts           ─ id → sensitivity whitelist (Edge Function cross-check)
+  ranks.ts             ─ 9-rank ladder + unlock diff (Vitest + Deno)
+
+components/
+  JourneyBar.tsx       ─ Horizontal compact + vertical ladder for Module 1
+  RankUnlockModal.tsx  ─ Full-screen celebration, queue support, particle burst
+
+context/
+  AddictionScoresContext.tsx ─ Per-addiction score + unlocks hydration
+
+app/(tabs)/info/
+  _layout.tsx          ─ Nested stack for Info tab
+  index.tsx            ─ Main list: TRACKING / ALL ADDICTIONS sections
+  [addictionId].tsx    ─ Landing page with 4 sub-tabs (Journey implemented)
 
 supabase/
   migrations/003_backend_scoring.sql   ─ Faz 3 SQL (enum rename + views + tables)
+  migrations/004_rank_ladder.sql       ─ Faz 4 user_unlocked_ranks table
   functions/resolve-craving/index.ts   ─ Server-authoritative resolve endpoint
+                                         (Faz 4: also writes user_unlocked_ranks)
 ```
 
 ## ✅ Yapılan Özellikler (Kronolojik)
@@ -131,6 +147,27 @@ false` + craving_sessions history saklanır → re-add kaldığı yerden
     (session_id-based) — network flake retry-safe. Duration server-side
     hesaplanır (started_at diff'i), client-reported süre kabul
     edilmez.
+15. **Faz 4 Modül 1 — Direniş Yolculuğu**: 3. tab (**Info**, compass
+    icon, sağda) eklendi. 10 addiction için ayrı landing page
+    (`/info/[addictionId]`), 4 sub-tab: Journey (implemented) +
+    Toolkit / Triggers / Comparison ("Coming soon"). Journey =
+    horizontal compact özet üstte + vertical rank ladder detay altta.
+    9-rank ladder (`shared/ranks.ts` + `constants/rankLadder.ts` i18n
+    wrapper): traveler → first_step → steady → persistent →
+    disciplined → aware → master → expert → free (thresholds:
+    0/100/400/1000/2500/6000/15000/35000/75000 — tuning knobs).
+    Yeni tablo: `user_unlocked_ranks` (SELECT-only RLS, service role
+    INSERT). `resolve-craving` her başarılı 'resisted' sonrası score
+    diff'ini `newlyUnlockedRanks()` ile hesaplayıp UPSERT eder,
+    response'ta `newly_unlocked_ranks: string[]` döner. Client
+    (`app/active-session.tsx`) bunu `RankUnlockModal` queue'suna
+    verir — full-screen celebration, Reanimated particle burst,
+    heavy haptic, sırayla dismiss. **Regression semantik**:
+    `currentRankFromUnlocks()` her zaman en yüksek unlock'ı döner
+    (score düşerse rank kaybedilmez). Tab bar pill genişliği artık
+    `TAB_ORDER.length * 56 + padding` — 4. tab için hazır. Yeni
+    context: `AddictionScoresContext` (per-addiction score +
+    unlocks hydrate, `refresh()` active-session'dan çağrılıyor).
 
 ## 🧠 Önemli Kararlar (UX/Mimari)
 

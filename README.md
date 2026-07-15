@@ -104,6 +104,21 @@ DROP TABLE IF EXISTS reflections   CASCADE;
 -- profiles.username kolonu Modül 4 için tutuluyor (handle bilgisi).
 ```
 
+### Faz 4 rank ladder migration
+
+Adds the `user_unlocked_ranks` table for Module 1 (Resistance Journey).
+SQL lives at
+[`supabase/migrations/004_rank_ladder.sql`](supabase/migrations/004_rank_ladder.sql).
+Run it top-to-bottom in the SQL Editor, then re-deploy the updated
+Edge Function (it now writes unlock rows and returns
+`newly_unlocked_ranks` in the response):
+
+```bash
+supabase functions deploy resolve-craving
+```
+
+No env var setup needed — same secrets as Faz 3.
+
 ### Faz 3 backend scoring migration
 
 Enum rename (`completed → resolved`, `gave_in → failed`), column

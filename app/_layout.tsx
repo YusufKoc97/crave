@@ -5,6 +5,7 @@ import { ActivityIndicator, Platform, View, StyleSheet } from 'react-native';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { AddictionsProvider, useAddictions } from '@/context/AddictionsContext';
 import { SessionsProvider } from '@/context/SessionsContext';
+import { AddictionScoresProvider } from '@/context/AddictionScoresContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
@@ -195,10 +196,12 @@ export default function RootLayout() {
     <AuthProvider>
       <AddictionsProvider>
         <SessionsProvider>
-          <ToastProvider>
-            <StatusBar style="light" />
-            <RootStack />
-          </ToastProvider>
+          <AddictionScoresProvider>
+            <ToastProvider>
+              <StatusBar style="light" />
+              <RootStack />
+            </ToastProvider>
+          </AddictionScoresProvider>
         </SessionsProvider>
       </AddictionsProvider>
     </AuthProvider>

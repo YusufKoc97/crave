@@ -146,6 +146,26 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_unlocked_ranks: {
+        // Faz 4 rank ladder. Once a threshold is crossed the row
+        // stays forever — failure penalties never demote. Read-only
+        // for authenticated users; the resolve-craving Edge Function
+        // holds the write path via service role.
+        Row: {
+          user_id: string;
+          addiction_id: string;
+          rank_id: string;
+          unlocked_at: string;
+        };
+        Insert: {
+          user_id: string;
+          addiction_id: string;
+          rank_id: string;
+          unlocked_at?: string;
+        };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
       rate_limits: {
         // Faz 3 log-only rate limit substrate: (user_id, endpoint,
         // hour_bucket) => count. Enforcement flag flips on in a later

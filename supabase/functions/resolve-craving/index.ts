@@ -30,6 +30,7 @@ import {
   type Outcome,
 } from '../../../shared/scoring.ts';
 import { isKnownAddiction } from '../../../shared/catalog.ts';
+import { newlyUnlockedRanks } from '../../../shared/ranks.ts';
 
 // Deno globals — declared for TS. When Deno runs this file these
 // are resolved from the runtime's own type-check pass.
@@ -179,6 +180,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
       points_delta: session.points_delta ?? 0,
       duration_minutes: durationMinutes,
       idempotent_replay: true,
+      // Replay of a previously-resolved session never fires a new
+      // celebration — any unlocks it produced already reached the
+      // client on the original response. Empty list keeps the
+      // celebration-queue wiring simple client-side.
+      newly_unlocked_ranks: [],
     });
   }
   if (session.status === 'abandoned') {
@@ -230,6 +236,50 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (scoreErr) {
     console.error('[resolve-craving] score upsert failed', scoreErr);
     return jsonResponse({ error: 'score_write_failed' }, 500);
+  }
+
+  // Rank unlock detection. Only positive score jumps ('resisted')
+  // can cross a threshold; the shared helper returns [] for failures
+  // so we don't even need a branch here. INSERTs use ON CONFLICT DO
+  // NOTHING semantics (PK is user_id + addiction_id + rank_id) so an
+  // idempotent replay is a silent no-op.
+  //
+  // We fetch the caller's already-unlocked ranks for THIS addiction
+  // first and pass them to the diff so a user who resolved through
+  // several thresholds before the client last synced still only
+  // gets INSERT rows for genuinely-new unlocks.
+  const { data: existingUnlocksRows } = await svc
+    .from('user_unlocked_ranks')
+    .select('rank_id')
+    .eq('user_id', userId)
+    .eq('addiction_id', session.addiction_id);
+  const alreadyUnlocked = new Set(
+    (existingUnlocksRows ?? []).map((r: { rank_id: string }) => r.rank_id)
+  );
+  const newlyUnlocked = newlyUnlockedRanks({
+    previousScore: currentScore,
+    newScore,
+    alreadyUnlocked,
+  });
+  if (newlyUnlocked.length > 0) {
+    const rows = newlyUnlocked.map((rankId) => ({
+      user_id: userId,
+      addiction_id: session.addiction_id,
+      rank_id: rankId,
+    }));
+    const { error: rankErr } = await svc
+      .from('user_unlocked_ranks')
+      // upsert with the PK on-conflict is our idempotent INSERT.
+      .upsert(rows, {
+        onConflict: 'user_id,addiction_id,rank_id',
+        ignoreDuplicates: true,
+      });
+    if (rankErr) {
+      // Non-fatal — score already landed. Log and keep going so the
+      // user still gets their delta banner. The next resolve will
+      // pick these up on the retry diff.
+      console.error('[resolve-craving] rank unlock write failed', rankErr);
+    }
   }
 
   // Momentum + streak — only bump on a successful resist.
@@ -306,5 +356,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
     total_score: totalRow?.total_score ?? newScore,
     momentum: updatedMomentum,
     streak: updatedStreak,
+    newly_unlocked_ranks: newlyUnlocked,
   });
 });

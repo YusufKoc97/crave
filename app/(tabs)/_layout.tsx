@@ -11,11 +11,19 @@ type IoniconName = keyof typeof Ionicons.glyphMap;
 const TAB_ICONS: Record<string, { idle: IoniconName; active: IoniconName }> = {
   profile: { idle: 'person-outline', active: 'person' },
   index: { idle: 'home-outline', active: 'home' },
+  info: { idle: 'compass-outline', active: 'compass' },
 };
 
-// Community sekmesi Faz 1 cleanup'ta kaldırıldı. Yerine Faz 4'te "Bilgi"
-// sekmesi gelecek — o zaman bu listeye 'info' eklenecek.
-const TAB_ORDER = ['profile', 'index'];
+const TAB_ORDER = ['profile', 'index', 'info'];
+
+// Pill width scales with tab count so a future 4th tab doesn't crop.
+// Number is tuned to leave ~14px padding + ~56px per tab; tighter
+// than the RN default hit target on purpose because the active
+// affordance is the 36px bubble, not the whole cell.
+const PER_TAB_WIDTH = 56;
+const PILL_HORIZONTAL_PADDING = 14;
+const PILL_WIDTH =
+  TAB_ORDER.length * PER_TAB_WIDTH + PILL_HORIZONTAL_PADDING * 2;
 
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const orderedRoutes = TAB_ORDER.map((name) =>
@@ -90,6 +98,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="profile" />
       <Tabs.Screen name="index" />
+      <Tabs.Screen name="info" />
     </Tabs>
   );
 }
@@ -108,9 +117,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     height: 48,
-    width: 168,
+    // Derived from TAB_ORDER.length so a new tab doesn't crop the
+    // pill. See PER_TAB_WIDTH + PILL_HORIZONTAL_PADDING constants.
+    width: PILL_WIDTH,
     borderRadius: 32,
-    paddingHorizontal: 14,
+    paddingHorizontal: PILL_HORIZONTAL_PADDING,
     backgroundColor: '#0D1E35DD',
     borderWidth: 1,
     borderColor: '#1E3050',

@@ -34,6 +34,8 @@ import {
 import { hapticCelebrate, hapticCommit } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
 import type { Outcome } from '@/shared/scoring';
+import { RankUnlockModal } from '@/components/RankUnlockModal';
+import { useAddictionScores } from '@/context/AddictionScoresContext';
 
 const TIMER_SIZE = 220;
 const STROKE_WIDTH = 2;
@@ -143,6 +145,11 @@ export default function ActiveSession() {
   const [shareBanner, setShareBanner] = useState<{ points: number } | null>(
     null
   );
+  // Rank ids returned by resolve-craving as newly unlocked. Fed into
+  // RankUnlockModal which cycles through them one at a time; empty
+  // list = modal closed.
+  const [unlockQueue, setUnlockQueue] = useState<string[]>([]);
+  const { refresh: refreshScores } = useAddictionScores();
 
   // Wall-clock anchor — survives JS thread pauses (background/foreground).
   // For a resumed session we anchor to the ORIGINAL started_at so elapsed
@@ -404,11 +411,23 @@ export default function ActiveSession() {
             // Reconcile the banner with the server-authoritative
             // delta if it differs from the estimate. Only surfaces
             // for 'resisted' — 'failed' shows no banner.
-            const serverDelta = (data as { points_delta?: number } | null)
-              ?.points_delta;
+            const payload = data as {
+              points_delta?: number;
+              newly_unlocked_ranks?: string[];
+            } | null;
+            const serverDelta = payload?.points_delta;
             if (typeof serverDelta === 'number' && outcome === 'resisted') {
               setShareBanner({ points: Math.max(0, serverDelta) });
             }
+            // Rank unlocks fire the celebration modal, which then
+            // cycles through the queue. Also refresh the Info tab's
+            // per-addiction scores so the ladder shows the new
+            // unlock next time the user opens it.
+            const unlocks = payload?.newly_unlocked_ranks ?? [];
+            if (unlocks.length > 0) {
+              setUnlockQueue(unlocks);
+            }
+            refreshScores();
           });
       }
     }
@@ -585,6 +604,18 @@ export default function ActiveSession() {
           </>
         )}
       </View>
+
+      {/* Rank-unlock celebration — full-screen modal that cycles
+          through however many ranks resolve-craving returned in
+          newly_unlocked_ranks. Sitting inside the active-session
+          root means it can steal focus while the share banner is
+          still on screen; user dismisses celebration → sees the
+          banner underneath → taps Bitir to close the session. */}
+      <RankUnlockModal
+        queue={unlockQueue}
+        accentColor={accentColor}
+        onDone={() => setUnlockQueue([])}
+      />
     </View>
   );
 }
