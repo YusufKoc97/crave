@@ -56,6 +56,10 @@ const BREATH_STYLE_ORB: any = Platform.select({
 
 const ORB_SIZE = 168;
 const ORB_SELECTING_SCALE = 0.5;
+/** Distance from screen bottom to the persistent "+" button.
+ *  Tab bar pill sits at ~26px bottom + ~56px height = ~82px
+ *  reserved; we leave a comfortable ~18px gap above it. */
+const PLUS_BOTTOM = 104;
 
 const ICON_SIZE = 62;
 const ICON_R = 134;
@@ -426,41 +430,22 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Empty-state hint under the orb — visible when idle AND the
-          user hasn't picked any catalog items yet. Tap the orb to jump
-          to the picker (handled in onOrbPress). */}
-      {phase === 'idle' && addictions.length === 0 && (
-        <View
-          pointerEvents="none"
-          style={[
-            styles.emptyHint,
-            { left: 0, right: 0, top: centerY + ORB_SIZE / 2 + 44 },
-          ]}
+      {/* Persistent "+" button — sits centered between the orb and
+          the floating tab bar, visible in both idle and selecting
+          phases so users always have a one-tap route to the catalog
+          picker without having to open the fan-out first. */}
+      <View
+        style={[styles.plusWrap, { left: centerX - 24, bottom: PLUS_BOTTOM }]}
+      >
+        <Pressable
+          style={styles.plusBtn}
+          onPress={() => router.push('/add-addiction')}
+          hitSlop={8}
+          accessibilityLabel={t('home.add_addiction_a11y')}
         >
-          <Text style={styles.emptyHintTitle}>{t('home.empty_title')}</Text>
-          <Text style={styles.emptyHintSubtitle}>
-            {t('home.empty_subtitle')}
-          </Text>
-        </View>
-      )}
-
-      {phase === 'selecting' && (
-        <Animated.View
-          style={[
-            styles.plusWrap,
-            ringsStyle,
-            { left: centerX - 24, top: centerY + ICON_R + ICON_SIZE / 2 + 26 },
-          ]}
-        >
-          <Pressable
-            style={styles.plusBtn}
-            onPress={() => router.push('/add-addiction')}
-            hitSlop={8}
-          >
-            <Text style={styles.plusText}>+</Text>
-          </Pressable>
-        </Animated.View>
-      )}
+          <Text style={styles.plusText}>+</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -803,24 +788,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '300',
     lineHeight: 20,
-  },
-  emptyHint: {
-    position: 'absolute',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  emptyHintTitle: {
-    color: '#F1F5F9',
-    fontSize: 15,
-    fontWeight: '500',
-    letterSpacing: 0.4,
-    textAlign: 'center',
-  },
-  emptyHintSubtitle: {
-    marginTop: 8,
-    color: '#94A3B8',
-    fontSize: 12.5,
-    lineHeight: 18,
-    textAlign: 'center',
   },
 });

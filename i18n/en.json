@@ -62,9 +62,9 @@
     "addiction_limit_reached": "Remove an addiction or upgrade to premium to add more"
   },
   "home": {
-    "empty_title": "Add your first addiction",
     "empty_subtitle": "Tap the plus button below to choose from the catalog.",
-    "empty_cta": "Add addiction"
+    "empty_cta": "Add addiction",
+    "add_addiction_a11y": "Add addiction"
   },
   "profile": {
     "my_addictions": "MY ADDICTIONS",

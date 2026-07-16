@@ -51,6 +51,23 @@ const AddictionsContext = createContext<AddictionsContextValue | undefined>(
 
 const STORAGE_KEY_ACTIVE = 'user_addictions_active_v1';
 
+/** First-launch seed key. When absent, the four defaults below are
+ *  activated so the home orb has something to fan out to instead
+ *  of a dead empty state. Set once and never touched again — a
+ *  user who intentionally removes all four should stay at zero. */
+const DEFAULTS_SEEDED_KEY = 'user_addictions_defaults_seeded_v1';
+
+/** Four broad-appeal targets: two substance (nicotine, caffeine)
+ *  and two behavioural (doomscroll, junk_food). Kept short and
+ *  fungible — every id lives in ADDICTION_CATALOG so no lookup
+ *  can miss. */
+const DEFAULT_ADDICTION_IDS: readonly string[] = [
+  'nicotine',
+  'caffeine',
+  'doomscroll',
+  'junk_food',
+];
+
 export function AddictionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const isPremium = useIsPremium();
@@ -60,11 +77,20 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
   const hydrated = useRef(false);
 
   // ── Hydrate fast from AsyncStorage on mount (offline cache) ─────────
+  //
+  // Also handles the first-launch seed of DEFAULT_ADDICTION_IDS so an
+  // unauthenticated preview (or a fresh device before auth completes)
+  // still sees the orb picker with something in it. The seed flag
+  // guards against re-seeding after an intentional zero-state — a
+  // user who deletes everything stays at zero on next launch.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY_ACTIVE);
+        const [raw, seeded] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEY_ACTIVE),
+          AsyncStorage.getItem(DEFAULTS_SEEDED_KEY),
+        ]);
         if (cancelled) return;
         if (raw) {
           try {
@@ -73,6 +99,9 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
           } catch {
             /* corrupt blob — start fresh */
           }
+        } else if (seeded !== '1') {
+          setActiveIds(new Set(DEFAULT_ADDICTION_IDS));
+          await AsyncStorage.setItem(DEFAULTS_SEEDED_KEY, '1');
         }
       } finally {
         hydrated.current = true;
@@ -84,6 +113,11 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ── Refresh from Supabase once the auth user is known ──────────────
+  //
+  // First-time authenticated users (no rows on the server + seed
+  // flag still unset) get their defaults pushed remotely so future
+  // logins on any device carry the same starting state. Best-effort
+  // per id — if one fails we still show the successful ones locally.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -91,10 +125,22 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
       try {
         const rows = await fetchUserAddictions(user.id);
         if (cancelled) return;
-        const next = new Set(
-          rows.filter((r) => r.isActive).map((r) => r.addictionId)
-        );
-        setActiveIds(next);
+        const seeded = await AsyncStorage.getItem(DEFAULTS_SEEDED_KEY);
+        if (rows.length === 0 && seeded !== '1') {
+          await Promise.all(
+            DEFAULT_ADDICTION_IDS.map((id) =>
+              activateUserAddiction(user.id, id).catch(() => undefined)
+            )
+          );
+          if (cancelled) return;
+          setActiveIds(new Set(DEFAULT_ADDICTION_IDS));
+          await AsyncStorage.setItem(DEFAULTS_SEEDED_KEY, '1');
+        } else {
+          const next = new Set(
+            rows.filter((r) => r.isActive).map((r) => r.addictionId)
+          );
+          setActiveIds(next);
+        }
       } catch {
         /* keep local cache */
       }
