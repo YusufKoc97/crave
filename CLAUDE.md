@@ -70,6 +70,8 @@ constants/
                           ramp + heatmapColor() + sparse/full thresholds
   insights.ts          ─ Faz 8b: category → Ionicons name map (UI only —
                           rules live in shared/insightRules.ts)
+  designSystem.ts      ─ Polish phase: dsColors + dsSpacing + dsRadius
+                          + dsFont + dsCardStyles + hexAlpha() helper
 
 i18n/
   en.json              ─ Single-language dictionary (Faz 2: EN only)
@@ -93,6 +95,9 @@ lib/
   premium.ts           ─ Faz 8a: app-wide useIsPremium() hook (single knob)
   queryClient.ts       ─ Faz 8a: React Query singleton + invalidateTriggerMaps()
   triggerMap.ts        ─ Faz 8a: useTriggerMap(addictionId, period) + types
+  overallRank.ts       ─ Polish: totalPoints → shared/ranks projection
+  userStats.ts         ─ Polish: useUserStats React Query hook
+                          (cravings / streak / success / techniques)
   onboarding.ts        ─ Onboarding completion tracker, calculateAge()
   devBypass.ts         ─ EXPO_PUBLIC_DEV_SKIP_AUTH flag
 
@@ -129,6 +134,9 @@ components/
     CellDetailSheet.tsx    ─ @gorhom/bottom-sheet, imperative open()
     InsightSection.tsx     ─ Faz 8b: Personal insights container + accordion
     InsightCard.tsx        ─ Faz 8b: icon + msg + LayoutAnimation detail + action
+  ui/                      ─ Polish phase primitives (design system)
+    AmbientGlow.tsx        ─ SVG RadialGradient + Reanimated pulse
+    SurfaceCard.tsx        ─ default + elevated variants on dsColors
 
 context/
   AddictionScoresContext.tsx ─ Per-addiction score + unlocks hydration
@@ -334,6 +342,68 @@ false` + craving_sessions history saklanır → re-add kaldığı yerden
       172/172 green. DB migration yok — mevcut Faz 5 + Faz 6
       tablolarını okur. Deploy tek adım:
       `supabase functions deploy trigger-map-data`.
+21. **Design Polish Phase (Info / Detail / Profile / Active Session)**:
+    Üç ekran + design-system foundation, 8 milestone commit ile
+    çıkarıldı (Faz 6/8 pattern'i). Amaç: birleşik dark-navy palette
+    ve ortak primitive'ler — home/onboarding/auth eski `theme.ts`
+    üzerinde kalır (scope dışı, gelecek pass'lerde alınır).
+    **M0 (foundation)**: `constants/designSystem.ts` (dsColors,
+    dsSpacing 4pt grid, dsRadius, dsFont, dsCardStyles, hexAlpha),
+    `components/ui/AmbientGlow.tsx` (react-native-svg
+    RadialGradient + Reanimated opacity pulse, 3 intensity bucket
+    max %25 opacity, karar #2), `components/ui/SurfaceCard.tsx`
+    (default + elevated variants, legacy Card component korunur —
+    karar #8), `lib/overallRank.ts` (totalPoints → shared/ranks
+    ladder projection, karar #3, yeni schema yok).
+    **M1 (Info tab)**: TRACKING 88pt "Send Money" kartlar
+    (accent-color emoji chip, rank inline), ALL ADDICTIONS 56pt
+    "Habit Tracker" kartlar (%60 opacity surface, "Not tracked"
+    trailing label), 34pt bold "Info" başlığı, dsSectionHeaderStyle.
+    **M2 (detail screen)**: Full atmospheric background — iki
+    AmbientGlow katmanı (blue anchor + addiction-color accent),
+    Header 44×44 back button + white centered title, SubTabBar
+    48pt yüksek + 14pt semibold + accent-color underline (karar
+    #6 — SubTabBar dahil restyle).
+    **M3 (Journey pane)**: Hero rank card (SurfaceCard elevated,
+    28pt bold rank name accent-color, 48pt bold tabular-nums
+    score, 6pt animated progress bar 800ms ease-out cubic),
+    64pt ladder rows (24pt filled/outline circle marker, current
+    row accent-color border + %8 fill tint, future rows %55
+    opacity), 9-dot progress row silindi (ladder already shows
+    same info).
+    **M4 (Profile tab)**: Full rewrite — hero rank card
+    (80pt avatar accentBlue border+glow, ambient blue glow
+    layer, OVERALL RANK kicker + 28pt rank name blue
+    text-shadow), 2×2 stats grid (Cravings resisted / Longest
+    streak / Success rate / Techniques used — useUserStats
+    React Query hook), Your addictions grouped list (56pt row
+    per tracked addiction, score desc sort → Info landing),
+    Settings grouped list (Language / Upgrade Premium / Sign out
+    / Delete account — placeholder Alert + signOut, karar #7 —
+    real delete_user RPC ayrı fazda). WeeklyChart + won/lost/
+    momentum stats düştü (grid aynı soruyu daha az yer ile
+    yanıtlıyor; SessionsContext hâlâ expose ediyor).
+    **M5 (Active Session)**: Sadece visual patch (karar #5,
+    modal queue / cycle bonus / rank unlock / presence indicator
+    dokunulmadı). Background bgBase + iki AmbientGlow layer,
+    timer 56pt light → 72pt bold + blue text-shadow glow, MM/
+    colon/SS split + colonOpacity shared value ile 1s heartbeat
+    pulse, +2 pts label 20pt semibold. Resist button = filled
+    accent-color + white 17pt semibold + accent glow shadow
+    (was outlined). Fail button = transparent + borderAccent +
+    secondary text. Toolkit "Try a technique" = blue-tinted
+    (accentBlue @ 10% bg, 30% border, accentBlue label).
+    **M6 (stats hook)**: `lib/userStats.ts` — React Query hook
+    (staleTime 5min), technique_uses DISTINCT technique_id where
+    completed=true (yarım kalan uses sayılmaz), rest derives
+    from SessionsContext + shared/ranks.
+    **M7 (tests + docs + commit)**: 5 yeni case
+    `tests/overallRank.test.ts` — ladder floor, mid-band
+    progress, threshold-crossing jump, ceiling saturation,
+    clamp bounds. Full suite 177/177 green; tsc + eslint clean.
+    Yeni bağımlılık yok, expo-linear-gradient reddedildi (karar
+    #2 react-native-svg zaten yeter). DB migration yok, Edge
+    Function değişmedi.
 
 ## 🧠 Önemli Kararlar (UX/Mimari)
 
