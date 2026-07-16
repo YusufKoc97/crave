@@ -21,6 +21,14 @@ import { JourneyBar } from '@/components/JourneyBar';
 import { ToolkitGrid } from '@/components/ToolkitGrid';
 import { TechniqueRunnerModal } from '@/components/TechniqueRunnerModal';
 import { TriggersPane } from '@/components/triggerMap/TriggersPane';
+import { AmbientGlow } from '@/components/ui/AmbientGlow';
+import {
+  dsColors,
+  dsFont,
+  dsRadius,
+  dsSpacing,
+  hexAlpha,
+} from '@/constants/designSystem';
 import type { Technique } from '@/constants/toolkitCatalog';
 import { t } from '@/lib/i18n';
 
@@ -58,7 +66,11 @@ export default function AddictionLandingScreen() {
     // Unknown id — bounce back to the Info list.
     return (
       <View style={styles.root}>
-        <Header onBack={() => router.back()} title="" accentColor="#3B82F6" />
+        <Header
+          onBack={() => router.back()}
+          title=""
+          accentColor={dsColors.accentBlue}
+        />
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateBody}>{t('info.section_all')}</Text>
         </View>
@@ -69,6 +81,24 @@ export default function AddictionLandingScreen() {
 
   return (
     <View style={styles.root}>
+      {/* Atmospheric background — two overlapping radial glows behind
+          the content. Blue anchors the design system, addiction color
+          adds a subtle personal accent. Both pulse in slow sinusoid. */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <AmbientGlow
+          color={dsColors.accentBlue}
+          size={520}
+          intensity="low"
+          position={{ x: 190, y: 260 }}
+        />
+        <AmbientGlow
+          color={addiction.color}
+          size={340}
+          intensity="low"
+          position={{ x: 190, y: 520 }}
+        />
+      </View>
+
       <Header
         onBack={() => router.back()}
         title={addiction.name}
@@ -88,7 +118,7 @@ export default function AddictionLandingScreen() {
       >
         {subTab === 'journey' && <JourneyPane addiction={addiction} />}
         {subTab === 'toolkit' && (
-          <View style={{ paddingHorizontal: 20 }}>
+          <View style={{ paddingHorizontal: dsSpacing.xl }}>
             <ToolkitGrid
               accentColor={addiction.color}
               onSelect={setRunningTechnique}
@@ -123,7 +153,6 @@ export default function AddictionLandingScreen() {
 function Header({
   onBack,
   title,
-  accentColor,
 }: {
   onBack: () => void;
   title: string;
@@ -138,12 +167,13 @@ function Header({
         accessibilityRole="button"
         accessibilityLabel="Back"
       >
-        <Ionicons name="chevron-back" size={22} color="#7BA8C8" />
+        <Ionicons
+          name="chevron-back"
+          size={22}
+          color={dsColors.textSecondary}
+        />
       </Pressable>
-      <Text
-        style={[styles.headerTitle, { color: accentColor }]}
-        numberOfLines={1}
-      >
+      <Text style={styles.headerTitle} numberOfLines={1}>
         {title}
       </Text>
       {/* Right spacer keeps the title visually centred without
@@ -179,12 +209,17 @@ function SubTabBar({
               <Ionicons
                 name={tab.icon}
                 size={16}
-                color={isActive ? accentColor : '#6B8BA4'}
+                color={isActive ? dsColors.textPrimary : dsColors.textTertiary}
               />
               <Text
                 style={[
                   styles.subTabLabel,
-                  { color: isActive ? accentColor : '#6B8BA4' },
+                  {
+                    color: isActive
+                      ? dsColors.textPrimary
+                      : dsColors.textTertiary,
+                    opacity: isActive ? 1 : 0.5,
+                  },
                 ]}
               >
                 {t(tab.labelKey)}
@@ -252,8 +287,8 @@ function NotTrackedCta({
         style={[
           styles.ctaBadge,
           {
-            backgroundColor: addiction.bgGlow,
-            borderColor: addiction.color,
+            backgroundColor: hexAlpha(addiction.color, 0.15),
+            borderColor: hexAlpha(addiction.color, 0.4),
           },
         ]}
       >
@@ -290,7 +325,7 @@ function ComingSoonPane() {
       <Ionicons
         name="hourglass-outline"
         size={32}
-        color="#6B8BA4"
+        color={dsColors.textTertiary}
         style={{ marginBottom: 14 }}
       />
       <Text style={styles.comingSoonTitle}>
@@ -301,71 +336,63 @@ function ComingSoonPane() {
   );
 }
 
-function hexAlpha(hex: string, alpha: number): string {
-  const h = hex.replace('#', '');
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#020810',
+    backgroundColor: dsColors.bgBase,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: 60,
-    paddingBottom: 12,
-    paddingHorizontal: 16,
+    paddingBottom: dsSpacing.md,
+    paddingHorizontal: dsSpacing.lg,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: dsRadius.button,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0A1628',
+    backgroundColor: dsColors.cardSurface,
     borderWidth: 1,
-    borderColor: '#1E2D4D',
-    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+    borderColor: dsColors.borderSubtle,
   },
   headerSpacer: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
   },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 17,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-    paddingHorizontal: 12,
+    color: dsColors.textPrimary,
+    fontSize: dsFont.size.heading,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.tight,
+    paddingHorizontal: dsSpacing.md,
   },
   subTabRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#1E2D4D',
-    marginTop: 8,
+    borderBottomColor: dsColors.borderSubtle,
+    marginTop: dsSpacing.sm,
+    height: 48,
   },
   subTabBtn: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
   },
   subTabInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
   },
   subTabLabel: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    letterSpacing: 0.4,
+    fontSize: 14,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.tight,
   },
   subTabUnderline: {
     position: 'absolute',
@@ -379,7 +406,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bodyContent: {
-    paddingTop: 20,
+    paddingTop: dsSpacing.xl,
     paddingBottom: 120,
   },
   emptyState: {
@@ -389,56 +416,55 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   emptyStateBody: {
-    color: '#6B8BA4',
-    fontSize: 13,
+    color: dsColors.textTertiary,
+    fontSize: dsFont.size.label,
     textAlign: 'center',
   },
   ctaWrap: {
     alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingTop: 40,
+    paddingHorizontal: dsSpacing.x3l,
+    paddingTop: dsSpacing.x4l,
   },
   ctaBadge: {
     width: 80,
     height: 80,
-    borderRadius: 22,
+    borderRadius: dsRadius.card,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    marginBottom: 22,
-    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.06)',
+    marginBottom: dsSpacing.xxl,
   },
   ctaEmoji: {
     fontSize: 36,
   },
   ctaTitle: {
-    color: '#F1F5F9',
-    fontSize: 17,
-    fontWeight: '500',
-    letterSpacing: 0.3,
+    color: dsColors.textPrimary,
+    fontSize: dsFont.size.heading,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.tight,
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: dsSpacing.md,
   },
   ctaBody: {
-    color: '#94A3B8',
-    fontSize: 13,
+    color: dsColors.textSecondary,
+    fontSize: dsFont.size.label,
     lineHeight: 19,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: dsSpacing.xxl,
   },
   ctaBtn: {
     height: 48,
     minWidth: 180,
-    paddingHorizontal: 20,
-    borderRadius: 14,
+    paddingHorizontal: dsSpacing.xl,
+    borderRadius: dsRadius.button,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
   ctaBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 0.6,
+    fontSize: dsFont.size.body,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.tight,
   },
   comingSoonWrap: {
     alignItems: 'center',
@@ -446,15 +472,15 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   comingSoonTitle: {
-    color: '#F1F5F9',
-    fontSize: 16,
-    fontWeight: '500',
-    letterSpacing: 0.3,
-    marginBottom: 8,
+    color: dsColors.textPrimary,
+    fontSize: dsFont.size.bodyLg,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.tight,
+    marginBottom: dsSpacing.sm,
   },
   comingSoonBody: {
-    color: '#6B8BA4',
-    fontSize: 13,
+    color: dsColors.textTertiary,
+    fontSize: dsFont.size.label,
     lineHeight: 19,
     textAlign: 'center',
   },
