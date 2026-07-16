@@ -68,7 +68,27 @@
   },
   "profile": {
     "my_addictions": "MY ADDICTIONS",
-    "add_pill": "Add"
+    "add_pill": "Add",
+    "screen_title": "Profile",
+    "overall_rank_label": "Overall rank",
+    "total_points": "{{count}} total points",
+    "statistics_section": "Statistics",
+    "your_addictions_section": "Your addictions",
+    "settings_section": "Settings",
+    "stat_cravings_resisted": "Cravings resisted",
+    "stat_longest_streak": "Longest streak",
+    "stat_streak_unit": "days",
+    "stat_success_rate": "Success rate",
+    "stat_techniques_used": "Techniques used",
+    "language": "Language",
+    "language_value": "English",
+    "upgrade_premium": "Upgrade to Premium",
+    "sign_out": "Sign out",
+    "delete_account": "Delete account",
+    "delete_confirmation_title": "Delete account?",
+    "delete_confirmation_message": "This cannot be undone. All your data will be permanently deleted.",
+    "delete_confirm": "Delete",
+    "cancel": "Cancel"
   },
   "active": {
     "resist": "I Resisted",

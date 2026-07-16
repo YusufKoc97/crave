@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -9,30 +9,57 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@/constants/theme';
 import { useSessions } from '@/context/SessionsContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAddictions } from '@/context/AddictionsContext';
+import { useAddictionScores } from '@/context/AddictionScoresContext';
 import { getUsername } from '@/lib/profile';
-import { weeklyResistCounts } from '@/lib/scoring';
-import { WeeklyChart } from '@/components/WeeklyChart';
-import { Card } from '@/components/Card';
+import { useUserStats } from '@/lib/userStats';
+import { overallRankFromTotalPoints } from '@/lib/overallRank';
+import { SurfaceCard } from '@/components/ui/SurfaceCard';
+import { AmbientGlow } from '@/components/ui/AmbientGlow';
+import {
+  dsColors,
+  dsFont,
+  dsRadius,
+  dsSectionHeaderStyle,
+  dsSpacing,
+  hexAlpha,
+} from '@/constants/designSystem';
 import { t } from '@/lib/i18n';
 import type { Addiction } from '@/constants/addictions';
 
-export default function ProfileScreen() {
-  const { sessions, totalPoints, wonToday, lostToday, momentum, streak } =
-    useSessions();
-  const { user, signOut } = useAuth();
-  const { addictions, removeAddiction } = useAddictions();
-  const [username, setUsername] = useState<string | null>(null);
+/**
+ * Profile screen — polish-phase rewrite (M4).
+ *
+ * Structure (top → bottom):
+ *   1. Hero rank card    — avatar + username + overall-rank projection
+ *                          from the shared 9-step ladder + total points
+ *   2. Statistics grid   — 2×2 (resisted / streak / success rate /
+ *                          techniques used). React-Query-backed via
+ *                          `useUserStats()`; falls back to 0s while
+ *                          the fetch is in flight.
+ *   3. Your addictions   — grouped list (tracked only) with rank +
+ *                          score per row. Tap → Info detail landing.
+ *   4. Settings          — language / upgrade / sign out / delete.
+ *                          Delete is a placeholder confirmation +
+ *                          signOut (real delete_user RPC lives in
+ *                          a later phase).
+ *
+ * The previous WeeklyChart and StatCard (won today / lost today /
+ * momentum) blocks were dropped for this design — the streak + rate
+ * on the grid cover the same "how am I doing" question with less
+ * chart real estate. Existing SessionsContext still exposes those
+ * numbers for anywhere else in the app that wants them.
+ */
 
-  const weekly = useMemo(
-    () => weeklyResistCounts({ sessions, nowMs: Date.now() }),
-    [sessions]
-  );
-  const todayWeekday = new Date().getDay();
-  const hasAnyResist = weekly.some((c) => c > 0);
+export default function ProfileScreen() {
+  const { totalPoints } = useSessions();
+  const { user, signOut } = useAuth();
+  const { addictions } = useAddictions();
+  const { viewFor } = useAddictionScores();
+  const stats = useUserStats();
+  const [username, setUsername] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -45,17 +72,42 @@ export default function ProfileScreen() {
     };
   }, [user]);
 
-  // First glyph for the avatar — username takes precedence over email so
-  // the profile feels "yours" once a handle is chosen. Falls back to "?"
-  // until either is loaded (or in the dev-bypass case where there's no
-  // user at all).
+  const overall = overallRankFromTotalPoints(totalPoints);
   const avatarGlyph = (username?.[0] || user?.email?.[0] || '?').toUpperCase();
 
   const onSignOut = async () => {
     await signOut();
-    // After sign-out the root index will route us to /(auth)/sign-in.
     router.replace('/');
   };
+
+  // Delete account — placeholder for a later RPC. Confirmation
+  // Alert then a signOut so the session doesn't linger.
+  const onDeleteAccount = () => {
+    Alert.alert(
+      t('profile.delete_confirmation_title'),
+      t('profile.delete_confirmation_message'),
+      [
+        { text: t('profile.cancel'), style: 'cancel' },
+        {
+          text: t('profile.delete_confirm'),
+          style: 'destructive',
+          onPress: onSignOut,
+        },
+      ]
+    );
+  };
+
+  const goToAddictionLanding = (id: string) => {
+    router.push(`/info/${id}` as unknown as Parameters<typeof router.push>[0]);
+  };
+
+  // Sort addictions by score desc — the "you're most invested in"
+  // one leads. Ties resolved lexicographically for determinism.
+  const sortedTracked = [...addictions].sort((a, b) => {
+    const scoreDiff = viewFor(b.id).score - viewFor(a.id).score;
+    if (scoreDiff !== 0) return scoreDiff;
+    return a.id.localeCompare(b.id);
+  });
 
   return (
     <ScrollView
@@ -63,446 +115,381 @@ export default function ProfileScreen() {
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.topSection}>
+      <Text style={styles.pageTitle}>{t('profile.screen_title')}</Text>
+
+      {/* ── Hero rank card ─────────────────────────────────────── */}
+      <SurfaceCard variant="elevated" style={styles.heroCard} radius={24}>
+        <View style={styles.heroGlowLayer} pointerEvents="none">
+          <AmbientGlow
+            color={dsColors.accentBlue}
+            size={320}
+            intensity="medium"
+            position={{ x: 165, y: 120 }}
+          />
+        </View>
+
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{avatarGlyph}</Text>
         </View>
-        {username && <Text style={styles.usernameLabel}>{username}</Text>}
-        <View style={styles.dash} />
 
-        <Card variant="elevated" style={styles.totalCard} borderRadius={14}>
-          <Text style={styles.totalNumber}>{totalPoints}</Text>
-          <Text style={styles.totalLabel}>TOTAL POINTS</Text>
-        </Card>
+        <Text style={styles.usernameLabel}>
+          {username || user?.email || ''}
+        </Text>
 
-        <View style={styles.statsRow}>
-          <StatCard
-            value={wonToday}
-            label="WON TODAY"
-            valueColor="#10B981"
-            topBorderColor="#10B981"
-          />
-          <StatCard
-            value={lostToday}
-            label="LOST TODAY"
-            valueColor="#EF4444"
-            topBorderColor="#EF4444"
-          />
-          <StatCard
-            value={momentum}
-            label="MOMENTUM"
-            valueColor={colors.textPrimary}
-          />
-        </View>
+        <Text style={styles.overallKicker}>
+          {t('profile.overall_rank_label')}
+        </Text>
+        <Text style={styles.overallRankName}>{overall.current.name}</Text>
+        <Text style={styles.overallTotalPoints}>
+          {t('profile.total_points', { count: totalPoints })}
+        </Text>
+      </SurfaceCard>
 
-        {streak > 0 && (
-          <Card variant="elevated" style={styles.streakCard} borderRadius={14}>
-            <Text style={styles.streakNumber}>{streak}</Text>
-            <Text style={styles.streakLabel}>RESIST STREAK</Text>
-          </Card>
-        )}
+      {/* ── Statistics 2×2 grid ────────────────────────────────── */}
+      <Text style={styles.sectionLabel}>{t('profile.statistics_section')}</Text>
+      <View style={styles.statsGrid}>
+        <StatSquare
+          value={String(stats.cravingsResisted)}
+          label={t('profile.stat_cravings_resisted')}
+        />
+        <StatSquare
+          value={String(stats.longestStreakDays)}
+          label={`${t('profile.stat_longest_streak')} (${t('profile.stat_streak_unit')})`}
+        />
+        <StatSquare
+          value={`${Math.round(stats.successRate * 100)}%`}
+          label={t('profile.stat_success_rate')}
+        />
+        <StatSquare
+          value={String(stats.techniquesUsed)}
+          label={t('profile.stat_techniques_used')}
+        />
       </View>
 
-      {hasAnyResist && (
-        <View style={styles.weekSection}>
-          <Text style={styles.sectionLabel}>LAST 7 DAYS</Text>
-          <View style={styles.weekChartWrap}>
-            <WeeklyChart counts={weekly} todayWeekday={todayWeekday} />
-          </View>
-        </View>
+      {/* ── Tracked addictions list ────────────────────────────── */}
+      {sortedTracked.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>
+            {t('profile.your_addictions_section')}
+          </Text>
+          <SurfaceCard style={styles.listCard} radius={dsRadius.card}>
+            {sortedTracked.map((a, idx) => (
+              <ProfileAddictionRow
+                key={a.id}
+                addiction={a}
+                showDivider={idx < sortedTracked.length - 1}
+                rankName={viewFor(a.id).currentRank.name}
+                score={viewFor(a.id).score}
+                onPress={() => goToAddictionLanding(a.id)}
+              />
+            ))}
+          </SurfaceCard>
+        </>
       )}
 
-      <View style={styles.addictionsSection}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionLabel}>{t('profile.my_addictions')}</Text>
-          <Pressable
-            onPress={() => router.push('/add-addiction')}
-            hitSlop={8}
-            style={styles.addLinkBtn}
-          >
-            <Ionicons name="add" size={13} color="#7DC3FF" />
-            <Text style={styles.addLinkText}>{t('profile.add_pill')}</Text>
-          </Pressable>
-        </View>
-        {addictions.length === 0 ? (
-          <Text style={styles.emptyAddictions}>{t('home.empty_subtitle')}</Text>
-        ) : (
-          addictions.map((a) => (
-            <AddictionRow
-              key={a.id}
-              addiction={a}
-              onRemove={() => {
-                Alert.alert(
-                  t('removal.title', { name: a.name }),
-                  t('removal.message'),
-                  [
-                    { text: t('removal.cancel'), style: 'cancel' },
-                    {
-                      text: t('removal.confirm'),
-                      style: 'destructive',
-                      onPress: () => removeAddiction(a.id),
-                    },
-                  ]
-                );
-              }}
-            />
-          ))
-        )}
-      </View>
-
-      {user && (
-        <View style={styles.bottomSection}>
-          <Text style={styles.emailLabel}>{user.email}</Text>
-          <Pressable onPress={onSignOut} style={styles.signOutBtn} hitSlop={6}>
-            <Text style={styles.signOutText}>Sign out</Text>
-          </Pressable>
-        </View>
-      )}
+      {/* ── Settings ──────────────────────────────────────────── */}
+      <Text style={styles.sectionLabel}>{t('profile.settings_section')}</Text>
+      <SurfaceCard style={styles.listCard} radius={dsRadius.card}>
+        <SettingsRow
+          icon="language-outline"
+          label={t('profile.language')}
+          trailing={t('profile.language_value')}
+          showDivider
+        />
+        <SettingsRow
+          icon="star-outline"
+          label={t('profile.upgrade_premium')}
+          accent={dsColors.accentBlue}
+          onPress={() => Alert.alert(t('profile.upgrade_premium'))}
+          showDivider
+        />
+        <SettingsRow
+          icon="log-out-outline"
+          label={t('profile.sign_out')}
+          onPress={onSignOut}
+          showDivider
+        />
+        <SettingsRow
+          icon="trash-outline"
+          label={t('profile.delete_account')}
+          accent={dsColors.dangerGlow}
+          onPress={onDeleteAccount}
+        />
+      </SurfaceCard>
     </ScrollView>
   );
 }
 
-function AddictionRow({
+// ─────────────────────── Sub-components ───────────────────────
+
+function StatSquare({ value, label }: { value: string; label: string }) {
+  return (
+    <SurfaceCard style={styles.statSquare} radius={dsRadius.card}>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </SurfaceCard>
+  );
+}
+
+function ProfileAddictionRow({
   addiction,
-  onRemove,
+  rankName,
+  score,
+  showDivider,
+  onPress,
 }: {
   addiction: Addiction;
-  onRemove: () => void;
+  rankName: string;
+  score: number;
+  showDivider: boolean;
+  onPress: () => void;
 }) {
   return (
-    <View style={styles.addictionRow}>
-      <View
-        style={[
-          styles.addictionTile,
-          {
-            backgroundColor: hexToRgba(addiction.color, 0.14),
-            borderColor: hexToRgba(addiction.color, 0.35),
-          },
+    <>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.addictionRow,
+          pressed && styles.rowPressed,
         ]}
+        accessibilityRole="button"
+        accessibilityLabel={`${addiction.name} — ${rankName}`}
       >
         <Text style={styles.addictionEmoji}>{addiction.emoji}</Text>
-      </View>
-      <View style={styles.addictionText}>
         <Text style={styles.addictionName} numberOfLines={1}>
           {addiction.name}
         </Text>
         <Text style={styles.addictionMeta}>
-          <Text style={{ color: '#94A3B8' }}>
-            {t(`categories.${addiction.category}`)}
-          </Text>
+          <Text style={{ color: addiction.color }}>{rankName}</Text>
+          <Text style={styles.addictionMetaSep}> · </Text>
+          <Text>{score}</Text>
         </Text>
-      </View>
-      <Pressable
-        onPress={onRemove}
-        hitSlop={10}
-        style={styles.removeBtn}
-        accessibilityRole="button"
-        accessibilityLabel={`Remove ${addiction.name}`}
-      >
-        <Ionicons name="close" size={14} color="#6B8BA4" />
       </Pressable>
-    </View>
+      {showDivider && <View style={styles.divider} />}
+    </>
   );
 }
 
-function hexToRgba(hex: string, alpha: number) {
-  const h = hex.replace('#', '');
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
+type IonName = React.ComponentProps<typeof Ionicons>['name'];
 
-function StatCard({
-  value,
+function SettingsRow({
+  icon,
   label,
-  valueColor,
-  topBorderColor,
+  trailing,
+  accent,
+  onPress,
+  showDivider,
 }: {
-  value: number;
+  icon: IonName;
   label: string;
-  valueColor: string;
-  topBorderColor?: string;
+  trailing?: string;
+  accent?: string;
+  onPress?: () => void;
+  showDivider?: boolean;
 }) {
+  const textColor = accent || dsColors.textPrimary;
   return (
-    <Card
-      variant="elevated"
-      style={styles.statCard}
-      borderRadius={14}
-      showHighlight={false}
-    >
-      {topBorderColor && (
-        <View
-          style={[styles.statTopBorder, { backgroundColor: topBorderColor }]}
+    <>
+      <Pressable
+        onPress={onPress}
+        disabled={!onPress}
+        style={({ pressed }) => [
+          styles.settingsRow,
+          pressed && onPress && styles.rowPressed,
+        ]}
+        accessibilityRole={onPress ? 'button' : undefined}
+        accessibilityLabel={label}
+      >
+        <Ionicons
+          name={icon}
+          size={20}
+          color={accent || dsColors.textSecondary}
         />
-      )}
-      <Text style={[styles.statValue, { color: valueColor }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </Card>
+        <Text style={[styles.settingsLabel, { color: textColor }]}>
+          {label}
+        </Text>
+        {trailing ? (
+          <Text style={styles.settingsTrailing}>{trailing}</Text>
+        ) : null}
+      </Pressable>
+      {showDivider && <View style={styles.divider} />}
+    </>
   );
 }
+
+// ─────────────────────────── Styles ───────────────────────────
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#020810',
+    backgroundColor: dsColors.bgBase,
   },
   scrollContent: {
     paddingTop: 64,
-    paddingHorizontal: 20,
-    paddingBottom: 110,
+    paddingHorizontal: dsSpacing.xl,
+    paddingBottom: 120,
   },
-  topSection: {
+  pageTitle: {
+    color: dsColors.textPrimary,
+    fontSize: dsFont.size.displayXl,
+    fontWeight: dsFont.weight.bold,
+    marginTop: dsSpacing.xl,
+    marginBottom: dsSpacing.md,
+  },
+  sectionLabel: {
+    ...dsSectionHeaderStyle,
+    paddingHorizontal: 2,
+  },
+
+  // ── Hero card ──
+  heroCard: {
+    padding: dsSpacing.x3l,
     alignItems: 'center',
+    overflow: 'hidden',
+    marginTop: dsSpacing.md,
+  },
+  heroGlowLayer: {
+    ...StyleSheet.absoluteFillObject,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#0D1E35',
-    borderWidth: 1,
-    borderColor: '#3B5070',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: hexAlpha(dsColors.accentBlue, 0.12),
+    borderWidth: 2,
+    borderColor: hexAlpha(dsColors.accentBlue, 0.55),
     alignItems: 'center',
     justifyContent: 'center',
-    // Faint brand-blue halo so the identity badge reads as a real
-    // thing, not just a hollow circle. Reinforces "this is who you
-    // are" at the top of the screen.
-    shadowColor: '#3B82F6',
+    shadowColor: dsColors.accentBlue,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.35,
     shadowRadius: 16,
     elevation: 6,
-    boxShadow:
-      '0 0 16px rgba(59, 130, 246, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
   },
   avatarText: {
-    color: '#3B82F6',
-    fontSize: 24,
-    fontWeight: '500',
+    color: dsColors.accentBlue,
+    fontSize: dsFont.size.displayMd,
+    fontWeight: dsFont.weight.bold,
   },
   usernameLabel: {
-    marginTop: 10,
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '500',
-    letterSpacing: 0.4,
+    marginTop: dsSpacing.md,
+    color: dsColors.textPrimary,
+    fontSize: dsFont.size.displaySm,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.tight,
   },
-  dash: {
-    width: 24,
-    height: 1.5,
-    backgroundColor: '#94A3B8',
-    marginTop: 12,
-    marginBottom: 8,
-    borderRadius: 1,
-    opacity: 0.6,
+  overallKicker: {
+    marginTop: dsSpacing.xl,
+    color: dsColors.textSecondary,
+    fontSize: dsFont.size.tiny,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.caps,
+    textTransform: 'uppercase',
   },
-  totalCard: {
-    width: 140,
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: '#0A1628',
-    borderWidth: 1,
-    borderColor: '#1A2840',
-    alignItems: 'center',
-    marginTop: 4,
+  overallRankName: {
+    marginTop: dsSpacing.sm,
+    color: dsColors.textPrimary,
+    fontSize: dsFont.size.displayMd,
+    fontWeight: dsFont.weight.bold,
+    letterSpacing: dsFont.letterSpacing.normal,
+    textShadowColor: hexAlpha(dsColors.accentBlue, 0.5),
+    textShadowRadius: 12,
+    textShadowOffset: { width: 0, height: 0 },
   },
-  totalNumber: {
-    color: '#3B82F6',
-    fontSize: 30,
-    fontWeight: '600',
+  overallTotalPoints: {
+    marginTop: dsSpacing.sm,
+    color: dsColors.textSecondary,
+    fontSize: dsFont.size.body,
+    fontWeight: dsFont.weight.regular,
   },
-  totalLabel: {
-    color: '#6B8BA4',
-    fontSize: 9,
-    letterSpacing: 1.5,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  statsRow: {
+
+  // ── Stats grid ──
+  statsGrid: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 24,
-    width: '100%',
-    paddingHorizontal: 4,
+    flexWrap: 'wrap',
+    gap: dsSpacing.md,
   },
-  statCard: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    backgroundColor: '#0A1628',
-    borderWidth: 1,
-    borderColor: '#1A2840',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  statTopBorder: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
+  statSquare: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    minHeight: 120,
+    padding: dsSpacing.xxl,
+    justifyContent: 'space-between',
   },
   statValue: {
-    fontSize: 26,
-    fontWeight: '700',
+    color: dsColors.textPrimary,
+    fontSize: dsFont.size.displayLg,
+    fontWeight: dsFont.weight.bold,
+    fontVariant: ['tabular-nums'],
+    lineHeight: dsFont.size.displayLg,
   },
   statLabel: {
-    color: '#6B8BA4',
-    fontSize: 9,
-    letterSpacing: 1.5,
-    fontWeight: '500',
-    marginTop: 4,
+    marginTop: dsSpacing.md,
+    color: dsColors.textSecondary,
+    fontSize: dsFont.size.label,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.tight,
   },
-  streakCard: {
-    marginTop: 22,
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 14,
-    backgroundColor: '#0A1628',
-    borderWidth: 1,
-    borderColor: '#3B82F640',
-    alignItems: 'center',
-  },
-  streakNumber: {
-    color: '#7DC3FF',
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  streakLabel: {
-    color: '#6B8BA4',
-    fontSize: 9,
-    letterSpacing: 1.5,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  weekSection: {
-    marginTop: 32,
-  },
-  weekChartWrap: {
-    marginTop: 12,
-  },
-  addictionsSection: {
-    marginTop: 32,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    paddingHorizontal: 2,
-  },
-  sectionLabel: {
-    color: '#6B8BA4',
-    fontSize: 9.5,
-    fontWeight: '700',
-    letterSpacing: 2,
-  },
-  addLinkBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: 'rgba(125, 195, 255, 0.5)',
-    backgroundColor: 'rgba(59, 130, 246, 0.14)',
-    boxShadow:
-      '0 0 10px rgba(59, 130, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
-  },
-  addLinkText: {
-    color: '#7DC3FF',
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-  },
-  emptyAddictions: {
-    color: '#6B8BA4',
-    fontSize: 12,
-    fontStyle: 'italic',
-    paddingVertical: 14,
-    textAlign: 'center',
+
+  // ── Grouped list card ──
+  listCard: {
+    // Uses SurfaceCard defaults; rows self-render dividers.
   },
   addictionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    backgroundColor: 'rgba(13, 30, 53, 0.4)',
-    borderWidth: 1,
-    borderColor: '#13213A',
-    marginBottom: 6,
-    // Faint inset highlight cap so each row reads as a real surface
-    // instead of bleeding into the page.
-    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)',
-  },
-  addictionTile: {
-    width: 40,
-    height: 40,
-    borderRadius: 11,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Subtle inset on the tile so the emoji sits inside a soft well
-    // rather than on a flat patch of color.
-    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+    gap: dsSpacing.md,
+    height: 56,
+    paddingHorizontal: dsSpacing.lg,
   },
   addictionEmoji: {
-    fontSize: 18,
-    lineHeight: 22,
-  },
-  addictionText: {
-    flex: 1,
-    minWidth: 0,
+    fontSize: 22,
+    width: 26,
+    textAlign: 'center',
   },
   addictionName: {
-    color: '#F1F5F9',
-    fontSize: 13.5,
-    fontWeight: '500',
-    letterSpacing: 0.2,
+    flex: 1,
+    color: dsColors.textPrimary,
+    fontSize: dsFont.size.body,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.tight,
   },
   addictionMeta: {
-    marginTop: 2,
-    fontSize: 10.5,
-    letterSpacing: 0.3,
+    color: dsColors.textSecondary,
+    fontSize: dsFont.size.label,
+    fontWeight: dsFont.weight.semibold,
+    fontVariant: ['tabular-nums'],
   },
-  removeBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#1E2D4D',
-    backgroundColor: '#0D1E35',
+  addictionMetaSep: {
+    color: dsColors.textTertiary,
+  },
+
+  // ── Settings rows ──
+  settingsRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+    gap: dsSpacing.md,
+    height: 56,
+    paddingHorizontal: dsSpacing.lg,
   },
-  bottomSection: {
-    alignItems: 'center',
-    marginTop: 36,
+  settingsLabel: {
+    flex: 1,
+    fontSize: dsFont.size.body,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.tight,
   },
-  emailLabel: {
-    color: '#6B8BA4',
-    fontSize: 11,
-    letterSpacing: 0.4,
-    marginBottom: 12,
+  settingsTrailing: {
+    color: dsColors.textSecondary,
+    fontSize: dsFont.size.label,
+    fontWeight: dsFont.weight.regular,
   },
-  signOutBtn: {
-    paddingHorizontal: 22,
-    paddingVertical: 11,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#1E2D4D',
-    backgroundColor: '#0A1628',
-    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+
+  divider: {
+    height: 1,
+    backgroundColor: dsColors.borderSubtle,
+    marginHorizontal: dsSpacing.lg,
   },
-  signOutText: {
-    color: '#7BA8C8',
-    fontSize: 13,
-    fontWeight: '500',
-    letterSpacing: 0.5,
+  rowPressed: {
+    backgroundColor: dsColors.cardSurfaceElevated,
   },
 });
