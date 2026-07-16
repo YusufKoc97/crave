@@ -177,15 +177,40 @@ export default function HomeScreen() {
     setTimeout(() => setPhase('idle'), D + 20);
   }, [orbScale, orbTextOpacity, ringsOpacity, innerGlowOpacity, progress]);
 
+  const goToCravingStart = useCallback((a: Addiction) => {
+    // Faz 5: interstitial trigger-selection screen sits between
+    // the orb and the timer. It re-hydrates the addiction from
+    // the same params shape, adds a `triggers` field, and
+    // router.replace's into /active-session so the back button
+    // from the timer doesn't bounce through this modal.
+    router.push({
+      pathname: '/craving-start',
+      params: {
+        id: a.id,
+        name: a.name,
+        emoji: a.emoji,
+        color: a.color,
+        sensitivity: String(a.sensitivity),
+      },
+    });
+  }, []);
+
   const onOrbPress = () => {
     if (wiggleMode) {
       setWiggleMode(false);
       return;
     }
-    // Empty state — tapping the orb goes straight to the picker so the
-    // user isn't stuck cycling through a hollow "selecting" state.
-    if (addictions.length === 0) {
-      router.push('/add-addiction');
+    // 0 tracked addictions — dead tap. The empty-state hint below
+    // the orb points the user at the "+" in the tab bar; opening
+    // the catalog picker directly from the orb hid that affordance
+    // and left first-time users unsure of what the "+" was for.
+    if (addictions.length === 0) return;
+    // Exactly one — no picker to disambiguate; jump straight into
+    // the craving flow for that addiction. Skipping the fan-out
+    // is the whole point of the shortcut: an animation whose only
+    // job is "pick one of one" would just feel like friction.
+    if (addictions.length === 1) {
+      goToCravingStart(addictions[0]);
       return;
     }
     if (phase === 'idle') enterSelecting();
@@ -200,23 +225,7 @@ export default function HomeScreen() {
       return;
     }
     exitSelecting();
-    setTimeout(() => {
-      // Faz 5: interstitial trigger-selection screen sits between
-      // the orb and the timer. It re-hydrates the addiction from
-      // the same params shape, adds a `triggers` field, and
-      // router.replace's into /active-session so the back button
-      // from the timer doesn't bounce through this modal.
-      router.push({
-        pathname: '/craving-start',
-        params: {
-          id: a.id,
-          name: a.name,
-          emoji: a.emoji,
-          color: a.color,
-          sensitivity: String(a.sensitivity),
-        },
-      });
-    }, 240);
+    setTimeout(() => goToCravingStart(a), 240);
   };
 
   const onAddictionLongPress = () => {
