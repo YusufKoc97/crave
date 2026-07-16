@@ -9,6 +9,15 @@ import {
 } from '@/constants/addictions';
 import { useAddictions } from '@/context/AddictionsContext';
 import { useAddictionScores } from '@/context/AddictionScoresContext';
+import {
+  dsCardStyles,
+  dsColors,
+  dsFont,
+  dsRadius,
+  dsSectionHeaderStyle,
+  dsSpacing,
+  hexAlpha,
+} from '@/constants/designSystem';
 import { t } from '@/lib/i18n';
 
 /**
@@ -17,10 +26,11 @@ import { t } from '@/lib/i18n';
  * (everything else). Tapping any row navigates to
  * `/info/[addictionId]` where the 4-module landing page lives.
  *
- * The tracking section surfaces the current rank name inline so a
- * user can eyeball their progress across addictions without opening
- * each landing page. Non-tracked rows show the i18n description
- * instead — enough context to decide whether to start tracking.
+ * Design-polish M1: cards restyled per the design system spec.
+ * TRACKING rows are 88pt "Send Money"-style — big surface, name +
+ * rank inline, addiction-color chip. ALL ADDICTIONS rows are 56pt
+ * "Habit Tracker"-style — smaller surface, "Not tracked" trailing
+ * label. Both surfaces use the shared dsCardStyles primitives.
  */
 export default function InfoScreen() {
   const { activeIds } = useAddictions();
@@ -55,7 +65,7 @@ export default function InfoScreen() {
     >
       <Text style={styles.title}>{t('info.screen_title')}</Text>
 
-      {/* ── Tracking section ─────────────────────────────────────── */}
+      {/* ── Tracking section — big 88pt "Send Money" cards ───────── */}
       <Text style={styles.sectionLabel}>{t('info.section_tracking')}</Text>
       {tracked.length === 0 ? (
         <Text style={styles.emptyLine}>{t('info.empty_tracking')}</Text>
@@ -65,16 +75,27 @@ export default function InfoScreen() {
           return (
             <Pressable
               key={a.id}
-              style={styles.row}
               onPress={() => goToLanding(a.id)}
+              style={({ pressed }) => [
+                styles.trackingRow,
+                pressed && styles.rowPressed,
+              ]}
               accessibilityRole="button"
               accessibilityLabel={`${a.name} details`}
             >
-              <View style={[styles.emojiChip, { backgroundColor: a.bgGlow }]}>
-                <Text style={styles.emoji}>{a.emoji}</Text>
+              <View
+                style={[
+                  styles.trackingEmojiChip,
+                  {
+                    backgroundColor: hexAlpha(a.color, 0.15),
+                    borderColor: hexAlpha(a.color, 0.35),
+                  },
+                ]}
+              >
+                <Text style={styles.trackingEmoji}>{a.emoji}</Text>
               </View>
               <View style={styles.textCol}>
-                <Text style={styles.name}>{a.name}</Text>
+                <Text style={styles.trackingName}>{a.name}</Text>
                 <Text style={styles.rankLine}>
                   <Text style={[styles.rankName, { color: a.color }]}>
                     {view.currentRank.name}
@@ -83,32 +104,46 @@ export default function InfoScreen() {
                   <Text style={styles.scoreInline}>{view.score} pts</Text>
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#6B8BA4" />
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={dsColors.textTertiary}
+              />
             </Pressable>
           );
         })
       )}
 
-      {/* ── All addictions ───────────────────────────────────────── */}
+      {/* ── All addictions — compact 56pt cards ──────────────────── */}
       <Text style={[styles.sectionLabel, styles.sectionLabelAll]}>
         {t('info.section_all')}
       </Text>
       {other.map((a) => (
         <Pressable
           key={a.id}
-          style={styles.row}
           onPress={() => goToLanding(a.id)}
+          style={({ pressed }) => [
+            styles.untrackedRow,
+            pressed && styles.rowPressed,
+          ]}
           accessibilityRole="button"
           accessibilityLabel={`${a.name} details`}
         >
-          <View style={[styles.emojiChip, { backgroundColor: a.bgGlow }]}>
-            <Text style={styles.emoji}>{a.emoji}</Text>
+          <View
+            style={[
+              styles.untrackedEmojiChip,
+              {
+                backgroundColor: hexAlpha(a.color, 0.12),
+                borderColor: hexAlpha(a.color, 0.28),
+              },
+            ]}
+          >
+            <Text style={styles.untrackedEmoji}>{a.emoji}</Text>
           </View>
-          <View style={styles.textCol}>
-            <Text style={styles.name}>{a.name}</Text>
-            <Text style={styles.notTracked}>{t('info.not_tracked')}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={16} color="#6B8BA4" />
+          <Text style={styles.untrackedName} numberOfLines={1}>
+            {a.name}
+          </Text>
+          <Text style={styles.notTracked}>{t('info.not_tracked')}</Text>
         </Pressable>
       ))}
     </ScrollView>
@@ -118,90 +153,113 @@ export default function InfoScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#020810',
+    backgroundColor: dsColors.bgBase,
   },
   content: {
     paddingTop: 64,
-    paddingHorizontal: 20,
+    paddingHorizontal: dsSpacing.xl,
     paddingBottom: 110,
   },
   title: {
-    color: '#F1F5F9',
-    fontSize: 24,
-    fontWeight: '400',
-    letterSpacing: 0.5,
-    marginBottom: 24,
+    color: dsColors.textPrimary,
+    fontSize: dsFont.size.displayXl,
+    fontWeight: dsFont.weight.bold,
+    marginTop: dsSpacing.xl,
+    marginBottom: dsSpacing.md,
   },
   sectionLabel: {
-    color: '#6B8BA4',
-    fontSize: 9.5,
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 10,
+    ...dsSectionHeaderStyle,
     paddingHorizontal: 2,
   },
   sectionLabelAll: {
-    marginTop: 32,
+    // Section header default marginTop is x3l (32) — keep parity.
   },
   emptyLine: {
-    color: '#6B8BA4',
+    color: dsColors.textTertiary,
     fontSize: 12.5,
     fontStyle: 'italic',
-    paddingVertical: 12,
+    paddingVertical: dsSpacing.md,
     lineHeight: 18,
   },
-  row: {
+
+  // ── Tracking card (88pt) ──
+  trackingRow: {
+    ...dsCardStyles.tracking,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: '#0A1628',
-    borderWidth: 1,
-    borderColor: '#1E2D4D',
-    marginBottom: 8,
-    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)',
+    gap: dsSpacing.lg,
+    marginBottom: dsSpacing.md,
   },
-  emojiChip: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  trackingEmojiChip: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
-  emoji: {
-    fontSize: 20,
+  trackingEmoji: {
+    fontSize: 28,
   },
   textCol: {
     flex: 1,
     minWidth: 0,
   },
-  name: {
-    color: '#F1F5F9',
-    fontSize: 14.5,
-    fontWeight: '600',
-    letterSpacing: 0.2,
+  trackingName: {
+    color: dsColors.textPrimary,
+    fontSize: dsFont.size.heading,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.tight,
   },
   rankLine: {
-    marginTop: 3,
-    fontSize: 11.5,
+    marginTop: dsSpacing.xs,
+    fontSize: 14,
   },
   rankName: {
-    fontWeight: '600',
+    fontWeight: dsFont.weight.semibold,
   },
   dotSep: {
-    color: '#3D5470',
+    color: dsColors.textTertiary,
   },
   scoreInline: {
-    color: '#94A3B8',
+    color: dsColors.textSecondary,
+  },
+
+  // ── Untracked card (56pt) ──
+  untrackedRow: {
+    ...dsCardStyles.untracked,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: dsSpacing.md,
+    marginBottom: dsSpacing.sm,
+  },
+  untrackedEmojiChip: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  untrackedEmoji: {
+    fontSize: 18,
+  },
+  untrackedName: {
+    flex: 1,
+    color: dsColors.textPrimary,
+    fontSize: dsFont.size.body,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.tight,
   },
   notTracked: {
-    marginTop: 3,
-    color: '#6B8BA4',
-    fontSize: 11.5,
-    letterSpacing: 0.2,
+    color: dsColors.textTertiary,
+    fontSize: 12,
+    letterSpacing: dsFont.letterSpacing.tight,
+  },
+
+  rowPressed: {
+    opacity: 0.7,
+    backgroundColor: dsColors.cardSurfaceElevated,
+    borderRadius: dsRadius.card,
   },
 });
