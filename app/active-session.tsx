@@ -47,6 +47,8 @@ import { FailureConfirmModal } from '@/components/FailureConfirmModal';
 import { ToolkitPickerModal } from '@/components/ToolkitPickerModal';
 import { TechniqueRunnerModal } from '@/components/TechniqueRunnerModal';
 import { PresenceIndicator } from '@/components/PresenceIndicator';
+import { AmbientGlow } from '@/components/ui/AmbientGlow';
+import { dsColors, hexAlpha } from '@/constants/designSystem';
 import { invalidateTriggerMaps } from '@/lib/queryClient';
 import type { Technique } from '@/constants/toolkitCatalog';
 
@@ -72,12 +74,13 @@ const QUOTES = [
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-function formatTime(s: number) {
+/** MM / colon / SS split so the colon can pulse independently. */
+function formatTimeParts(s: number): { mm: string; ss: string } {
   const mm = Math.floor(s / 60)
     .toString()
     .padStart(2, '0');
   const ss = (s % 60).toString().padStart(2, '0');
-  return `${mm}:${ss}`;
+  return { mm, ss };
 }
 
 function ArcProgress({
@@ -272,8 +275,24 @@ export default function ActiveSession() {
   const spinnerRotate = useSharedValue(0);
   const completePulse = useSharedValue(0);
   const bonusFloat = useSharedValue(0);
+  // Design-polish M5 — "heartbeat" of the timer. The colon between
+  // MM and SS pulses on a 1s cycle so the screen reads as a live
+  // vitals monitor rather than a static clock.
+  const colonOpacity = useSharedValue(1);
   const ranOnce = useRef(false);
   const lastCycleSeen = useRef(0);
+
+  // Colon heartbeat — 1s in, 1s out. Stays on the compositor.
+  useEffect(() => {
+    colonOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.25, { duration: 500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 500, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
+  }, [colonOpacity]);
 
   // Slower spinner — 6s/turn so it feels meditative, not urgent.
   useEffect(() => {
@@ -382,6 +401,7 @@ export default function ActiveSession() {
   const points = Math.max(elapsed > 0 ? 1 : 0, baseProjected) + cycleBonus;
 
   const quoteStyle = useAnimatedStyle(() => ({ opacity: quoteOpacity.value }));
+  const colonStyle = useAnimatedStyle(() => ({ opacity: colonOpacity.value }));
   const spinnerStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${spinnerRotate.value}deg` }],
   }));
@@ -563,6 +583,24 @@ export default function ActiveSession() {
 
   return (
     <View style={styles.root}>
+      {/* Design-polish M5 — atmospheric background. Two overlapping
+          radial glows blend to create the "vitals monitor" feel
+          behind the timer. Blue anchors the design system, the
+          addiction color layers a personal accent below it. */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <AmbientGlow
+          color={dsColors.accentBlue}
+          size={560}
+          intensity="medium"
+          position={{ x: 195, y: 340 }}
+        />
+        <AmbientGlow
+          color={accentColor}
+          size={360}
+          intensity="low"
+          position={{ x: 195, y: 520 }}
+        />
+      </View>
       {Platform.OS === 'web' && (
         <View
           pointerEvents="none"
@@ -633,7 +671,17 @@ export default function ActiveSession() {
           />
           <ArcProgress arcOffset={arcOffset} accentColor={accentColor} />
           <View style={styles.timerCenter} pointerEvents="none">
-            <Text style={styles.timerText}>{formatTime(cycleElapsed)}</Text>
+            <View style={styles.timerRow}>
+              <Text style={styles.timerText}>
+                {formatTimeParts(cycleElapsed).mm}
+              </Text>
+              <Animated.Text style={[styles.timerText, colonStyle]}>
+                :
+              </Animated.Text>
+              <Text style={styles.timerText}>
+                {formatTimeParts(cycleElapsed).ss}
+              </Text>
+            </View>
             <Text style={[styles.pointsText, { color: accentColor }]}>
               +{points} pts
             </Text>
@@ -708,31 +756,35 @@ export default function ActiveSession() {
               accessibilityRole="button"
               accessibilityLabel={t('toolkit.try_a_technique')}
             >
-              <Ionicons name="sparkles-outline" size={14} color="#7BA8C8" />
+              <Ionicons
+                name="sparkles-outline"
+                size={14}
+                color={dsColors.accentBlue}
+              />
               <Text style={styles.toolkitBtnText}>
                 {t('toolkit.try_a_technique')}
               </Text>
             </Pressable>
             <Pressable
-              style={[
+              style={({ pressed }) => [
                 styles.resistBtn,
                 {
+                  backgroundColor: accentColor,
                   borderColor: accentColor,
-                  // Accent-tinted halo — pulses the addiction color
-                  // so each session feels color-locked.
+                  opacity: pressed ? 0.85 : 1,
+                  // Accent-tinted halo — same energy as before, now
+                  // wrapping a filled surface instead of an outline.
                   shadowColor: accentColor,
                   shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.45,
-                  shadowRadius: 14,
-                  elevation: 5,
-                  boxShadow: `0 0 16px ${hexWithAlpha(accentColor, 0.32)}, inset 0 1px 0 rgba(255, 255, 255, 0.08)`,
+                  shadowOpacity: 0.5,
+                  shadowRadius: 18,
+                  elevation: 6,
+                  boxShadow: `0 0 20px ${hexWithAlpha(accentColor, 0.4)}`,
                 },
               ]}
               onPress={onResistPress}
             >
-              <Text style={[styles.resistText, { color: accentColor }]}>
-                {t('active.resist')}
-              </Text>
+              <Text style={styles.resistText}>{t('active.resist')}</Text>
             </Pressable>
             <Pressable style={styles.gaveInBtn} onPress={onFailPress}>
               <Text style={styles.gaveInText}>{t('active.failed')}</Text>
@@ -815,7 +867,7 @@ function hexWithAlpha(hex: string, alpha: number) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#020810',
+    backgroundColor: dsColors.bgBase,
   },
   topGlow: {
     position: 'absolute',
@@ -920,17 +972,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  timerRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+  },
   timerText: {
-    color: '#F1F5F9',
-    fontSize: 56,
-    fontWeight: '300',
+    color: dsColors.textPrimary,
+    fontSize: 72,
+    fontWeight: '700',
     letterSpacing: 2,
+    fontVariant: ['tabular-nums'],
+    // Blue text-shadow glow — brief spec (0 0 20pt rgba(77,171,255,0.4)).
+    textShadowColor: hexAlpha(dsColors.accentBlue, 0.4),
+    textShadowRadius: 20,
+    textShadowOffset: { width: 0, height: 0 },
   },
   pointsText: {
-    marginTop: 4,
-    fontSize: 13,
-    fontWeight: '500',
+    marginTop: 8,
+    fontSize: 20,
+    fontWeight: '600',
     letterSpacing: 1,
+    fontVariant: ['tabular-nums'],
   },
   bonusFloat: {
     position: 'absolute',
@@ -955,13 +1018,14 @@ const styles = StyleSheet.create({
     maxWidth: 32,
   },
   quoteText: {
-    color: '#94A3B8',
-    fontSize: 14,
+    color: dsColors.textSecondary,
+    fontSize: 15,
     fontStyle: 'italic',
-    fontWeight: '300',
+    fontWeight: '400',
     textAlign: 'center',
     paddingHorizontal: 16,
     flexShrink: 1,
+    maxWidth: '80%',
   },
   btnArea: {
     paddingHorizontal: 24,
@@ -969,53 +1033,52 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   resistBtn: {
-    height: 58,
+    // Primary CTA — filled with the addiction accent, white label.
+    // The accent bg + accent glow are injected inline at the call
+    // site so each session feels color-locked.
+    height: 56,
     borderRadius: 14,
     borderWidth: 1.5,
-    backgroundColor: '#0A1628',
     alignItems: 'center',
     justifyContent: 'center',
-    // Halo + inset highlight are applied inline at the call site so
-    // they can tint with the addiction's accent color.
   },
   resistText: {
-    fontSize: 15,
+    color: dsColors.textPrimary,
+    fontSize: 17,
     fontWeight: '600',
     letterSpacing: 0.5,
   },
   gaveInBtn: {
-    height: 52,
-    borderRadius: 12,
+    // Tertiary — transparent bg, muted border, secondary text.
+    height: 48,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#1A2840',
-    backgroundColor: '#080F1C',
+    borderColor: dsColors.borderAccent,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)',
   },
   gaveInText: {
-    color: '#3D5470',
-    fontSize: 14,
-    fontWeight: '400',
+    color: dsColors.textSecondary,
+    fontSize: 15,
+    fontWeight: '500',
   },
   toolkitBtn: {
-    // Secondary CTA — deliberately muted so it doesn't compete
-    // with the primary resist/fail buttons. Sparkle icon + gap
-    // matches the Info-tab visual language for toolkit surfaces.
+    // Secondary CTA — subtle blue tint, accent blue label. Never
+    // competes visually with the primary resist button.
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    height: 40,
-    borderRadius: 10,
+    height: 48,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#1E2D4D',
-    backgroundColor: '#0A1628',
-    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+    borderColor: hexAlpha(dsColors.accentBlue, 0.3),
+    backgroundColor: hexAlpha(dsColors.accentBlue, 0.1),
   },
   toolkitBtnText: {
-    color: '#7BA8C8',
-    fontSize: 12.5,
+    color: dsColors.accentBlue,
+    fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.4,
   },
