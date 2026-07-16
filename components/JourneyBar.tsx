@@ -1,33 +1,47 @@
+import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { RANK_LADDER } from '@/constants/rankLadder';
 import type { JourneyView } from '@/context/AddictionScoresContext';
 import { t } from '@/lib/i18n';
-import { Card } from '@/components/Card';
-import { colors } from '@/constants/theme';
+import { SurfaceCard } from '@/components/ui/SurfaceCard';
+import {
+  dsColors,
+  dsFont,
+  dsRadius,
+  dsSectionHeaderStyle,
+  dsSpacing,
+  hexAlpha,
+} from '@/constants/designSystem';
 
 /**
- * Journey view for Module 1 — horizontal compact summary at the top,
- * vertical ladder underneath. Both driven off the same `JourneyView`
- * object so the two halves can never disagree about what the current
- * rank is.
+ * Journey view for Module 1 — hero rank card at top, vertical ladder
+ * underneath. Both driven off the same `JourneyView` object so the
+ * two halves can never disagree about what the current rank is.
  *
  * "Current rank" = highest unlocked (never demoted on failure).
- * Progress bar shows the fraction from current rank threshold to the
- * next one on the ladder; ceiling users see a saturated bar.
+ * Progress bar animates from 0 to `progress` on mount (Reanimated
+ * width interpolation) — subtle 800ms ease-out per the polish brief.
+ *
+ * Design-polish M3: cards + ladder rows repainted with the new
+ * design system palette; addiction color remains the sole accent
+ * (progress fill, current-rank marker, current-row border tint).
  */
 
 type Props = {
   view: JourneyView;
-  /** Color-locked accent (from the addiction catalog) — every rank
-   *  marker + progress fill picks this up so each addiction's
-   *  journey feels distinct without needing a per-addiction palette. */
+  /** Color-locked accent (from the addiction catalog). */
   accentColor: string;
 };
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  // Locale-agnostic short form so it renders sensibly across regions.
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -40,17 +54,31 @@ export function JourneyBar({ view, accentColor }: Props) {
 
   const remaining = nextRank ? Math.max(0, nextRank.thresholdScore - score) : 0;
 
+  // Animate progress bar on mount — 0 → target width, ease-out.
+  // Runs once per (progress, accent) tuple; not driven on every
+  // re-render (score updates fire this too, which is the intent).
+  const anim = useSharedValue(0);
+  useEffect(() => {
+    anim.value = 0;
+    anim.value = withTiming(progress, {
+      duration: 800,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [anim, progress]);
+  const trackFillStyle = useAnimatedStyle(() => ({
+    width: `${Math.round(anim.value * 100)}%`,
+  }));
+
   return (
     <View style={styles.root}>
-      {/* ── Horizontal compact summary card ─────────────────────── */}
-      <Card
+      {/* ── Hero rank card ─────────────────────────────────────── */}
+      <SurfaceCard
         variant="elevated"
-        style={styles.summary}
-        borderRadius={16}
-        showHighlight
+        radius={dsRadius.card}
+        style={styles.heroCard}
       >
-        <View style={styles.summaryHeader}>
-          <View style={styles.summaryHeaderLeft}>
+        <View style={styles.heroHeader}>
+          <View style={styles.heroHeaderLeft}>
             <Text style={styles.kicker}>{t('journey.your_rank')}</Text>
             <Text style={[styles.rankName, { color: accentColor }]}>
               {currentRank.name}
@@ -59,43 +87,20 @@ export function JourneyBar({ view, accentColor }: Props) {
               {currentRank.description}
             </Text>
           </View>
-          <View style={styles.summaryHeaderRight}>
+          <View style={styles.heroHeaderRight}>
             <Text style={styles.scoreKicker}>{t('journey.score_label')}</Text>
             <Text style={styles.scoreValue}>{score}</Text>
           </View>
         </View>
 
-        {/* Horizontal 9-dot progress across all ranks + fill bar
-            underneath. Compact, scannable at a glance. */}
-        <View style={styles.dotRow} pointerEvents="none">
-          {RANK_LADDER.map((rank) => {
-            const isCurrent = rank.id === currentRank.id;
-            const isUnlocked = unlockedIds.has(rank.id);
-            return (
-              <View
-                key={rank.id}
-                style={[
-                  styles.dot,
-                  {
-                    borderColor: isUnlocked ? accentColor : '#1E2D4D',
-                    backgroundColor: isCurrent
-                      ? accentColor
-                      : isUnlocked
-                        ? hexAlpha(accentColor, 0.35)
-                        : '#0A1628',
-                  },
-                ]}
-              />
-            );
-          })}
-        </View>
         <View style={styles.track}>
-          <View
+          <Animated.View
             style={[
               styles.trackFill,
+              trackFillStyle,
               {
-                width: `${Math.round(progress * 100)}%`,
                 backgroundColor: accentColor,
+                shadowColor: accentColor,
               },
             ]}
           />
@@ -108,23 +113,15 @@ export function JourneyBar({ view, accentColor }: Props) {
               })
             : t('journey.at_ceiling')}
         </Text>
-      </Card>
+      </SurfaceCard>
 
       {/* ── Vertical detailed ladder ────────────────────────────── */}
-      <Text style={styles.laddderKicker}>{t('journey.ladder_title')}</Text>
+      <Text style={styles.ladderKicker}>{t('journey.ladder_title')}</Text>
       <View style={styles.ladderList}>
         {RANK_LADDER.map((rank) => {
           const isCurrent = rank.id === currentRank.id;
           const isUnlocked = unlockedIds.has(rank.id);
           const isFuture = !isUnlocked && !isCurrent;
-          // Marker glyph — Latin, no emoji, keeps consistent line
-          // height. ✓ (unlocked past), ● (current), ○ (locked).
-          const marker = isCurrent ? '●' : isUnlocked ? '✓' : '○';
-          const markerColor = isCurrent
-            ? accentColor
-            : isUnlocked
-              ? accentColor
-              : '#3D5470';
           const unlockedIso = unlockedAt.get(rank.id);
           const statusLabel = isCurrent
             ? t('journey.current')
@@ -140,20 +137,34 @@ export function JourneyBar({ view, accentColor }: Props) {
                 styles.ladderRow,
                 isCurrent && {
                   borderColor: accentColor,
-                  backgroundColor: hexAlpha(accentColor, 0.06),
+                  backgroundColor: hexAlpha(accentColor, 0.08),
                 },
                 isFuture && styles.ladderRowFuture,
               ]}
             >
-              <Text style={[styles.marker, { color: markerColor }]}>
-                {marker}
-              </Text>
+              <View
+                style={[
+                  styles.markerDot,
+                  isUnlocked || isCurrent
+                    ? {
+                        backgroundColor: accentColor,
+                        borderColor: accentColor,
+                        shadowColor: accentColor,
+                      }
+                    : {
+                        backgroundColor: 'transparent',
+                        borderColor: dsColors.textTertiary,
+                      },
+                  isCurrent && styles.markerDotCurrent,
+                ]}
+              />
               <View style={styles.ladderText}>
                 <Text
                   style={[
                     styles.ladderName,
                     isFuture && styles.ladderNameFuture,
                   ]}
+                  numberOfLines={1}
                 >
                   {rank.name}
                 </Text>
@@ -175,157 +186,142 @@ export function JourneyBar({ view, accentColor }: Props) {
   );
 }
 
-function hexAlpha(hex: string, alpha: number): string {
-  const h = hex.replace('#', '');
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 const styles = StyleSheet.create({
   root: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingHorizontal: dsSpacing.xl,
+    paddingBottom: dsSpacing.x4l,
   },
-  summary: {
-    padding: 18,
-    backgroundColor: '#0A1628',
-    borderColor: '#1A2840',
+  heroCard: {
+    padding: dsSpacing.xxl,
   },
-  summaryHeader: {
+  heroHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: dsSpacing.xl,
   },
-  summaryHeaderLeft: {
+  heroHeaderLeft: {
     flex: 1,
-    paddingRight: 12,
+    paddingRight: dsSpacing.md,
   },
-  summaryHeaderRight: {
+  heroHeaderRight: {
     alignItems: 'flex-end',
   },
   kicker: {
-    color: '#6B8BA4',
-    fontSize: 9.5,
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 6,
+    color: dsColors.textSecondary,
+    fontSize: dsFont.size.tiny,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.caps,
+    textTransform: 'uppercase',
+    marginBottom: dsSpacing.sm,
   },
   rankName: {
-    fontSize: 20,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-    marginBottom: 4,
+    fontSize: dsFont.size.displayMd,
+    fontWeight: dsFont.weight.bold,
+    letterSpacing: dsFont.letterSpacing.normal,
+    marginBottom: dsSpacing.xs,
   },
   rankDescription: {
-    color: '#94A3B8',
-    fontSize: 12,
-    lineHeight: 16,
+    color: dsColors.textSecondary,
+    fontSize: dsFont.size.label,
+    lineHeight: 18,
   },
   scoreKicker: {
-    color: '#6B8BA4',
-    fontSize: 9.5,
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 4,
+    color: dsColors.textSecondary,
+    fontSize: dsFont.size.tiny,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.caps,
+    textTransform: 'uppercase',
+    marginBottom: dsSpacing.xs,
   },
   scoreValue: {
-    color: colors.textPrimary,
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  dotRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-    paddingHorizontal: 2,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1,
+    color: dsColors.textPrimary,
+    fontSize: dsFont.size.displayXxl,
+    fontWeight: dsFont.weight.bold,
+    fontVariant: ['tabular-nums'],
+    lineHeight: dsFont.size.displayXxl,
   },
   track: {
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#0D1E35',
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: dsColors.borderSubtle,
     overflow: 'hidden',
   },
   trackFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 3,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
   },
   nextHint: {
-    marginTop: 10,
-    color: '#7BA8C8',
-    fontSize: 11.5,
-    letterSpacing: 0.3,
+    marginTop: dsSpacing.md,
+    color: dsColors.textSecondary,
+    fontSize: dsFont.size.label,
+    letterSpacing: dsFont.letterSpacing.tight,
     textAlign: 'center',
   },
-  laddderKicker: {
-    marginTop: 24,
-    marginBottom: 10,
-    color: '#6B8BA4',
-    fontSize: 9.5,
-    fontWeight: '700',
-    letterSpacing: 2,
+  ladderKicker: {
+    ...dsSectionHeaderStyle,
     paddingHorizontal: 2,
   },
   ladderList: {
-    // Rows are self-styled — no extra wrapping here.
+    // Rows self-style — no wrapper.
   },
   ladderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: '#0A1628',
+    gap: dsSpacing.md,
+    height: 64,
+    paddingHorizontal: dsSpacing.lg,
+    borderRadius: dsRadius.card,
+    backgroundColor: dsColors.cardSurface,
     borderWidth: 1,
-    borderColor: '#13213A',
-    marginBottom: 6,
-    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.03)',
+    borderColor: dsColors.borderSubtle,
+    marginBottom: dsSpacing.sm,
   },
   ladderRowFuture: {
-    opacity: 0.5,
+    opacity: 0.55,
   },
-  marker: {
-    fontSize: 18,
-    lineHeight: 20,
-    minWidth: 20,
-    textAlign: 'center',
+  markerDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+  },
+  markerDotCurrent: {
+    // Slightly larger visual weight for the "you are here" indicator.
+    transform: [{ scale: 1.1 }],
   },
   ladderText: {
     flex: 1,
     minWidth: 0,
   },
   ladderName: {
-    color: '#F1F5F9',
-    fontSize: 14,
-    fontWeight: '500',
-    letterSpacing: 0.2,
+    color: dsColors.textPrimary,
+    fontSize: dsFont.size.bodyLg,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.tight,
   },
   ladderNameFuture: {
-    color: '#6B8BA4',
+    color: dsColors.textSecondary,
   },
   ladderStatus: {
     marginTop: 2,
-    color: '#6B8BA4',
-    fontSize: 11,
-    letterSpacing: 0.2,
+    color: dsColors.textSecondary,
+    fontSize: dsFont.size.label,
+    letterSpacing: dsFont.letterSpacing.tight,
   },
   ladderThreshold: {
-    color: '#7BA8C8',
-    fontSize: 11.5,
-    fontWeight: '600',
+    color: dsColors.textSecondary,
+    fontSize: dsFont.size.label,
+    fontWeight: dsFont.weight.semibold,
     fontVariant: ['tabular-nums'],
   },
   ladderThresholdFuture: {
-    color: '#3D5470',
+    color: dsColors.textTertiary,
   },
 });
