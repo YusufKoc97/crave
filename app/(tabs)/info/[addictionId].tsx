@@ -95,7 +95,12 @@ export default function AddictionLandingScreen() {
             />
           </View>
         )}
-        {subTab === 'triggers' && <TriggersPane addiction={addiction} />}
+        {subTab === 'triggers' && (
+          <TriggersPane
+            addiction={addiction}
+            onNavigateSubTab={(next) => setSubTab(next)}
+          />
+        )}
         {subTab === 'comparison' && <ComingSoonPane />}
       </ScrollView>
 

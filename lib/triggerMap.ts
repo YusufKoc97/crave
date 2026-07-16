@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from './supabase';
 import type { PeriodKey } from '@/constants/heatmap';
+import type { InsightCategory, InsightOutput } from '@/shared/insightRules';
 
 /**
  * Faz 8a — client hook for the trigger-map-data Edge Function.
@@ -30,14 +31,18 @@ export type TriggerMapTrigger = {
   most_common_intensity: IntensityLevel | null;
 };
 
+/** Faz 8b: server-evaluated insight card. */
+export type TriggerMapInsight = InsightOutput;
+export type { InsightCategory };
+
 export type TriggerMapResponse = {
   cravings_count: number;
   heatmap: number[][]; // [7][24]
   intensity_map: (number | null)[][]; // [7][24] — avg intensity
   peak_hours: TriggerMapPeak[];
   triggers: TriggerMapTrigger[];
-  // Reserved for Faz 8b — Faz 8a always returns [].
-  insights: unknown[];
+  // Faz 8b: top-3 by priority, empty when no rule fires.
+  insights: TriggerMapInsight[];
 };
 
 async function fetchTriggerMap(

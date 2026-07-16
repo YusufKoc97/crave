@@ -10,16 +10,18 @@
  *   peak_hours             — top 3 (day, startHour, endHour, count)
  *   triggers[]             — sorted counts + most-common intensity
  *
- * Insights are deliberately excluded — those land in Faz 8b. The
- * response schema reserves an empty `insights: []` slot so the
- * client can wire the section without a payload migration later.
+ * Faz 8b: the rule engine in `shared/insightRules.ts` is invoked
+ * here too. Insights use a FIXED window (last 14 days for trend
+ * rules, all-history for silence check) and are NOT filtered by
+ * the request's `period` — that filter still applies only to the
+ * heatmap / peaks / distribution above. Top 3 by priority.
  *
  * Request:
  *   POST { addiction_id: string, period: '7d' | '30d' | 'all' }
  *
  * Response:
  *   { cravings_count, heatmap, intensity_map, peak_hours,
- *     triggers, insights: [] }
+ *     triggers, insights }
  *
  * Auth: JWT required (Bearer). RLS on craving_sessions still
  * enforces owner-only rows even under the service-role client;
@@ -28,6 +30,12 @@
 
 // @ts-expect-error — Deno resolves this from its runtime.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  evaluateInsights,
+  type InsightData,
+  type RuleSession,
+  type RuleTechniqueUse,
+} from '../../../shared/insightRules.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const Deno: any;
@@ -309,14 +317,120 @@ Deno.serve(async (req: Request): Promise<Response> => {
   void sessionCell;
   void labelForIntensity;
 
+  // ── Faz 8b: Insight rule engine ──
+  // Rules operate on a FIXED window (last 14 days for trend
+  // rules; all-history for silence check). We fetch a second,
+  // rule-owned slice of `craving_sessions` so the trend rules
+  // still work when the user has 7d selected in the picker.
+  const insightsCutoffMs = Date.now() - 14 * 24 * 60 * 60_000;
+  const { data: insightSessions, error: insightSessionsErr } = await svc
+    .from('craving_sessions')
+    .select('id, started_at, outcome, status')
+    .eq('user_id', userId)
+    .eq('addiction_id', addictionId)
+    .in('status', ['resolved', 'active']) // active kept so lastSeen isn't stale
+    .gte('started_at', new Date(insightsCutoffMs).toISOString());
+
+  if (insightSessionsErr) {
+    console.error(
+      '[trigger-map-data] insight sessions failed',
+      insightSessionsErr
+    );
+    // Non-fatal — return the map with an empty insights list.
+    return jsonResponse({
+      cravings_count: cravingsCount,
+      heatmap,
+      intensity_map: intensityMap,
+      peak_hours: peakHours,
+      triggers: triggersOut,
+      insights: [],
+    });
+  }
+
+  // Rules only care about resolved outcomes for success-rate math;
+  // they ignore rows without an outcome (still active / abandoned).
+  const ruleSessions: RuleSession[] = (insightSessions ?? []).map((r) => ({
+    started_at: r.started_at as string,
+    outcome:
+      r.outcome === 'resisted' || r.outcome === 'failed' ? r.outcome : null,
+  }));
+
+  // Precomputed distributions — the rules skip re-scanning.
+  const hourlyDistribution: Record<number, number> = {};
+  const dailyDistribution: Record<number, number> = {};
+  let lastCravingMs = -Infinity;
+  for (const s of ruleSessions) {
+    const t = new Date(s.started_at).getTime();
+    if (t > lastCravingMs) lastCravingMs = t;
+    const d = new Date(s.started_at);
+    hourlyDistribution[d.getHours()] =
+      (hourlyDistribution[d.getHours()] ?? 0) + 1;
+    dailyDistribution[d.getDay()] = (dailyDistribution[d.getDay()] ?? 0) + 1;
+  }
+  const nowMs = Date.now();
+  const daysSinceLastCraving =
+    lastCravingMs === -Infinity
+      ? Number.POSITIVE_INFINITY
+      : (nowMs - lastCravingMs) / (24 * 60 * 60_000);
+
+  // Trigger counts across the rule-owned window (independent of
+  // the picker). Same session slice as `insightSessions` above.
+  let insightTriggerRows: { trigger_id: string }[] = [];
+  if ((insightSessions ?? []).length > 0) {
+    const windowIds = (insightSessions ?? []).map((r) => r.id as string);
+    const { data: tRows } = await svc
+      .from('craving_session_triggers')
+      .select('trigger_id')
+      .in('session_id', windowIds);
+    insightTriggerRows = (tRows ?? []).map((r) => ({
+      trigger_id: r.trigger_id as string,
+    }));
+  }
+  const insightTriggerCounts: Record<string, number> = {};
+  for (const row of insightTriggerRows) {
+    insightTriggerCounts[row.trigger_id] =
+      (insightTriggerCounts[row.trigger_id] ?? 0) + 1;
+  }
+
+  // technique_uses for the same 14d window — only completed rows
+  // (matches Faz 6 semantics; a start without an end shouldn't
+  // count toward "effective_technique" ratios).
+  const { data: techRows } = await svc
+    .from('technique_uses')
+    .select('technique_id, feedback')
+    .eq('user_id', userId)
+    .eq('addiction_id', addictionId)
+    .eq('completed', true)
+    .gte('used_at', new Date(insightsCutoffMs).toISOString());
+
+  const techniqueUses: RuleTechniqueUse[] = (techRows ?? []).map((r) => ({
+    technique_id: r.technique_id as string,
+    feedback:
+      r.feedback === 'much_better' ||
+      r.feedback === 'better' ||
+      r.feedback === 'same' ||
+      r.feedback === 'worse'
+        ? r.feedback
+        : null,
+  }));
+
+  const insightData: InsightData = {
+    cravings: ruleSessions,
+    techniqueUses,
+    triggerCounts: insightTriggerCounts,
+    hourlyDistribution,
+    dailyDistribution,
+    daysSinceLastCraving,
+    now: nowMs,
+  };
+  const insights = evaluateInsights(insightData);
+
   return jsonResponse({
     cravings_count: cravingsCount,
     heatmap,
     intensity_map: intensityMap,
     peak_hours: peakHours,
     triggers: triggersOut,
-    // Faz 8b will populate this; the client already reads
-    // `insights ?? []` so a schema mismatch is impossible.
-    insights: [],
+    insights,
   });
 });

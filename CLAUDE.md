@@ -68,6 +68,8 @@ constants/
   presence.ts          ─ Faz 7: threshold + poll interval + active window
   heatmap.ts           ─ Faz 8a: grid dims, DAY_KEYS, PERIOD_ORDER, 5-color
                           ramp + heatmapColor() + sparse/full thresholds
+  insights.ts          ─ Faz 8b: category → Ionicons name map (UI only —
+                          rules live in shared/insightRules.ts)
 
 i18n/
   en.json              ─ Single-language dictionary (Faz 2: EN only)
@@ -98,6 +100,8 @@ shared/
   scoring.ts           ─ Cross-runtime scoring — Vitest + Deno import same file
   catalog.ts           ─ id → sensitivity whitelist (Edge Function cross-check)
   ranks.ts             ─ 9-rank ladder + unlock diff (Vitest + Deno)
+  insightRules.ts      ─ Faz 8b: 6-rule insights engine + evaluateInsights()
+                          (Deno + Vitest import same file; MAX_INSIGHTS=3)
 
 components/
   JourneyBar.tsx           ─ Horizontal compact + vertical ladder for Module 1
@@ -123,6 +127,8 @@ components/
     PeakHoursList.tsx      ─ Top-3 rank rows (server-sorted)
     TriggerDistribution.tsx─ Horizontal bar chart + "Mostly {level}"
     CellDetailSheet.tsx    ─ @gorhom/bottom-sheet, imperative open()
+    InsightSection.tsx     ─ Faz 8b: Personal insights container + accordion
+    InsightCard.tsx        ─ Faz 8b: icon + msg + LayoutAnimation detail + action
 
 context/
   AddictionScoresContext.tsx ─ Per-addiction score + unlocks hydration
@@ -140,8 +146,8 @@ supabase/
   functions/resolve-craving/index.ts        ─ Server-authoritative resolve endpoint
                                               (Faz 4: rank unlocks + Faz 5: intensity)
   functions/active-presence/index.ts        ─ Faz 7: count(*) other active sessions
-  functions/trigger-map-data/index.ts       ─ Faz 8a: heatmap + peaks + triggers
-                                              aggregation (JWT, no new DB)
+  functions/trigger-map-data/index.ts       ─ Faz 8a heatmap/peaks/triggers +
+                                              Faz 8b insights (last 14d slice)
 ```
 
 ## ✅ Yapılan Özellikler (Kronolojik)
@@ -291,6 +297,43 @@ false` + craving_sessions history saklanır → re-add kaldığı yerden
       (`tests/heatmap.test.ts`) — grid dims, DAY_KEYS order,
       period order/default, stale time, heatmapColor bucket
       thresholds (0/1/2/3-4/5+), ramp monotonicity.
+20. **Faz 8b Personal Insights (Modül 3, Section 1)**: Modül 3 kapandı.
+    Triggers sub-tab'ın en üstünde artık kural motorlu insight kartları
+    var. Kurallar `shared/insightRules.ts`'te — Deno + Vitest aynı
+    dosyayı import eder (scoring/ranks pattern'i). 6 rule v0:
+    `dominant_trigger` (P90), `peak_hour` (P85), `effective_technique`
+    (P80), `rising_resistance` (P75), `weekend_concentration` (P70),
+    `silence_check` (P60). Her rule kendi minCravings gate'ini +
+    kendi zaman penceresini tanımlar. `evaluateInsights()` top-3
+    priority desc döner, deterministic tiebreak `rule_id` lex sırası.
+    Sabit pencere (karar #2) — period picker (7d/30d/all) SADECE
+    heatmap/peaks/distribution'a uygulanır, insights her zaman son
+    14 gün (trend rules için) + all-history (silence check için)
+    bakar. Bu sayede kullanıcı 7d seçse bile `rising_resistance`
+    çalışabilir. Edge Function (`trigger-map-data`) yeni sorgular:
+    `craving_sessions` last-14d ayrı slice, `technique_uses`
+    completed rows (used_at ≥ cutoff, feedback dahil), same-slice
+    `craving_session_triggers` join. `evaluateInsights(data)`
+    çağrısı response'un `insights` field'ini doldurur (Faz 8a'nın
+    `[]` slot'unun yerine geçer). Client (`useTriggerMap`) tipi
+    genişledi — `TriggerMapInsight = InsightOutput` re-export.
+    `InsightSection` (accordion state) + `InsightCard`
+    (LayoutAnimation smooth detail toggle, karar #8) Triggers pane'in
+    en üstüne mount edildi — FreeTierGate hâlâ tüm pane'i sarıyor
+    (karar #3). Trigger + technique ID'leri raw gelir, client
+    i18n resolve eder (karar #4) — `resolveTriggerLabel` fallback:
+    common → addiction-specific → raw ID pass-through. Action:
+    `open_toolkit` → parent'a callback (`onNavigateSubTab`) →
+    subTab='toolkit', pre-selection yok (karar #6). Icons:
+    `@expo/vector-icons` Ionicons (time/flash/construct/trending-up)
+    kategori bazlı (karar #6). Empty state: 1 satır dimmed italik
+    ("Insights appear as you build history"), kart yok. Tests: 23
+    yeni case (`tests/insightRules.test.ts`) — 6 rule için matcher
+    - gate + edge-case coverage + evaluator (empty, MAX_INSIGHTS
+      cap, minCravings gate, deterministic tie-break). Full suite
+      172/172 green. DB migration yok — mevcut Faz 5 + Faz 6
+      tablolarını okur. Deploy tek adım:
+      `supabase functions deploy trigger-map-data`.
 
 ## 🧠 Önemli Kararlar (UX/Mimari)
 

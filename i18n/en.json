@@ -421,6 +421,39 @@
       "load_failed": "Couldn't load your data — pull to refresh."
     }
   },
+  "insights": {
+    "section_title": "Personal insights",
+    "empty_message": "Insights appear as you build history",
+    "detail_show": "Show details",
+    "detail_hide": "Hide details",
+    "action": {
+      "open_toolkit": "See techniques"
+    },
+    "peak_hour": {
+      "template": "{{hour}} is your hardest time",
+      "detail": "You have {{count}} cravings during this hour"
+    },
+    "dominant_trigger": {
+      "template": "{{trigger}} is your main trigger ({{percent}}%)",
+      "detail": "It shows up more than any other cause"
+    },
+    "effective_technique": {
+      "template": "{{technique}} works best for you",
+      "detail": "You rated it positively {{percent}}% of the time"
+    },
+    "weekend_concentration": {
+      "template": "Weekends are {{multiplier}}x harder than weekdays",
+      "detail": "Something in your weekend routine triggers more cravings"
+    },
+    "rising_resistance": {
+      "template": "Your resistance rate is up {{percent}}% this week",
+      "detail": "Whatever you're doing — it's working"
+    },
+    "silence_check": {
+      "template": "{{days}} quiet days — how are you doing?",
+      "detail": "No cravings logged. Everything alright?"
+    }
+  },
   "body_scan": {
     "intro": "Scan your body slowly",
     "instruction": "Notice any tension. Don't try to change it — just observe.",

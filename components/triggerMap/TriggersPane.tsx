@@ -17,30 +17,34 @@ import { HeatmapGrid } from './HeatmapGrid';
 import { PeakHoursList } from './PeakHoursList';
 import { TriggerDistribution } from './TriggerDistribution';
 import { CellDetailSheet, type CellDetailSheetHandle } from './CellDetailSheet';
+import { InsightSection } from './InsightSection';
 
 /**
  * Faz 8a — Modül 3 root panel. Renders the trigger-map response
  * from the Edge Function inside the Info → Triggers sub-tab.
  *
- * Progressive disclosure gates (Faz 8a scope — no insights):
- *   count == 0   → EmptyState zero (heatmap + peak + distribution hidden)
+ * Progressive disclosure gates:
+ *   count == 0   → EmptyState zero (all sections hidden below insights)
  *   count 1–5   → Heatmap (sparse), peak + distribution hidden,
  *                  small "keep tracking" nudge underneath
  *   count 6+     → All three sections visible
  *
+ * Insights (Faz 8b) mount at the top independent of the gates —
+ * a silence-check rule can fire on 5+ historic cravings even when
+ * the current-period slice reads sparse.
+ *
  * Free-tier layer: when the user isn't premium, the whole content
  * region is wrapped in `<FreeTierGate>` — content still renders
  * underneath but is blurred + veiled, with an Upgrade CTA.
- *
- * Sections 2 (Heatmap), 3 (Peak Hours), 4 (Distribution) mount
- * as placeholders here; each is filled in by M5–M6.
  */
 
 type Props = {
   addiction: Addiction;
+  /** Faz 8b — invoked by the InsightCard "open_toolkit" action. */
+  onNavigateSubTab?: (tab: 'toolkit') => void;
 };
 
-export function TriggersPane({ addiction }: Props) {
+export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
   const [period, setPeriod] = useState<PeriodKey>(DEFAULT_PERIOD);
   const isPremium = useIsPremium();
   const query = useTriggerMap(addiction.id, period);
@@ -59,8 +63,23 @@ export function TriggersPane({ addiction }: Props) {
   // on the initial mount for a given (addiction, period) pair.
   const showSpinner = query.isLoading && !query.data;
 
+  const insights = query.data?.insights ?? [];
+
   const content = (
     <View>
+      {!showSpinner && !query.isError && (
+        <InsightSection
+          insights={insights}
+          addictionId={addiction.id}
+          accentColor={addiction.color}
+          onAction={(actionKey) => {
+            if (actionKey === 'open_toolkit') {
+              onNavigateSubTab?.('toolkit');
+            }
+          }}
+        />
+      )}
+
       <PeriodFilter
         value={period}
         onChange={setPeriod}
