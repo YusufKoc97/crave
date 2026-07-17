@@ -424,6 +424,25 @@ export default function ActiveSession() {
 
   // Faz 5 entry points — invoked directly from the action buttons.
   // Both gate the actual resolve behind a modal so we can capture
+  // Safe "back to home" for every exit path. Two independent
+  // problems the earlier `router.back()` had:
+  //   1. Nav stack empty on cold-launch restore / deep links /
+  //      direct URL open → back() is a no-op. Fall back to
+  //      replacing into the tabs root so the button always does
+  //      something.
+  //   2. Local `active_craving_*` snapshot survives the exit,
+  //      so ActiveSessionRestorer immediately fires the user
+  //      back into /active-session on the next mount / focus.
+  //      Clearing it here treats the manual back tap as
+  //      "leave this session" intent (server row stays 'active'
+  //      until the user resumes another one or the 2h stale
+  //      window kicks in server-side).
+  const goHome = () => {
+    clearActiveSessionId();
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
+
   // the intensity rating (on resist) or confirm/edit triggers (on
   // failure) before hitting the Edge Function.
   const onResistPress = () => {
@@ -573,12 +592,12 @@ export default function ActiveSession() {
       setShareBanner({ points: estimatedPoints });
       return;
     }
-    router.back();
+    goHome();
   };
 
   const dismissAfterShareDecision = () => {
     setShareBanner(null);
-    router.back();
+    goHome();
   };
 
   return (
@@ -615,7 +634,7 @@ export default function ActiveSession() {
 
       <View style={styles.topBar}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={goHome}
           style={styles.backBtn}
           hitSlop={8}
           accessibilityRole="button"
