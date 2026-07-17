@@ -96,6 +96,17 @@
     "points_earned": "points earned",
     "finish": "Finish"
   },
+  "trigger_capture": {
+    "resist_title": "Nice work — one more thing",
+    "resist_body": "What triggered this craving? A quick tag helps you see the patterns later.",
+    "fail_title": "It happens — one quick note",
+    "fail_body": "What was going on? This helps us both understand your patterns.",
+    "common_section": "Common",
+    "specific_section": "{{name}} specific",
+    "save": "Save",
+    "cancel": "Cancel",
+    "min_one_trigger": "Pick at least one trigger to save."
+  },
   "craving_flow": {
     "start_title": "Craving now",
     "select_addiction_label": "ADDICTION",

@@ -182,13 +182,12 @@ export default function HomeScreen() {
   }, [orbScale, orbTextOpacity, ringsOpacity, innerGlowOpacity, progress]);
 
   const goToCravingStart = useCallback((a: Addiction) => {
-    // Faz 5: interstitial trigger-selection screen sits between
-    // the orb and the timer. It re-hydrates the addiction from
-    // the same params shape, adds a `triggers` field, and
-    // router.replace's into /active-session so the back button
-    // from the timer doesn't bounce through this modal.
+    // Faz 5 reversal: trigger capture moved to POST-resolve. The
+    // orb now jumps straight into the timer with only the addiction
+    // params — trigger picker fires from active-session after the
+    // user taps I Resisted / I Failed.
     router.push({
-      pathname: '/craving-start',
+      pathname: '/active-session',
       params: {
         id: a.id,
         name: a.name,

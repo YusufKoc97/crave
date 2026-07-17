@@ -21,12 +21,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { v4 as uuidv4 } from 'uuid';
 import { colors } from '@/constants/theme';
 import { calculateResistPoints, useSessions } from '@/context/SessionsContext';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import {
-  saveActiveSessionId,
   clearActiveSessionId,
   saveActiveSnapshot,
   savePendingFinish,
@@ -37,13 +37,8 @@ import { t } from '@/lib/i18n';
 import type { Outcome } from '@/shared/scoring';
 import { RankUnlockModal } from '@/components/RankUnlockModal';
 import { useAddictionScores } from '@/context/AddictionScoresContext';
-import {
-  fetchSessionTriggers,
-  insertSessionTriggers,
-  replaceSessionTriggers,
-} from '@/lib/triggerSessions';
 import { IntensityModal } from '@/components/IntensityModal';
-import { FailureConfirmModal } from '@/components/FailureConfirmModal';
+import { TriggerCaptureModal } from '@/components/TriggerCaptureModal';
 import { ToolkitPickerModal } from '@/components/ToolkitPickerModal';
 import { TechniqueRunnerModal } from '@/components/TechniqueRunnerModal';
 import { PresenceIndicator } from '@/components/PresenceIndicator';
@@ -130,12 +125,12 @@ export default function ActiveSession() {
     color?: string;
     maxMinutes?: string;
     sensitivity?: string;
-    /** When set, this screen resumes an existing DB row instead of creating one. */
-    resumeId?: string;
+    /** Client-generated session UUID — passed when resuming from
+     *  AsyncStorage snapshot so the resolve payload uses the SAME
+     *  id the interrupted attempt would have used. */
+    resumeSessionId?: string;
     /** ISO timestamp the original craving started — anchors the wall-clock timer. */
     resumeStartedAt?: string;
-    /** Faz 5: comma-separated trigger ids from /craving-start. */
-    triggers?: string;
   }>();
 
   const accentColor = params.color ?? colors.blue;
@@ -146,21 +141,14 @@ export default function ActiveSession() {
   );
   const cycleSeconds = Math.max(60, maxMinutes * 60);
 
-  // Faz 5: trigger ids arrive from /craving-start as a comma-joined
-  // string. Empty string / missing → []. Held in a ref rather than
-  // state because the value is fixed after mount and doesn't need
-  // to re-render anything.
-  const initialTriggerIds = useRef<string[]>(
-    (params.triggers ?? '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
-  );
-
   const { recordSession } = useSessions();
   const { user } = useAuth();
-  // DB row id of the in-flight craving — set after the INSERT resolves.
-  const sessionId = useRef<string | null>(null);
+  // Client-generated session UUID. Persistent for the life of this
+  // craving — used as craving_sessions.id (PK) when resolve-craving
+  // does the atomic INSERT. Resumed sessions carry the previous
+  // UUID in params so a mid-flight kill + relaunch resolves against
+  // the same row (server dedup via PK).
+  const sessionId = useRef<string>(params.resumeSessionId ?? uuidv4());
 
   const [elapsed, setElapsed] = useState(0);
   const [completedCycles, setCompletedCycles] = useState(0);
@@ -180,14 +168,15 @@ export default function ActiveSession() {
   const [unlockQueue, setUnlockQueue] = useState<string[]>([]);
   const { refresh: refreshScores } = useAddictionScores();
 
-  // Faz 5 modal gates. On "I Resisted" we open intensityOpen; on
-  // "I Failed" we open failureOpen. Neither hits resolve-craving
-  // until the user commits (or, for failure, cancels via ×).
+  // Faz 5 REVERSAL modal gates.
+  //   Resist flow: I Resisted → IntensityModal → TriggerCaptureModal → resolve
+  //   Fail flow:   I Failed → TriggerCaptureModal → resolve
+  // pendingOutcome holds which flow is in-flight so the trigger
+  // modal knows what outcome to send when the user commits.
   const [intensityOpen, setIntensityOpen] = useState(false);
-  const [failureOpen, setFailureOpen] = useState(false);
-  const [failureInitialTriggers, setFailureInitialTriggers] = useState<
-    string[]
-  >([]);
+  const [triggerModalOpen, setTriggerModalOpen] = useState(false);
+  const pendingOutcome = useRef<Outcome | null>(null);
+  const pendingIntensity = useRef<number | null>(null);
   // Faz 6: toolkit picker + runner state. Picker is the bottom
   // sheet; runner is the full-screen guided flow. Both are RN
   // Modals so they overlay the running timer without unmounting
@@ -204,71 +193,19 @@ export default function ActiveSession() {
     params.resumeStartedAt ? Date.parse(params.resumeStartedAt) : Date.now()
   );
 
-  // Persist a local snapshot the moment we have an addiction id, regardless
-  // of auth — that way the app can resume even in DEV_MODE without Supabase.
-  // For authenticated users we ALSO open an "active" row on the server.
+  // Faz 5 REVERSAL — no DB INSERT on mount. Just snapshot the
+  // client-only state so a hard kill mid-timer is recoverable via
+  // ActiveSessionRestorer. The row is INSERTed atomically by
+  // resolve-craving when the user commits their outcome + triggers.
   useEffect(() => {
     if (!params.id) return;
-
-    if (params.resumeId) {
-      // Already resuming a known row — keep id + snapshot in sync.
-      sessionId.current = params.resumeId;
-      saveActiveSessionId(params.resumeId);
-      saveActiveSnapshot({
-        addictionId: params.id,
-        startedAt: startedAt.current,
-        sessionId: params.resumeId,
-      });
-      return;
-    }
-
-    // Brand-new session: save the snapshot immediately so a hard kill in the
-    // next millisecond is still recoverable.
     saveActiveSnapshot({
       addictionId: params.id,
       startedAt: startedAt.current,
+      sessionId: sessionId.current,
+      sensitivity,
     });
-
-    if (!user) return;
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from('craving_sessions')
-        .insert({
-          user_id: user.id,
-          addiction_id: params.id!,
-          status: 'active',
-          started_at: new Date(startedAt.current).toISOString(),
-          sensitivity,
-        })
-        .select('id')
-        .single();
-      if (!cancelled && !error && data) {
-        sessionId.current = data.id;
-        saveActiveSessionId(data.id);
-        // Upgrade the snapshot with the DB row id.
-        saveActiveSnapshot({
-          addictionId: params.id!,
-          startedAt: startedAt.current,
-          sessionId: data.id,
-        });
-        // Faz 5 — best-effort trigger INSERT. Non-blocking: the
-        // craving session is already alive and scoring; if this
-        // fails Modül 3 loses the trigger metadata for THIS session
-        // but nothing else breaks.
-        if (initialTriggerIds.current.length > 0) {
-          insertSessionTriggers(data.id, initialTriggerIds.current).catch(
-            (err) => {
-              console.warn('[active-session] trigger insert failed', err);
-            }
-          );
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [params.id, params.resumeId, user, sensitivity]);
+  }, [params.id, sensitivity]);
 
   const quoteOpacity = useSharedValue(1);
   const arcOffset = useSharedValue(CIRCUMFERENCE);
@@ -443,66 +380,60 @@ export default function ActiveSession() {
     else router.replace('/');
   };
 
-  // the intensity rating (on resist) or confirm/edit triggers (on
-  // failure) before hitting the Edge Function.
+  // Faz 5 REVERSAL — the button taps only stage state. The Edge
+  // Function isn't invoked until the trigger modal commits, at
+  // which point the atomic INSERT happens in one shot.
   const onResistPress = () => {
-    // Light commit haptic to acknowledge the tap; the celebration
-    // haptic fires later when the banner shows.
     hapticCommit();
+    pendingOutcome.current = 'resisted';
+    pendingIntensity.current = null;
     setIntensityOpen(true);
   };
 
-  const onFailPress = async () => {
+  const onFailPress = () => {
     hapticCommit();
-    // Pre-populate the confirmation with whatever the user picked
-    // at the craving-start screen. Fall back to a fresh DB fetch
-    // if the client didn't carry them across (e.g. this is a
-    // resumed session — params.triggers is empty).
-    let initial = initialTriggerIds.current;
-    if (initial.length === 0 && sessionId.current) {
-      initial = await fetchSessionTriggers(sessionId.current);
-    }
-    setFailureInitialTriggers(initial);
-    setFailureOpen(true);
+    pendingOutcome.current = 'failed';
+    pendingIntensity.current = null;
+    setTriggerModalOpen(true);
   };
 
   const onIntensityPick = (intensity: number | null) => {
     setIntensityOpen(false);
-    resolveAndFinish('resisted', { intensity });
+    pendingIntensity.current = intensity;
+    // Resist path chains straight into the trigger picker.
+    setTriggerModalOpen(true);
   };
 
-  const onFailureConfirm = async (finalTriggers: string[], edited: boolean) => {
-    setFailureOpen(false);
-    if (edited && sessionId.current) {
-      // Persist the revised trigger set client-side BEFORE the
-      // Edge Function call so a network drop still leaves the DB
-      // consistent. Non-blocking — resolve doesn't wait for it.
-      replaceSessionTriggers(sessionId.current, finalTriggers).catch((err) => {
-        console.warn('[active-session] trigger replace failed', err);
-      });
-    }
-    resolveAndFinish('failed', { intensity: null });
+  const onTriggerCancel = () => {
+    // Cancel keeps the timer alive — user can hit either button
+    // again. Clear the staged outcome so a stray commit doesn't
+    // fire the wrong flow.
+    setTriggerModalOpen(false);
+    pendingOutcome.current = null;
+    pendingIntensity.current = null;
   };
 
-  const onFailureCancel = () => {
-    // Cancel — session stays 'active', user can hit either button
-    // again. No side effects.
-    setFailureOpen(false);
+  const onTriggerCommit = (triggerIds: string[]) => {
+    const outcome = pendingOutcome.current;
+    if (!outcome) return;
+    const intensity = outcome === 'resisted' ? pendingIntensity.current : null;
+    setTriggerModalOpen(false);
+    pendingOutcome.current = null;
+    pendingIntensity.current = null;
+    resolveAndFinish(outcome, { intensity, triggerIds });
   };
 
   const resolveAndFinish = (
     outcome: Outcome,
-    extras: { intensity: number | null }
+    extras: { intensity: number | null; triggerIds: string[] }
   ) => {
-    const finalSeconds = Math.floor((Date.now() - startedAt.current) / 1000);
+    const endedAtMs = Date.now();
+    const finalSeconds = Math.floor((endedAtMs - startedAt.current) / 1000);
 
-    // Optimistic estimate: the exact same formula the Edge Function
-    // will run server-side (shared/scoring.ts). Renders the "+X
-    // points" banner immediately; when resolve-craving lands we
-    // quietly reconcile with the server's authoritative number. In
-    // practice they match unless the client's clock drifted.
-    // NOTE: this is a display estimate only. The DB never writes a
-    // client-authored score anymore.
+    // Optimistic estimate — same formula the Edge Function runs
+    // server-side (shared/scoring.ts). Renders the "+X points"
+    // banner immediately; the server-authoritative number
+    // reconciles when resolve-craving lands.
     const estimatedPoints = calculateResistPoints({
       outcome,
       durationSeconds: finalSeconds,
@@ -510,10 +441,9 @@ export default function ActiveSession() {
     });
 
     if (params.id) {
-      // Local cache push for instant UI (Won/Lost Today counters,
-      // weekly bar chart). The server-side `user_total_score` view is
-      // the truth for cumulative scores; this record is only used for
-      // the "today at a glance" tallies.
+      // Local cache push for the "today at a glance" counters —
+      // server-side view is the source of truth for cumulative
+      // scores.
       recordSession({
         addictionId: params.id,
         outcome,
@@ -522,63 +452,57 @@ export default function ActiveSession() {
         pointsDelta: outcome === 'resisted' ? estimatedPoints : 0,
       });
 
-      if (sessionId.current && user) {
-        // Call the resolve-craving Edge Function. Score computation +
-        // momentum + streak all happen server-side. Stash the request
-        // in pending-finish first so a mid-flight network drop can be
-        // replayed on next cold start via ActiveSessionRestorer.
+      if (user) {
+        // Atomic resolve: the Edge Function INSERTs the session
+        // row (using our client UUID as PK) + score row + trigger
+        // rows + rank unlocks in one call. Stash the full payload
+        // in the pending blob first so a mid-flight network drop
+        // is replayable on cold launch.
         const rowId = sessionId.current;
-        savePendingFinish({
-          sessionId: rowId,
-          payload: {
-            status: 'resolved',
-            outcome,
-            ended_at: new Date().toISOString(),
-            duration_seconds: finalSeconds,
-          },
-        });
+        const payload = {
+          addictionId: params.id,
+          startedAt: new Date(startedAt.current).toISOString(),
+          endedAt: new Date(endedAtMs).toISOString(),
+          sensitivity,
+          outcome,
+          intensity: extras.intensity,
+          triggerIds: extras.triggerIds,
+        };
+        savePendingFinish({ sessionId: rowId, payload });
         supabase.functions
           .invoke('resolve-craving', {
-            // Faz 5: intensity is optional (only meaningful on
-            // resisted); the Edge Function accepts null and
-            // stores it as such on craving_sessions.intensity.
             body: {
               session_id: rowId,
-              outcome,
-              intensity: extras.intensity,
+              addiction_id: payload.addictionId,
+              started_at: payload.startedAt,
+              ended_at: payload.endedAt,
+              sensitivity: payload.sensitivity,
+              outcome: payload.outcome,
+              intensity: payload.intensity,
+              trigger_ids: payload.triggerIds,
             },
           })
           .then(({ data, error }) => {
             if (error) {
-              // Leave pending blob on disk for replay. UI already
-              // committed the optimistic estimate so the user sees no
-              // interruption.
+              // Blob stays on disk for the ActiveSessionRestorer
+              // replay on next launch. UI already committed the
+              // optimistic estimate; user sees no interruption.
               return;
             }
             clearPendingFinish();
-            // Reconcile the banner with the server-authoritative
-            // delta if it differs from the estimate. Only surfaces
-            // for 'resisted' — 'failed' shows no banner.
-            const payload = data as {
+            const respPayload = data as {
               points_delta?: number;
               newly_unlocked_ranks?: string[];
             } | null;
-            const serverDelta = payload?.points_delta;
+            const serverDelta = respPayload?.points_delta;
             if (typeof serverDelta === 'number' && outcome === 'resisted') {
               setShareBanner({ points: Math.max(0, serverDelta) });
             }
-            // Rank unlocks fire the celebration modal, which then
-            // cycles through the queue. Also refresh the Info tab's
-            // per-addiction scores so the ladder shows the new
-            // unlock next time the user opens it.
-            const unlocks = payload?.newly_unlocked_ranks ?? [];
-            if (unlocks.length > 0) {
-              setUnlockQueue(unlocks);
-            }
+            const unlocks = respPayload?.newly_unlocked_ranks ?? [];
+            if (unlocks.length > 0) setUnlockQueue(unlocks);
             refreshScores();
-            // Faz 8a — a fresh resolve invalidates every cached
-            // trigger-map query so the Info tab reflects the new
-            // session next time the user visits.
+            // Faz 8a — refresh trigger-map cache so the Info tab
+            // reflects the newly-captured triggers on next visit.
             invalidateTriggerMaps();
           });
       }
@@ -824,27 +748,29 @@ export default function ActiveSession() {
         onDone={() => setUnlockQueue([])}
       />
 
-      {/* Faz 5 — post-resist intensity rating. Opens on I Resisted;
-          closes on any selection (including Skip = null). Resolve
-          fires from onIntensityPick handler above. */}
+      {/* Faz 5 REVERSAL — resist flow: intensity rating first,
+          then chains into the trigger modal from onIntensityPick.
+          "Skip" on intensity still opens the trigger modal (with
+          intensity=null); intensity is optional, triggers are not. */}
       <IntensityModal
         visible={intensityOpen}
         accentColor={accentColor}
         onSelect={onIntensityPick}
       />
 
-      {/* Faz 5 — post-fail trigger confirmation. Opens on I Failed
-          with the initial trigger set pre-selected; user either
-          confirms as-is, edits & saves, or × cancels (session
-          stays active). */}
-      <FailureConfirmModal
-        visible={failureOpen}
+      {/* Faz 5 REVERSAL — post-outcome trigger capture. Fires from
+          both flows (resist → after intensity; fail → immediately
+          after tap). Mandatory min-1, no pre-selection. Cancel
+          keeps the timer alive without side effects. Commit is
+          what actually invokes resolve-craving. */}
+      <TriggerCaptureModal
+        visible={triggerModalOpen}
         accentColor={accentColor}
         addictionId={params.id ?? ''}
         addictionName={params.name ?? ''}
-        initialTriggerIds={failureInitialTriggers}
-        onConfirm={onFailureConfirm}
-        onCancel={onFailureCancel}
+        outcome={pendingOutcome.current}
+        onCommit={onTriggerCommit}
+        onCancel={onTriggerCancel}
       />
 
       {/* Faz 6 — toolkit picker bottom sheet. Timer keeps ticking

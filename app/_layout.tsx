@@ -13,7 +13,6 @@ import { queryClient } from '@/lib/queryClient';
 import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import {
-  getActiveSessionId,
   getActiveSnapshot,
   clearActiveSessionId,
   getPendingFinish,
@@ -22,10 +21,17 @@ import {
 import { maxMinutesFor } from '@/constants/addictions';
 
 /**
- * On startup, look for a persisted active-craving id. If we find one, fetch
- * the row from Supabase and bounce the user straight to the active-session
- * screen with the original started_at so the wall-clock timer resumes from
- * the correct elapsed value (including time the app was closed).
+ * On startup, look for local pending state and bounce the user
+ * straight to the active-session screen with the original startedAt
+ * so the wall-clock timer resumes from the correct elapsed value
+ * (including time the app was closed).
+ *
+ * Faz 5 REVERSAL: there is no `active` DB row to check anymore —
+ * the AsyncStorage snapshot is the sole source of truth for
+ * "you have an in-flight craving". A pending-finish blob (an
+ * outcome that was staged for resolve but didn't complete) gets
+ * replayed BEFORE the snapshot check so a stuck resolve doesn't
+ * loop the user back into the timer forever.
  */
 function ActiveSessionRestorer() {
   const { user, loading } = useAuth();
@@ -36,66 +42,35 @@ function ActiveSessionRestorer() {
     if (loading || ranOnce.current) return;
     ranOnce.current = true;
     (async () => {
-      // Authenticated path: server is the source of truth.
+      // Replay pending finish first — the Edge Function keys idempotency
+      // off the client-generated session_id (PK conflict returns the
+      // previously-computed response), so a double-invoke is safe.
       if (user) {
-        // Faz 3: replay any resolve-craving invoke that didn't reach
-        // the server (network drop between "I Resisted" tap and the
-        // Edge Function). We do this BEFORE checking the
-        // active-session id so a stuck 'active' row gets resolved
-        // instead of resuming forever. The Edge Function is
-        // idempotent on session_id, so a double-replay is safe.
         const pending = await getPendingFinish();
         if (pending) {
           const { error } = await supabase.functions.invoke('resolve-craving', {
             body: {
               session_id: pending.sessionId,
+              addiction_id: pending.payload.addictionId,
+              started_at: pending.payload.startedAt,
+              ended_at: pending.payload.endedAt,
+              sensitivity: pending.payload.sensitivity,
               outcome: pending.payload.outcome,
+              intensity: pending.payload.intensity,
+              trigger_ids: pending.payload.triggerIds,
             },
           });
           if (!error) {
             await clearPendingFinish();
             await clearActiveSessionId();
           }
-          // If still failing (offline), leave the blob and try next launch.
+          // Still failing (offline) — leave both blobs on disk for
+          // the next launch. Don't try to also restore the timer
+          // for the same session; the resolve is what the user
+          // intended.
         }
-        const id = await getActiveSessionId();
-        if (!id) return;
-        const { data, error } = await supabase
-          .from('craving_sessions')
-          .select('id, addiction_id, status, started_at, sensitivity')
-          .eq('id', id)
-          .single();
-        if (error || !data || data.status !== 'active') {
-          await clearActiveSessionId();
-          return;
-        }
-        const a = addictions.find((x) => x.id === data.addiction_id);
-        if (!a) {
-          // Addiction was deleted while we were away — abandon the session.
-          await supabase
-            .from('craving_sessions')
-            .update({ status: 'abandoned', ended_at: new Date().toISOString() })
-            .eq('id', id);
-          await clearActiveSessionId();
-          return;
-        }
-        router.replace({
-          pathname: '/active-session',
-          params: {
-            id: a.id,
-            name: a.name,
-            emoji: a.emoji,
-            color: a.color,
-            maxMinutes: String(maxMinutesFor(a.sensitivity)),
-            sensitivity: String(a.sensitivity),
-            resumeId: data.id,
-            resumeStartedAt: data.started_at,
-          },
-        });
-        return;
       }
 
-      // No auth (DEV_MODE): fall back to the local snapshot.
       const snap = await getActiveSnapshot();
       if (!snap) return;
       const a = addictions.find((x) => x.id === snap.addictionId);
@@ -110,9 +85,9 @@ function ActiveSessionRestorer() {
           name: a.name,
           emoji: a.emoji,
           color: a.color,
-          maxMinutes: String(maxMinutesFor(a.sensitivity)),
-          sensitivity: String(a.sensitivity),
-          ...(snap.sessionId ? { resumeId: snap.sessionId } : {}),
+          maxMinutes: String(maxMinutesFor(snap.sensitivity)),
+          sensitivity: String(snap.sensitivity),
+          resumeSessionId: snap.sessionId,
           resumeStartedAt: new Date(snap.startedAt).toISOString(),
         },
       });
@@ -157,13 +132,6 @@ function RootStack() {
         />
         <Stack.Screen
           name="add-addiction"
-          options={{
-            presentation: 'modal',
-            animation: 'slide_from_bottom',
-          }}
-        />
-        <Stack.Screen
-          name="craving-start"
           options={{
             presentation: 'modal',
             animation: 'slide_from_bottom',

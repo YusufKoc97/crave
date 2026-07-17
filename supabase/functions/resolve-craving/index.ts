@@ -1,19 +1,37 @@
 /**
  * resolve-craving — server-authoritative session resolver.
  *
- * The client calls this instead of writing to craving_sessions
- * directly. Score, momentum, streak, and rank progression are all
- * computed here so a jailbroken client can't inflate its numbers.
+ * Faz 5 REVERSAL — post-resolve trigger capture.
  *
- * Request  (POST, JWT-auth):
- *   { session_id: uuid, outcome: 'resisted' | 'failed', intensity?: 1..5 }
+ * The client no longer INSERTs a craving_sessions row on timer
+ * mount. This endpoint now does the ENTIRE lifecycle atomically:
+ *   1. INSERT craving_sessions (client-provided UUID as PK, or
+ *      PK conflict returns previously-computed response for idempotency)
+ *   2. INSERT craving_session_triggers (best-effort)
+ *   3. UPSERT user_addiction_scores
+ *   4. INSERT user_unlocked_ranks (for newly-crossed thresholds)
+ *   5. UPDATE profiles.momentum + streak
+ *
+ * Score/momentum/streak/rank progression are all still computed
+ * here — a jailbroken client can't inflate its numbers.
+ *
+ * Request (POST, JWT-auth):
+ *   {
+ *     session_id: uuid,     // client-generated PK
+ *     addiction_id: string, // from the 10-item catalog
+ *     started_at: iso,      // client wall-clock
+ *     ended_at: iso,        // client wall-clock
+ *     sensitivity: 1..10,
+ *     outcome: 'resisted' | 'failed',
+ *     intensity?: 1..5,     // only meaningful on resisted
+ *     trigger_ids: string[] // ≥1 required (client enforces min-1)
+ *   }
  *
  * Response:
- *   200 { new_score, points_delta, duration_minutes, total_score, momentum, streak }
+ *   200 { new_score, points_delta, duration_minutes, total_score,
+ *         momentum, streak, newly_unlocked_ranks[] }
  *   400 for bad input / duration > 24h
  *   403 for cross-user session ids
- *   409 for a session already in a terminal status (returns the previous
- *       resolution — the endpoint is idempotent on session_id)
  *
  * Deploy: `supabase functions deploy resolve-craving`
  */
@@ -32,18 +50,14 @@ import {
 import { isKnownAddiction } from '../../../shared/catalog.ts';
 import { newlyUnlockedRanks } from '../../../shared/ranks.ts';
 
-// Deno globals — declared for TS. When Deno runs this file these
-// are resolved from the runtime's own type-check pass.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const Deno: any;
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const jsonHeaders: Record<string, string> = {
   'content-type': 'application/json',
-  // CORS — this is a public POST endpoint invoked from the RN app.
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, content-type',
   'access-control-allow-methods': 'POST, OPTIONS',
@@ -54,8 +68,6 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function utcHourBucket(now: Date): string {
-  // YYYY-MM-DDTHH (UTC). Cheaper than storing timestamptz + doing a
-  // range scan.
   const y = now.getUTCFullYear();
   const m = String(now.getUTCMonth() + 1).padStart(2, '0');
   const d = String(now.getUTCDate()).padStart(2, '0');
@@ -72,16 +84,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return jsonResponse({ error: 'method_not_allowed' }, 405);
   }
 
-  // Authentication — the JWT is forwarded by supabase.functions.invoke.
   const authHeader = req.headers.get('authorization');
   if (!authHeader?.startsWith('Bearer ')) {
     return jsonResponse({ error: 'unauthorized' }, 401);
   }
   const jwt = authHeader.slice('Bearer '.length);
 
-  // Two clients: one for whoami() using the caller's JWT, one for
-  // writes using the service role (bypasses the SELECT-only RLS on
-  // user_addiction_scores).
   const anonClient = createClient(
     SUPABASE_URL,
     Deno.env.get('SUPABASE_ANON_KEY')!,
@@ -96,20 +104,66 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const userId = userData.user.id;
 
   // Parse body.
-  let body: { session_id?: unknown; outcome?: unknown; intensity?: unknown };
+  let body: {
+    session_id?: unknown;
+    addiction_id?: unknown;
+    started_at?: unknown;
+    ended_at?: unknown;
+    sensitivity?: unknown;
+    outcome?: unknown;
+    intensity?: unknown;
+    trigger_ids?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
     return jsonResponse({ error: 'invalid_json' }, 400);
   }
 
+  // ─── Validate ───
   if (typeof body.session_id !== 'string') {
     return jsonResponse({ error: 'session_id_required' }, 400);
   }
+  const sessionId = body.session_id;
+
+  if (
+    typeof body.addiction_id !== 'string' ||
+    !isKnownAddiction(body.addiction_id)
+  ) {
+    return jsonResponse({ error: 'invalid_addiction' }, 400);
+  }
+  const addictionId = body.addiction_id;
+
+  if (typeof body.started_at !== 'string') {
+    return jsonResponse({ error: 'started_at_required' }, 400);
+  }
+  const startedAtMs = Date.parse(body.started_at);
+  if (Number.isNaN(startedAtMs)) {
+    return jsonResponse({ error: 'invalid_started_at' }, 400);
+  }
+
+  if (typeof body.ended_at !== 'string') {
+    return jsonResponse({ error: 'ended_at_required' }, 400);
+  }
+  const endedAtMs = Date.parse(body.ended_at);
+  if (Number.isNaN(endedAtMs)) {
+    return jsonResponse({ error: 'invalid_ended_at' }, 400);
+  }
+
+  if (
+    typeof body.sensitivity !== 'number' ||
+    body.sensitivity < 1 ||
+    body.sensitivity > 10
+  ) {
+    return jsonResponse({ error: 'invalid_sensitivity' }, 400);
+  }
+  const sensitivity = Math.round(body.sensitivity);
+
   if (body.outcome !== 'resisted' && body.outcome !== 'failed') {
     return jsonResponse({ error: 'invalid_outcome' }, 400);
   }
   const outcome = body.outcome as Outcome;
+
   const intensity =
     typeof body.intensity === 'number' &&
     body.intensity >= 1 &&
@@ -117,8 +171,69 @@ Deno.serve(async (req: Request): Promise<Response> => {
       ? body.intensity
       : null;
 
-  // Log-only rate limit — bump counter, warn if over cap, do not
-  // block. Enforcement flag flips on later.
+  if (!Array.isArray(body.trigger_ids) || body.trigger_ids.length === 0) {
+    return jsonResponse({ error: 'trigger_required' }, 400);
+  }
+  const triggerIds = (body.trigger_ids as unknown[]).filter(
+    (id): id is string => typeof id === 'string' && id.length > 0
+  );
+  if (triggerIds.length === 0) {
+    return jsonResponse({ error: 'trigger_required' }, 400);
+  }
+
+  const durationMs = endedAtMs - startedAtMs;
+  const durationMinutes = durationMs / 60_000;
+  if (durationMinutes < 0) {
+    return jsonResponse({ error: 'negative_duration' }, 400);
+  }
+  if (durationMinutes > MAX_SESSION_MINUTES) {
+    return jsonResponse({ error: 'duration_exceeds_max' }, 400);
+  }
+  const durationSeconds = Math.floor(durationMs / 1000);
+
+  // ─── Idempotency: session_id already resolved? ───
+  const { data: existing } = await svc
+    .from('craving_sessions')
+    .select('id, user_id, addiction_id, status, points_delta, duration_seconds')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  if (existing) {
+    if (existing.user_id !== userId) {
+      return jsonResponse({ error: 'forbidden' }, 403);
+    }
+    // Replay path — the earlier attempt got as far as INSERTing the
+    // row. Return the previously-computed payload without side effects.
+    // Empty newly_unlocked_ranks so the celebration doesn't re-fire.
+    const { data: scoreRow } = await svc
+      .from('user_addiction_scores')
+      .select('score')
+      .eq('user_id', userId)
+      .eq('addiction_id', existing.addiction_id)
+      .maybeSingle();
+    const { data: totalRow } = await svc
+      .from('user_total_score')
+      .select('total_score')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const { data: profileRow } = await svc
+      .from('profiles')
+      .select('momentum, streak')
+      .eq('id', userId)
+      .single();
+    return jsonResponse({
+      new_score: scoreRow?.score ?? 0,
+      points_delta: existing.points_delta ?? 0,
+      duration_minutes: (existing.duration_seconds ?? 0) / 60,
+      total_score: totalRow?.total_score ?? scoreRow?.score ?? 0,
+      momentum: profileRow?.momentum ?? 50,
+      streak: profileRow?.streak ?? 0,
+      newly_unlocked_ranks: [],
+      idempotent_replay: true,
+    });
+  }
+
+  // ─── Log-only rate limit ───
   const bucket = utcHourBucket(new Date());
   const { data: rlRow } = await svc
     .from('rate_limits')
@@ -143,77 +258,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     );
   }
 
-  // Fetch the session.
-  const { data: session, error: sessionErr } = await svc
-    .from('craving_sessions')
-    .select(
-      'id, user_id, addiction_id, status, outcome, started_at, ended_at, duration_seconds, sensitivity, points_delta'
-    )
-    .eq('id', body.session_id)
-    .maybeSingle();
-
-  if (sessionErr || !session) {
-    return jsonResponse({ error: 'session_not_found' }, 404);
-  }
-  if (session.user_id !== userId) {
-    return jsonResponse({ error: 'forbidden' }, 403);
-  }
-  if (!isKnownAddiction(session.addiction_id)) {
-    // Legacy row from before the Faz 2 catalog — reject rather than
-    // guess a sensitivity.
-    return jsonResponse({ error: 'unknown_addiction' }, 400);
-  }
-
-  // Idempotency — a session already resolved returns its previous
-  // outcome. Retry-safe from the client's perspective (network flake
-  // resends don't double-count).
-  if (session.status === 'resolved') {
-    const { data: scoreRow } = await svc
-      .from('user_addiction_scores')
-      .select('score')
-      .eq('user_id', userId)
-      .eq('addiction_id', session.addiction_id)
-      .maybeSingle();
-    const durationMinutes = (session.duration_seconds ?? 0) / 60;
-    return jsonResponse({
-      new_score: scoreRow?.score ?? 0,
-      points_delta: session.points_delta ?? 0,
-      duration_minutes: durationMinutes,
-      idempotent_replay: true,
-      // Replay of a previously-resolved session never fires a new
-      // celebration — any unlocks it produced already reached the
-      // client on the original response. Empty list keeps the
-      // celebration-queue wiring simple client-side.
-      newly_unlocked_ranks: [],
-    });
-  }
-  if (session.status === 'abandoned') {
-    return jsonResponse({ error: 'session_abandoned' }, 409);
-  }
-
-  // Compute duration from the DB timestamp — client-reported values
-  // are ignored so a rooted device can't forge a long duration.
-  const startedAtMs = Date.parse(session.started_at);
-  const nowMs = Date.now();
-  const durationMs = nowMs - startedAtMs;
-  const durationMinutes = durationMs / 60_000;
-
-  if (durationMinutes < 0) {
-    return jsonResponse({ error: 'negative_duration' }, 400);
-  }
-  if (durationMinutes > MAX_SESSION_MINUTES) {
-    return jsonResponse({ error: 'duration_exceeds_max' }, 400);
-  }
-
-  const durationSeconds = Math.floor(durationMs / 1000);
-  const sensitivity = session.sensitivity;
-
-  // Read current per-addiction score.
+  // ─── Score computation ───
   const { data: existingScoreRow } = await svc
     .from('user_addiction_scores')
     .select('score')
     .eq('user_id', userId)
-    .eq('addiction_id', session.addiction_id)
+    .eq('addiction_id', addictionId)
     .maybeSingle();
   const currentScore = existingScoreRow?.score ?? 0;
 
@@ -224,11 +274,71 @@ Deno.serve(async (req: Request): Promise<Response> => {
     sensitivity,
   });
 
-  // UPSERT the score.
+  const persistIntensity = outcome === 'resisted' ? intensity : null;
+
+  // ─── Atomic INSERT of the session row ───
+  const { error: sessionInsertErr } = await svc
+    .from('craving_sessions')
+    .insert({
+      id: sessionId,
+      user_id: userId,
+      addiction_id: addictionId,
+      status: 'resolved',
+      outcome,
+      started_at: new Date(startedAtMs).toISOString(),
+      ended_at: new Date(endedAtMs).toISOString(),
+      duration_seconds: durationSeconds,
+      sensitivity,
+      points_delta: delta,
+      intensity: persistIntensity,
+    });
+  if (sessionInsertErr) {
+    // Racing replay (client sent two invokes on flaky net) can land
+    // here after the earlier idempotency check — the second attempt
+    // hits the PK. Return the same replay payload.
+    const isConflict =
+      typeof (sessionInsertErr as { code?: unknown }).code === 'string' &&
+      (sessionInsertErr as { code: string }).code === '23505';
+    if (isConflict) {
+      const { data: scoreRow } = await svc
+        .from('user_addiction_scores')
+        .select('score')
+        .eq('user_id', userId)
+        .eq('addiction_id', addictionId)
+        .maybeSingle();
+      return jsonResponse({
+        new_score: scoreRow?.score ?? 0,
+        points_delta: delta,
+        duration_minutes: durationMinutes,
+        total_score: scoreRow?.score ?? 0,
+        momentum: 50,
+        streak: 0,
+        newly_unlocked_ranks: [],
+        idempotent_replay: true,
+      });
+    }
+    console.error('[resolve-craving] session insert failed', sessionInsertErr);
+    return jsonResponse({ error: 'session_insert_failed' }, 500);
+  }
+
+  // ─── Trigger rows (best-effort — session already alive) ───
+  const triggerRows = triggerIds.map((tid) => ({
+    session_id: sessionId,
+    trigger_id: tid,
+  }));
+  const { error: triggerErr } = await svc
+    .from('craving_session_triggers')
+    .insert(triggerRows);
+  if (triggerErr) {
+    console.warn('[resolve-craving] trigger insert failed', triggerErr);
+    // Non-fatal — Modül 3 loses this session's tags but scoring works.
+  }
+
+  // ─── Score UPSERT ───
   const { error: scoreErr } = await svc.from('user_addiction_scores').upsert(
     {
       user_id: userId,
-      addiction_id: session.addiction_id,
+      addiction_id: addictionId,
       score: newScore,
     },
     { onConflict: 'user_id,addiction_id' }
@@ -238,21 +348,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return jsonResponse({ error: 'score_write_failed' }, 500);
   }
 
-  // Rank unlock detection. Only positive score jumps ('resisted')
-  // can cross a threshold; the shared helper returns [] for failures
-  // so we don't even need a branch here. INSERTs use ON CONFLICT DO
-  // NOTHING semantics (PK is user_id + addiction_id + rank_id) so an
-  // idempotent replay is a silent no-op.
-  //
-  // We fetch the caller's already-unlocked ranks for THIS addiction
-  // first and pass them to the diff so a user who resolved through
-  // several thresholds before the client last synced still only
-  // gets INSERT rows for genuinely-new unlocks.
+  // ─── Rank unlock detection ───
   const { data: existingUnlocksRows } = await svc
     .from('user_unlocked_ranks')
     .select('rank_id')
     .eq('user_id', userId)
-    .eq('addiction_id', session.addiction_id);
+    .eq('addiction_id', addictionId);
   const alreadyUnlocked = new Set(
     (existingUnlocksRows ?? []).map((r: { rank_id: string }) => r.rank_id)
   );
@@ -262,27 +363,23 @@ Deno.serve(async (req: Request): Promise<Response> => {
     alreadyUnlocked,
   });
   if (newlyUnlocked.length > 0) {
-    const rows = newlyUnlocked.map((rankId) => ({
+    const rankRows = newlyUnlocked.map((rankId) => ({
       user_id: userId,
-      addiction_id: session.addiction_id,
+      addiction_id: addictionId,
       rank_id: rankId,
     }));
     const { error: rankErr } = await svc
       .from('user_unlocked_ranks')
-      // upsert with the PK on-conflict is our idempotent INSERT.
-      .upsert(rows, {
+      .upsert(rankRows, {
         onConflict: 'user_id,addiction_id,rank_id',
         ignoreDuplicates: true,
       });
     if (rankErr) {
-      // Non-fatal — score already landed. Log and keep going so the
-      // user still gets their delta banner. The next resolve will
-      // pick these up on the retry diff.
       console.error('[resolve-craving] rank unlock write failed', rankErr);
     }
   }
 
-  // Momentum + streak — only bump on a successful resist.
+  // ─── Momentum + streak ───
   const { data: profile } = await svc
     .from('profiles')
     .select('momentum, streak')
@@ -301,15 +398,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
       sensitivity,
     });
 
-    // Look up the previous resist day for this user across ALL
-    // addictions — streak is a per-user calendar concept, not
-    // per-addiction.
     const { data: lastResist } = await svc
       .from('craving_sessions')
       .select('created_at')
       .eq('user_id', userId)
       .eq('outcome', 'resisted')
       .eq('status', 'resolved')
+      .neq('id', sessionId) // exclude the row we just wrote
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -318,7 +413,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       : null;
     updatedStreak = nextStreak({
       lastResistDay,
-      today: localDayKey(nowMs),
+      today: localDayKey(endedAtMs),
       currentStreak,
     });
 
@@ -328,26 +423,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .eq('id', userId);
   }
 
-  // Finalise the session row.
-  // Faz 5: `intensity` is captured only on 'resisted' via the
-  // post-resist rating modal. On 'failed' we always pass null so
-  // an old cached value can't linger — though the client already
-  // sends null in that case, defence in depth here.
-  const persistIntensity = outcome === 'resisted' ? intensity : null;
-  await svc
-    .from('craving_sessions')
-    .update({
-      status: 'resolved',
-      outcome,
-      ended_at: new Date(nowMs).toISOString(),
-      duration_seconds: durationSeconds,
-      points_delta: delta,
-      intensity: persistIntensity,
-    })
-    .eq('id', session.id);
-
-  // Total score across all addictions — from the view for
-  // consistency with what the profile screen reads.
   const { data: totalRow } = await svc
     .from('user_total_score')
     .select('total_score')

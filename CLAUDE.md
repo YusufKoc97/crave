@@ -52,7 +52,6 @@ app/
   active-session.tsx   ─ Timer (modal): Date.now-based, cycle bonus, share banner,
                           intensity + failure modals wired (Faz 5)
   add-addiction.tsx    ─ Catalog picker (10 sabit, kategorilere göre gruplu)
-  craving-start.tsx    ─ Faz 5 modal: addiction chip + trigger picker → active-session
   setup-username.tsx   ─ Handle capture (opsiyonel, "Şimdilik atla" ile)
 
 components/
@@ -112,7 +111,7 @@ components/
   JourneyBar.tsx           ─ Horizontal compact + vertical ladder for Module 1
   RankUnlockModal.tsx      ─ Full-screen celebration, queue support, particle burst
   IntensityModal.tsx       ─ Faz 5: 5-emoji ladder + Skip (post-resist)
-  FailureConfirmModal.tsx  ─ Faz 5: trigger toggle + Looks right / Edit + × cancel
+  TriggerCaptureModal.tsx  ─ Faz 5 REVERSAL: post-resolve trigger picker (min-1)
   ToolkitGrid.tsx          ─ Faz 6: 4-card 2×2 grid (used by Info + active picker)
   ToolkitPickerModal.tsx   ─ Faz 6: bottom-sheet picker for active-session
   TechniqueRunnerModal.tsx ─ Faz 6: guided flow + feedback (all 4 techniques)
@@ -404,6 +403,52 @@ false` + craving_sessions history saklanır → re-add kaldığı yerden
     Yeni bağımlılık yok, expo-linear-gradient reddedildi (karar
     #2 react-native-svg zaten yeter). DB migration yok, Edge
     Function değişmedi.
+22. **Faz 5 REVERSAL — Post-resolve trigger capture**: Faz 5'in
+    pre-flight trigger seçim paradigması ters çevrildi. Orb →
+    addiction tap artık `/craving-start` üzerinden geçmez, direkt
+    `/active-session`'a atar. Timer bitince trigger seçimi çıkar.
+    Sebep: kullanıcı craving'i tanımlarken düşünme kapasitesi
+    minimum; atlattıktan sonra çok daha net cevap veriyor. Ayrıca
+    friction: pre-flight seçim, "aslında ben sadece bakıcaktım"
+    diyen kullanıcıyı geri çevirir.
+    **Yeni resist akışı**: Timer → I Resisted → IntensityModal →
+    seç → TriggerCaptureModal → seç → Resolve (tek atomik call).
+    **Yeni fail akışı**: Timer → I Failed → TriggerCaptureModal →
+    seç → Resolve (intensity yok — sadece resist için).
+    **Client-only timer**: Mount'ta artık DB INSERT yok. Client
+    UUID (`uuid` npm paketi) generate eder, AsyncStorage snapshot
+    (`ActiveSnapshot v2`) tutar. Kill+relaunch'ta snapshot restore
+    kaynağı — `active` DB row'una bakılmaz. Resolve anında Edge
+    Function tek call ile INSERT (session row + score UPSERT +
+    trigger rows + rank unlocks + momentum/streak update).
+    Idempotency: session UUID PK conflict = replay path (aynı
+    response). `pending_finish_v3` blob resolve invoke mid-flight
+    network drop'ında ActiveSessionRestorer tarafından next
+    launch'ta replay edilir.
+    **TriggerCaptureModal** (`components/TriggerCaptureModal.tsx`):
+    Bottom-sheet Modal, min-1 trigger zorunlu (Modül 3 verisi
+    kritik), Skip yok. Cancel × timer'ı canlı tutar
+    (side-effect yok). Common + addiction-specific chip grid,
+    Save disabled with hint until min-1 seçilir. Copy tone farkı:
+    resist için "Nice work — one more thing", fail için "It
+    happens — one quick note" (aynı modal, farklı başlık).
+    Silinen: `/craving-start` route + `components/FailureConfirmModal`
+    (post-fail preselection modal'ı — post-resolve akışında
+    pre-selection zaten yok). `lib/triggerSessions.ts` referanssız
+    ama silinmedi (RLS fetch helper Modül 3 için gerekebilir).
+    **Yeni Edge Function schema** (`resolve-craving`): payload
+    genişledi — `session_id` (client UUID), `addiction_id`,
+    `started_at`, `ended_at`, `sensitivity`, `outcome`,
+    `intensity` (nullable), `trigger_ids[]` (min-1 server-side
+    validate). Response şeması değişmedi. Deploy tek adım:
+    `supabase functions deploy resolve-craving`.
+    **Yan etki (Faz 7 presence)**: `active-presence` Edge
+    Function `status='active'` rows saydığı için artık mid-flight
+    kullanıcılar 0 sayılır (client-only timer). Kabul edilen
+    trade-off; heartbeat tablosu ileride eklenirse presence
+    geri gelir.
+    **Yeni bağımlılık**: `uuid` (runtime) + `@types/uuid` (dev).
+    DB migration yok (schema aynı, sadece INSERT timing değişti).
 
 ## 🧠 Önemli Kararlar (UX/Mimari)
 
