@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import {
   ADDICTION_CATALOG,
   toAddiction,
@@ -9,32 +8,37 @@ import {
 } from '@/constants/addictions';
 import { useAddictions } from '@/context/AddictionsContext';
 import { useAddictionScores } from '@/context/AddictionScoresContext';
+import { AddictionCard } from '@/components/info/AddictionCard';
 import {
-  dsCardStyles,
-  dsColors,
-  dsFont,
-  dsRadius,
-  dsSectionHeaderStyle,
-  dsSpacing,
-  hexAlpha,
-} from '@/constants/designSystem';
+  CARD_GAP,
+  CHIP_BG,
+  CHIP_BORDER,
+  FONT_STACK,
+  HAIRLINE_START,
+  PAGE_BG_MID,
+  TEXT_CHIP,
+  TEXT_SECTION_LABEL,
+  TEXT_SUBTITLE,
+  TEXT_TITLE,
+} from '@/components/info/cardStyle';
 import { t } from '@/lib/i18n';
 
 /**
- * Info tab main screen — a directory of the 10 catalog addictions,
- * split into "TRACKING" (currently active) and "ALL ADDICTIONS"
- * (everything else). Tapping any row navigates to
- * `/info/[addictionId]` where the 4-module landing page lives.
+ * Info tab home — "Addictions" grid.
  *
- * Design-polish M1: cards restyled per the design system spec.
- * TRACKING rows are 88pt "Send Money"-style — big surface, name +
- * rank inline, addiction-color chip. ALL ADDICTIONS rows are 56pt
- * "Habit Tracker"-style — smaller surface, "Not tracked" trailing
- * label. Both surfaces use the shared dsCardStyles primitives.
+ * Two 2-column grids: TRACKING (currently active) on top, ALL
+ * ADDICTIONS below. Section headers show a count chip and a
+ * hairline separator. Empty TRACKING renders a dashed placeholder
+ * card that hints "pick one below" (karar #8).
+ *
+ * Tap card body → detail (unchanged navigation).
+ * Tap "+ Track" pill on untracked → addAddiction + refresh scores.
+ * Long-press / remove tracking still lives in the detail screen,
+ * NOT here (karar #1 — one card, one purpose on this list).
  */
 export default function InfoScreen() {
-  const { activeIds } = useAddictions();
-  const { viewFor } = useAddictionScores();
+  const { activeIds, atLimit, addAddiction } = useAddictions();
+  const { viewFor, refresh } = useAddictionScores();
 
   const { tracked, other } = useMemo(() => {
     const trackedRows: Addiction[] = [];
@@ -48,13 +52,28 @@ export default function InfoScreen() {
   }, [activeIds]);
 
   const goToLanding = (addictionId: string) => {
-    // Cast: expo-router's typed routes cache (`.expo/types/router.d.ts`)
-    // is generated at dev-server startup and doesn't know about the new
-    // /info/[addictionId] route until Metro has run once. The URL is
-    // correct — this is a build-time typegen lag, not a runtime bug.
+    // Cast: expo-router's typed routes cache doesn't know about the
+    // nested /info/[addictionId] route until Metro runs. Runtime OK.
     router.push(
       `/info/${addictionId}` as unknown as Parameters<typeof router.push>[0]
     );
+  };
+
+  const onStartTracking = async (addictionId: string, name: string) => {
+    if (atLimit) {
+      Alert.alert(t('errors.addiction_limit_reached'));
+      return;
+    }
+    try {
+      await addAddiction(addictionId);
+      await refresh();
+    } catch (e) {
+      Alert.alert('Could not start tracking', (e as Error).message);
+    }
+    // No navigation on success — the card just animates into the
+    // TRACKING section on the next render. If we ever want to whisk
+    // the user into the newly-tracked detail, hook here.
+    void name;
   };
 
   return (
@@ -64,202 +83,166 @@ export default function InfoScreen() {
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.title}>{t('info.screen_title')}</Text>
+      <Text style={styles.subtitle}>{t('info.screen_subtitle')}</Text>
 
-      {/* ── Tracking section — big 88pt "Send Money" cards ───────── */}
-      <Text style={styles.sectionLabel}>{t('info.section_tracking')}</Text>
+      {/* ── Tracking section ─────────────────────────────────────── */}
+      <SectionHeader
+        label={t('info.section_tracking')}
+        count={tracked.length}
+      />
       {tracked.length === 0 ? (
-        <Text style={styles.emptyLine}>{t('info.empty_tracking')}</Text>
+        <EmptyTrackedCard />
       ) : (
-        tracked.map((a) => {
-          const view = viewFor(a.id);
-          return (
-            <Pressable
-              key={a.id}
-              onPress={() => goToLanding(a.id)}
-              style={({ pressed }) => [
-                styles.trackingRow,
-                pressed && styles.rowPressed,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={`${a.name} details`}
-            >
-              <View
-                style={[
-                  styles.trackingEmojiChip,
-                  {
-                    backgroundColor: hexAlpha(a.color, 0.15),
-                    borderColor: hexAlpha(a.color, 0.35),
-                  },
-                ]}
-              >
-                <Text style={styles.trackingEmoji}>{a.emoji}</Text>
+        <View style={styles.grid}>
+          {tracked.map((a) => {
+            const view = viewFor(a.id);
+            return (
+              <View key={a.id} style={styles.gridItem}>
+                <AddictionCard
+                  addiction={a}
+                  tracked
+                  progress={view.progress}
+                  level={view.currentRank.order}
+                  nextLabel={view.nextRank?.name ?? t('info.rank_maxed')}
+                  statusMain={view.currentRank.name}
+                  onPress={() => goToLanding(a.id)}
+                />
               </View>
-              <View style={styles.textCol}>
-                <Text style={styles.trackingName}>{a.name}</Text>
-                <Text style={styles.rankLine}>
-                  <Text style={[styles.rankName, { color: a.color }]}>
-                    {view.currentRank.name}
-                  </Text>
-                  <Text style={styles.dotSep}> · </Text>
-                  <Text style={styles.scoreInline}>{view.score} pts</Text>
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={16}
-                color={dsColors.textTertiary}
-              />
-            </Pressable>
-          );
-        })
+            );
+          })}
+        </View>
       )}
 
-      {/* ── All addictions — compact 56pt cards ──────────────────── */}
-      <Text style={[styles.sectionLabel, styles.sectionLabelAll]}>
-        {t('info.section_all')}
-      </Text>
-      {other.map((a) => (
-        <Pressable
-          key={a.id}
-          onPress={() => goToLanding(a.id)}
-          style={({ pressed }) => [
-            styles.untrackedRow,
-            pressed && styles.rowPressed,
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel={`${a.name} details`}
-        >
-          <View
-            style={[
-              styles.untrackedEmojiChip,
-              {
-                backgroundColor: hexAlpha(a.color, 0.12),
-                borderColor: hexAlpha(a.color, 0.28),
-              },
-            ]}
-          >
-            <Text style={styles.untrackedEmoji}>{a.emoji}</Text>
+      {/* ── All addictions ───────────────────────────────────────── */}
+      <SectionHeader label={t('info.section_all')} count={other.length} />
+      <View style={styles.grid}>
+        {other.map((a) => (
+          <View key={a.id} style={styles.gridItem}>
+            <AddictionCard
+              addiction={a}
+              tracked={false}
+              progress={0}
+              level={1}
+              nextLabel=""
+              statusMain={t('info.not_tracked')}
+              onPress={() => goToLanding(a.id)}
+              onStartTracking={() => onStartTracking(a.id, a.name)}
+            />
           </View>
-          <Text style={styles.untrackedName} numberOfLines={1}>
-            {a.name}
-          </Text>
-          <Text style={styles.notTracked}>{t('info.not_tracked')}</Text>
-        </Pressable>
-      ))}
+        ))}
+      </View>
     </ScrollView>
+  );
+}
+
+function SectionHeader({ label, count }: { label: string; count: number }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionLabel}>{label}</Text>
+      <View style={styles.chip}>
+        <Text style={styles.chipText}>{count}</Text>
+      </View>
+      <View style={styles.hairline} />
+    </View>
+  );
+}
+
+function EmptyTrackedCard() {
+  return (
+    <View style={styles.emptyCard}>
+      <Text style={styles.emptyText}>{t('info.empty_tracking')}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: dsColors.bgBase,
+    backgroundColor: PAGE_BG_MID,
   },
   content: {
-    paddingTop: 64,
-    paddingHorizontal: dsSpacing.xl,
-    paddingBottom: 110,
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 130,
   },
   title: {
-    color: dsColors.textPrimary,
-    fontSize: dsFont.size.displayXl,
-    fontWeight: dsFont.weight.bold,
-    marginTop: dsSpacing.xl,
-    marginBottom: dsSpacing.md,
+    color: TEXT_TITLE,
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginBottom: 6,
+    fontFamily: FONT_STACK,
+  },
+  subtitle: {
+    color: TEXT_SUBTITLE,
+    fontSize: 13.5,
+    marginBottom: 26,
+    fontFamily: FONT_STACK,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
   },
   sectionLabel: {
-    ...dsSectionHeaderStyle,
-    paddingHorizontal: 2,
-  },
-  sectionLabelAll: {
-    // Section header default marginTop is x3l (32) — keep parity.
-  },
-  emptyLine: {
-    color: dsColors.textTertiary,
-    fontSize: 12.5,
-    fontStyle: 'italic',
-    paddingVertical: dsSpacing.md,
-    lineHeight: 18,
-  },
-
-  // ── Tracking card (88pt) ──
-  trackingRow: {
-    ...dsCardStyles.tracking,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: dsSpacing.lg,
-    marginBottom: dsSpacing.md,
-  },
-  trackingEmojiChip: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  trackingEmoji: {
-    fontSize: 28,
-  },
-  textCol: {
-    flex: 1,
-    minWidth: 0,
-  },
-  trackingName: {
-    color: dsColors.textPrimary,
-    fontSize: dsFont.size.heading,
-    fontWeight: dsFont.weight.semibold,
-    letterSpacing: dsFont.letterSpacing.tight,
-  },
-  rankLine: {
-    marginTop: dsSpacing.xs,
-    fontSize: 14,
-  },
-  rankName: {
-    fontWeight: dsFont.weight.semibold,
-  },
-  dotSep: {
-    color: dsColors.textTertiary,
-  },
-  scoreInline: {
-    color: dsColors.textSecondary,
-  },
-
-  // ── Untracked card (56pt) ──
-  untrackedRow: {
-    ...dsCardStyles.untracked,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: dsSpacing.md,
-    marginBottom: dsSpacing.sm,
-  },
-  untrackedEmojiChip: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  untrackedEmoji: {
-    fontSize: 18,
-  },
-  untrackedName: {
-    flex: 1,
-    color: dsColors.textPrimary,
-    fontSize: dsFont.size.body,
-    fontWeight: dsFont.weight.semibold,
-    letterSpacing: dsFont.letterSpacing.tight,
-  },
-  notTracked: {
-    color: dsColors.textTertiary,
     fontSize: 12,
-    letterSpacing: dsFont.letterSpacing.tight,
+    fontWeight: '700',
+    letterSpacing: 2.5,
+    color: TEXT_SECTION_LABEL,
+    fontFamily: FONT_STACK,
+    textTransform: 'uppercase',
   },
-
-  rowPressed: {
-    opacity: 0.7,
-    backgroundColor: dsColors.cardSurfaceElevated,
-    borderRadius: dsRadius.card,
+  chip: {
+    backgroundColor: CHIP_BG,
+    borderColor: CHIP_BORDER,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  chipText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: TEXT_CHIP,
+    fontFamily: FONT_STACK,
+    letterSpacing: 0.3,
+  },
+  hairline: {
+    flex: 1,
+    height: 1,
+    backgroundColor: HAIRLINE_START,
+    opacity: 0.6,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: CARD_GAP,
+    marginBottom: 34,
+  },
+  gridItem: {
+    // Fills exactly half the container (minus half the gap).
+    width: `${(100 - 0) / 2}%`,
+    // Instead of hand-computing, let flex do it: basis 48% + gap 13 = 100%.
+    // Using flexBasis so gap works cleanly on both Web and native.
+    flexGrow: 0,
+    flexShrink: 1,
+    flexBasis: `48%`,
+  },
+  emptyCard: {
+    marginBottom: 34,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 22,
+    paddingVertical: 22,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: TEXT_SUBTITLE,
+    fontSize: 13,
+    fontFamily: FONT_STACK,
+    textAlign: 'center',
   },
 });

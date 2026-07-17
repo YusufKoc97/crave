@@ -246,12 +246,14 @@
   },
   "info": {
     "tab_label": "Info",
-    "screen_title": "Info",
+    "screen_title": "Addictions",
+    "screen_subtitle": "Tap a card to start or stop tracking.",
     "section_tracking": "TRACKING",
     "section_all": "ALL ADDICTIONS",
     "not_tracked": "Not tracked",
     "current_rank_prefix": "",
-    "empty_tracking": "You aren't tracking anything yet — pick from the list below."
+    "empty_tracking": "Nothing tracked yet — pick one below.",
+    "rank_maxed": "Maxed"
   },
   "landing": {
     "start_tracking_title": "Not tracking {{name}} yet",
