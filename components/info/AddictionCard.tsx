@@ -226,15 +226,21 @@ function cardSurface(tracked: boolean, hue: string) {
   // stack a solid dark base + optional shadow. Web uses backgroundImage
   // (via style-as-any) to approximate the design's radial + linear
   // combo; native gets a single-tone linear approximation.
+  // Tracked-card glow tuning: earlier values (Y=13, opacity 0.5,
+  // spread -14) bled too much off the bottom edge, especially on
+  // bright hues (junk-food yellow, doomscroll blue). Reduced the
+  // downward offset, tightened spread, and dropped opacity so the
+  // glow reads as ambient rim light instead of a headlamp under
+  // the card.
   const base = tracked
     ? {
         backgroundColor: CARD_BG_TRACKED_TOP,
-        borderColor: hexAlpha(hue, 0.45),
+        borderColor: hexAlpha(hue, 0.4),
         shadowColor: hue,
-        shadowOffset: { width: 0, height: 13 },
-        shadowOpacity: 0.5,
-        shadowRadius: 28,
-        elevation: 8,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.28,
+        shadowRadius: 16,
+        elevation: 5,
       }
     : {
         backgroundColor: CARD_BG_UNTRACKED_TOP,
@@ -249,8 +255,8 @@ function cardSurface(tracked: boolean, hue: string) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const webBg: any = tracked
       ? {
-          backgroundImage: `radial-gradient(115% 85% at 50% -5%, ${hexAlpha(hue, 0.24)}, ${hexAlpha(hue, 0.05)} 55%, transparent 80%), linear-gradient(160deg, ${CARD_BG_TRACKED_TOP}, ${CARD_BG_TRACKED_BOT})`,
-          boxShadow: `inset 0 1px 0 ${INSET_HIGHLIGHT_TRACKED}, 0 13px 28px -14px ${hexAlpha(hue, 0.5)}`,
+          backgroundImage: `radial-gradient(115% 85% at 50% -5%, ${hexAlpha(hue, 0.22)}, ${hexAlpha(hue, 0.04)} 55%, transparent 80%), linear-gradient(160deg, ${CARD_BG_TRACKED_TOP}, ${CARD_BG_TRACKED_BOT})`,
+          boxShadow: `inset 0 1px 0 ${INSET_HIGHLIGHT_TRACKED}, 0 4px 18px -12px ${hexAlpha(hue, 0.35)}`,
         }
       : {
           backgroundImage: `linear-gradient(160deg, ${CARD_BG_UNTRACKED_TOP}, ${CARD_BG_UNTRACKED_BOT})`,
