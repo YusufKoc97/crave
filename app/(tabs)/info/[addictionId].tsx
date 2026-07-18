@@ -61,13 +61,22 @@ export default function AddictionLandingScreen() {
     null
   );
 
+  // Back button ALWAYS returns to the Info list — not `router.back()`.
+  // Users can land here from any of several entry points (Info tab
+  // rows, Profile "Your addictions" list, a deep link) and the "up"
+  // affordance in a nested detail should behave like a hierarchy
+  // step-up regardless of navigation history.
+  const goToInfoList = () => {
+    router.replace('/info' as unknown as Parameters<typeof router.replace>[0]);
+  };
+
   const catalog = getCatalogEntry(addictionId);
   if (!catalog) {
     // Unknown id — bounce back to the Info list.
     return (
       <View style={styles.root}>
         <Header
-          onBack={() => router.back()}
+          onBack={goToInfoList}
           title=""
           accentColor={dsColors.accentBlue}
         />
@@ -100,7 +109,7 @@ export default function AddictionLandingScreen() {
       </View>
 
       <Header
-        onBack={() => router.back()}
+        onBack={goToInfoList}
         title={addiction.name}
         accentColor={addiction.color}
       />
