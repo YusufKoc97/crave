@@ -102,8 +102,7 @@ export default function InfoScreen() {
                   addiction={a}
                   tracked
                   progress={view.progress}
-                  level={view.currentRank.order}
-                  nextLabel={view.nextRank?.name ?? t('info.rank_maxed')}
+                  score={view.score}
                   statusMain={view.currentRank.name}
                   onPress={() => goToLanding(a.id)}
                 />
@@ -122,8 +121,7 @@ export default function InfoScreen() {
               addiction={a}
               tracked={false}
               progress={0}
-              level={1}
-              nextLabel=""
+              score={0}
               statusMain={t('info.not_tracked')}
               onPress={() => goToLanding(a.id)}
               onStartTracking={() => onStartTracking(a.id, a.name)}

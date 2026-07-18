@@ -3,9 +3,6 @@ import Svg, { Circle } from 'react-native-svg';
 import type { Addiction } from '@/constants/addictions';
 import { lucideIconFor } from './iconMap';
 import {
-  BAR_HEIGHT,
-  BAR_RADIUS,
-  BAR_TRACK_BG,
   CARD_BG_TRACKED_BOT,
   CARD_BG_TRACKED_TOP,
   CARD_BG_UNTRACKED_BOT,
@@ -24,7 +21,6 @@ import {
   RING_RADIUS,
   RING_STROKE,
   RING_TRACK_UNTRACKED,
-  TEXT_BAR_LABEL,
   TEXT_NAME_TRACKED,
   TEXT_NAME_UNTRACKED,
   TEXT_STATUS_MUTED,
@@ -58,10 +54,9 @@ type Props = {
   /** 0..1 — where the user is inside their current rank's band.
    *  Untracked cards ignore this (ring is track-only). */
   progress: number;
-  /** currentRank.order (1..9) — displayed as "Lv N" on tracked. */
-  level: number;
-  /** Human label for the next rank (or a fallback like "Maxed"). */
-  nextLabel: string;
+  /** Cumulative score for this addiction — rendered inline after
+   *  the rank name on tracked cards. Ignored when untracked. */
+  score: number;
   /** Copy shown in the status line — usually the rank name for
    *  tracked cards. Untracked cards render fixed "Not tracked". */
   statusMain: string;
@@ -74,8 +69,7 @@ export function AddictionCard({
   addiction,
   tracked,
   progress,
-  level,
-  nextLabel,
+  score,
   statusMain,
   onPress,
   onStartTracking,
@@ -84,7 +78,6 @@ export function AddictionCard({
   const Icon = lucideIconFor(addiction.id);
   const clampedProgress = Math.max(0, Math.min(1, progress));
   const dashOffset = RING_CIRCUMFERENCE * (1 - clampedProgress);
-  const progressPercent = Math.round(clampedProgress * 100);
 
   // The card body wraps everything except the +Track pill so we
   // can attach the "open detail" onPress to just the body and let
@@ -170,33 +163,11 @@ export function AddictionCard({
             {tracked && (
               <Text style={{ color: TEXT_STATUS_MUTED, fontWeight: '600' }}>
                 {' '}
-                · 0 pts
+                · {score} pts
               </Text>
             )}
           </Text>
         </View>
-
-        {tracked && (
-          <View style={styles.barBlock}>
-            <View style={styles.barTrack}>
-              <View
-                style={[
-                  styles.barFill,
-                  {
-                    width: `${progressPercent}%`,
-                    backgroundColor: hue,
-                  },
-                ]}
-              />
-            </View>
-            <View style={styles.barLabelRow}>
-              <Text style={styles.barLabel}>Lv {level}</Text>
-              <Text style={styles.barLabel}>
-                {progressPercent}% → {nextLabel}
-              </Text>
-            </View>
-          </View>
-        )}
       </Pressable>
 
       {!tracked && (
@@ -326,32 +297,6 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '600',
     fontFamily: FONT_STACK,
-  },
-  barBlock: {
-    width: '100%',
-    marginTop: 4,
-  },
-  barTrack: {
-    height: BAR_HEIGHT,
-    borderRadius: BAR_RADIUS,
-    backgroundColor: BAR_TRACK_BG,
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: BAR_RADIUS,
-  },
-  barLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  barLabel: {
-    fontSize: 9.5,
-    fontWeight: '600',
-    color: TEXT_BAR_LABEL,
-    fontFamily: FONT_STACK,
-    letterSpacing: 0.2,
   },
   trackPill: {
     alignSelf: 'center',
