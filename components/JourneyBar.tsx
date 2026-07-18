@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { PathScene } from '@/components/journey/PathScene';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -370,6 +371,7 @@ function PathSpine({
 
   return (
     <View style={pathStyles.container}>
+      <PathScene />
       {rowsTopDown.map((rank, visualIdx) => {
         // The row visually BELOW this one — this is our
         // connector's terminus (drops down out of this row's dot
