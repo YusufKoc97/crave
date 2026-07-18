@@ -272,12 +272,13 @@
     "your_rank": "YOUR RANK",
     "score_label": "SCORE",
     "next_rank_progress": "{{remaining}} more to {{name}}",
-    "at_ceiling": "You've reached the top of the ladder",
-    "ladder_title": "THE LADDER",
-    "unlocked": "Unlocked",
+    "at_ceiling": "Max rank reached",
+    "ladder_title": "THE PATH",
+    "unlocked": "Reached",
     "current": "Current",
     "locked": "Locked",
-    "unlocked_at": "Unlocked {{date}}"
+    "next_progress": "{{percent}}% there",
+    "unlocked_at": "Reached {{date}}"
   },
   "ranks": {
     "traveler": {
