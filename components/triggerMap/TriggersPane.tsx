@@ -156,15 +156,24 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
     </View>
   );
 
+  // TEMP-PREMIUM-GATE-DISABLED — 2026-07-18
+  // Trigger-map paywall is intentionally lifted for design & code
+  // iteration on this tab. Real gate MUST be restored before ship;
+  // restore by wrapping `content` in <FreeTierGate> and gating on
+  // `useIsPremium()` the same way every other paywalled surface
+  // will. Grep for TEMP-PREMIUM-GATE-DISABLED to find every knob
+  // that needs flipping back. Do not delete the FreeTierGate import
+  // or `isPremium` binding — leaving them in place keeps the diff
+  // to a one-line JSX swap when we come back.
+  void isPremium;
+  void FreeTierGate;
+
   return (
     <View style={styles.wrap}>
-      {isPremium ? content : <FreeTierGate>{content}</FreeTierGate>}
+      {content}
       {/* Bottom sheet lives outside the gate so it can render
           full-screen without the blur veil above sitting on top
-          of it. Only Premium users can meaningfully tap cells
-          (free-tier ones are behind the veil), but hoisting the
-          sheet keeps the layer order correct if that assumption
-          ever loosens. */}
+          of it. */}
       <CellDetailSheet ref={cellSheetRef} accentColor={addiction.color} />
     </View>
   );
