@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -195,7 +196,6 @@ function Header({
 function SubTabBar({
   active,
   onSelect,
-  accentColor,
 }: {
   active: SubTab;
   onSelect: (id: SubTab) => void;
@@ -214,34 +214,29 @@ function SubTabBar({
             accessibilityLabel={t(tab.labelKey)}
             accessibilityState={{ selected: isActive }}
           >
-            <View style={styles.subTabInner}>
+            <View
+              style={[
+                styles.subTabPill,
+                isActive ? styles.subTabPillActive : null,
+              ]}
+            >
               <Ionicons
                 name={tab.icon}
                 size={16}
-                color={isActive ? dsColors.textPrimary : dsColors.textTertiary}
+                color="#ffffff"
+                style={!isActive ? styles.inactiveGlyph : undefined}
               />
               <Text
                 style={[
                   styles.subTabLabel,
-                  {
-                    color: isActive
-                      ? dsColors.textPrimary
-                      : dsColors.textTertiary,
-                    opacity: isActive ? 1 : 0.5,
-                  },
+                  isActive
+                    ? styles.subTabLabelActive
+                    : styles.subTabLabelInactive,
                 ]}
               >
                 {t(tab.labelKey)}
               </Text>
             </View>
-            {isActive && (
-              <View
-                style={[
-                  styles.subTabUnderline,
-                  { backgroundColor: accentColor },
-                ]}
-              />
-            )}
           </Pressable>
         );
       })}
@@ -381,35 +376,62 @@ const styles = StyleSheet.create({
     letterSpacing: dsFont.letterSpacing.tight,
     paddingHorizontal: dsSpacing.md,
   },
+  // Glass-pill sub-tab bar. No underline, no bottom border —
+  // the active pill carries all the visual weight, and the deep
+  // navy screen bg (dsColors.bgBase) sits behind it.
   subTabRow: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: dsColors.borderSubtle,
     marginTop: dsSpacing.sm,
-    height: 48,
+    paddingHorizontal: dsSpacing.sm,
+    paddingVertical: dsSpacing.xs,
+    gap: 6,
   },
   subTabBtn: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: 'stretch',
     justifyContent: 'center',
   },
-  subTabInner: {
+  subTabPill: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
+  },
+  subTabPillActive: {
+    // Frosted-glass fill + hairline border. Web layers on a
+    // real backdrop-filter; native falls back to the fill +
+    // border alone (visually near-identical on our dark bg).
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(255,255,255,0.2)',
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+      } as never,
+      default: {},
+    }),
   },
   subTabLabel: {
     fontSize: 14,
-    fontWeight: dsFont.weight.semibold,
     letterSpacing: dsFont.letterSpacing.tight,
   },
-  subTabUnderline: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    bottom: 0,
-    height: 2,
-    borderRadius: 1,
+  subTabLabelActive: {
+    color: '#ffffff',
+    fontWeight: dsFont.weight.semibold,
+  },
+  subTabLabelInactive: {
+    color: '#ffffff',
+    opacity: 0.4,
+    fontWeight: dsFont.weight.regular,
+  },
+  inactiveGlyph: {
+    opacity: 0.4,
   },
   body: {
     flex: 1,
