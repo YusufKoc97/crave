@@ -1,14 +1,26 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedProps,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import Svg, {
   Circle,
   Defs,
   LinearGradient,
   Path,
+  Polyline,
   RadialGradient,
   Rect,
   Stop,
 } from 'react-native-svg';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /**
  * Journey PATH background scene — M3a (static).
@@ -39,13 +51,21 @@ import Svg, {
 
 /** Deterministic star field — same seed always produces the same
  *  point cloud. Avoids Math.random() which would reshuffle on
- *  every re-render and interfere with any future twinkle. */
+ *  every re-render and break the assigned twinkle groups. */
 type Star = {
   x: number; // 0..1 fraction of scene width
   y: number; // 0..1 fraction of scene height (top half)
   r: number; // radius px
-  o: number; // opacity 0..1
+  o: number; // base opacity 0..1
+  g: number; // twinkle group 0..TWINKLE_GROUPS-1
 };
+
+/** Number of independent twinkle phase groups. Each star gets
+ *  assigned to one at seed time; all stars in the same group
+ *  share a single Reanimated shared value. This keeps the RN
+ *  animation cost down to O(groups) instead of O(stars) while
+ *  still reading as "each star twinkles at its own pace". */
+const TWINKLE_GROUPS = 8;
 
 function seededStars(count: number): Star[] {
   // Small linear congruential generator with a fixed seed so the
@@ -64,13 +84,219 @@ function seededStars(count: number): Star[] {
       y: rand() * 0.54,
       r: rand() * 0.9 + 0.4, // 0.4..1.3px
       o: rand() * 0.6 + 0.3, // 0.3..0.9
+      g: Math.floor(rand() * TWINKLE_GROUPS),
     });
   }
   return stars;
 }
 
+/** Constellation shape — a series of points that get connected
+ *  by lines. Positions are % of the scene width/height so they
+ *  scale with the viewBox. Kept in the upper half of the canvas
+ *  so they overlay the star field, not the mountains. */
+type Constellation = {
+  /** Each stroke is a polyline sequence — [[x%, y%], ...] */
+  strokes: readonly (readonly (readonly [number, number])[])[];
+  /** Extra bright dots at the polyline vertices so the shape
+   *  reads as "stars connected", not just a line drawing. */
+  nodes: readonly (readonly [number, number])[];
+};
+
+/** Four constellation patterns from the design reference:
+ *  zigzag (Cassiopeia-like), closed triangle, curve, diamond. */
+const CONSTELLATIONS: readonly Constellation[] = [
+  // 1. Zigzag "W" — sits upper-left
+  {
+    strokes: [
+      [
+        [8, 16],
+        [15, 22],
+        [22, 15],
+        [29, 25],
+        [36, 18],
+      ],
+    ],
+    nodes: [
+      [8, 16],
+      [15, 22],
+      [22, 15],
+      [29, 25],
+      [36, 18],
+    ],
+  },
+  // 2. Closed triangle — upper-right
+  {
+    strokes: [
+      [
+        [72, 12],
+        [86, 22],
+        [76, 30],
+        [72, 12],
+      ],
+    ],
+    nodes: [
+      [72, 12],
+      [86, 22],
+      [76, 30],
+    ],
+  },
+  // 3. Curve — mid, sweeps down-right
+  {
+    strokes: [
+      [
+        [42, 32],
+        [50, 36],
+        [55, 44],
+        [57, 52],
+      ],
+    ],
+    nodes: [
+      [42, 32],
+      [50, 36],
+      [55, 44],
+      [57, 52],
+    ],
+  },
+  // 4. Diamond ("baklava") — mid-left
+  {
+    strokes: [
+      [
+        [12, 38],
+        [22, 34],
+        [30, 42],
+        [22, 50],
+        [12, 38],
+      ],
+    ],
+    nodes: [
+      [12, 38],
+      [22, 34],
+      [30, 42],
+      [22, 50],
+    ],
+  },
+];
+
+/** One shared value per twinkle group, each with a staggered
+ *  phase so the field looks alive but calms down to a manageable
+ *  set of animations. Each SV oscillates 0..1 over ~6s. */
+function useTwinkleGroups() {
+  const svs = Array.from({ length: TWINKLE_GROUPS }, () =>
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useSharedValue(0)
+  );
+  useEffect(() => {
+    svs.forEach((sv, i) => {
+      // Vary duration a bit per group (5.2s..8.4s) so the whole
+      // sky doesn't beat in unison. Start delayed by group index
+      // so the initial phase spreads across the loop.
+      const duration = 5200 + i * 400;
+      const delay = i * 350;
+      sv.value = withDelay(
+        delay,
+        withRepeat(
+          withSequence(
+            withTiming(1, {
+              duration: duration / 2,
+              easing: Easing.inOut(Easing.sin),
+            }),
+            withTiming(0, {
+              duration: duration / 2,
+              easing: Easing.inOut(Easing.sin),
+            })
+          ),
+          -1,
+          false
+        )
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return svs;
+}
+
+/** Animated star — reads the shared value of its assigned group
+ *  and interpolates opacity between .15 and its base opacity. */
+function TwinkleStar({
+  s,
+  width,
+  height,
+  phase,
+}: {
+  s: Star;
+  width: number;
+  height: number;
+  phase: ReturnType<typeof useSharedValue<number>>;
+}) {
+  const animatedProps = useAnimatedProps(() => {
+    // phase.value oscillates 0..1; map to opacity range.
+    // 0 → dim (0.15 * base), 1 → full (base).
+    const t = phase.value;
+    const dim = 0.15;
+    const opacity = dim + (s.o - dim) * t;
+    return { fillOpacity: opacity };
+  });
+  return (
+    <AnimatedCircle
+      cx={s.x * width}
+      cy={s.y * height}
+      r={s.r}
+      fill="#ffffff"
+      animatedProps={animatedProps}
+    />
+  );
+}
+
+/** Constellation renderer — draws faint polylines connecting
+ *  the nodes, then overlays slightly brighter static dots on
+ *  each node so the shape reads as "stars linked", not just
+ *  line art. Nodes stay non-twinkling on purpose — the design
+ *  brief calls the constellations stable so they anchor the eye
+ *  against the flickering background field. */
+function ConstellationShape({
+  constellation,
+  width,
+  height,
+}: {
+  constellation: Constellation;
+  width: number;
+  height: number;
+}) {
+  return (
+    <>
+      {constellation.strokes.map((stroke, si) => {
+        const points = stroke
+          .map(([xp, yp]) => `${(xp / 100) * width},${(yp / 100) * height}`)
+          .join(' ');
+        return (
+          <Polyline
+            key={si}
+            points={points}
+            fill="none"
+            stroke="rgba(200,214,240,0.28)"
+            strokeWidth={1}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        );
+      })}
+      {constellation.nodes.map(([xp, yp], ni) => (
+        <Circle
+          key={ni}
+          cx={(xp / 100) * width}
+          cy={(yp / 100) * height}
+          r={1.4}
+          fill="#ffffff"
+          fillOpacity={0.85}
+        />
+      ))}
+    </>
+  );
+}
+
 export function PathScene() {
   const stars = useMemo(() => seededStars(40), []);
+  const twinkleGroups = useTwinkleGroups();
   // Fixed viewBox — SVG scales to any container size via
   // width/height 100% + preserveAspectRatio. This is simpler than
   // measuring the parent and avoids the state-update chicken/egg
@@ -194,16 +420,29 @@ export function PathScene() {
           fill="url(#peakGlow)"
         />
 
-        {/* Static stars — one <Circle> per star. Sits behind the
-            mountains so ridges "cover" the horizon. */}
+        {/* Stars — one animated <Circle> per star, driven by a
+            shared value picked from an 8-group phase pool so the
+            field twinkles at varied paces without needing one
+            worklet per star. */}
         {stars.map((s, i) => (
-          <Circle
+          <TwinkleStar
             key={i}
-            cx={s.x * width}
-            cy={s.y * height}
-            r={s.r}
-            fill="#ffffff"
-            fillOpacity={s.o}
+            s={s}
+            width={width}
+            height={height}
+            phase={twinkleGroups[s.g]}
+          />
+        ))}
+
+        {/* Constellations — thin white lines connecting fixed
+            node points. Nodes are rendered as slightly brighter
+            dots on top so the shape reads as "stars connected". */}
+        {CONSTELLATIONS.map((c, ci) => (
+          <ConstellationShape
+            key={ci}
+            constellation={c}
+            width={width}
+            height={height}
           />
         ))}
 

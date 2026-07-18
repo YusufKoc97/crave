@@ -273,8 +273,14 @@ const pathStyles = StyleSheet.create({
   connector: {
     position: 'absolute',
     left: -23,
+    // Start just under this row's dot (dot top=12, dot height=16
+    // → 12 + 16 = 28). Extend into the next row until we meet
+    // the top of the next dot (row starts at 0, next dot top=12).
+    // That means we need bottom = -12 so the segment visually
+    // touches the next dot without a gap. Container's overflow
+    // hidden clips anything past the outer rounded edge.
     top: 28,
-    bottom: 0,
+    bottom: -12,
     width: 3,
     borderRadius: 2,
     overflow: 'hidden',
