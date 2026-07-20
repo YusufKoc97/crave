@@ -325,6 +325,21 @@
   "toolkit": {
     "tab_title": "Toolkit",
     "grid_header": "Techniques to try during a craving",
+    "screen_title": "Toolkit",
+    "screen_hint": "Swipe to explore",
+    "segment_all": "All",
+    "segment_quick": "Quick · under 3m",
+    "card_position": "{{current}} of {{total}}",
+    "type_breathing": "Breathing",
+    "type_mindfulness": "Mindfulness",
+    "type_grounding": "Grounding",
+    "type_body_scan": "Body scan",
+    "meta": {
+      "breathing_478": "4 cycles",
+      "urge_surfing": "Ride it out",
+      "grounding_54321": "5 senses",
+      "body_scan": "8 zones"
+    },
     "duration_minutes": "{{minutes}} min",
     "start": "Start",
     "quit": "Quit",

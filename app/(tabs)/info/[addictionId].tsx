@@ -19,7 +19,7 @@ import {
 import { useAddictions } from '@/context/AddictionsContext';
 import { useAddictionScores } from '@/context/AddictionScoresContext';
 import { JourneyBar } from '@/components/JourneyBar';
-import { ToolkitGrid } from '@/components/ToolkitGrid';
+import { ToolkitPane } from '@/components/toolkit/ToolkitPane';
 import { TechniqueRunnerModal } from '@/components/TechniqueRunnerModal';
 import { TriggersPane } from '@/components/triggerMap/TriggersPane';
 import { AmbientGlow } from '@/components/ui/AmbientGlow';
@@ -128,12 +128,10 @@ export default function AddictionLandingScreen() {
       >
         {subTab === 'journey' && <JourneyPane addiction={addiction} />}
         {subTab === 'toolkit' && (
-          <View style={{ paddingHorizontal: dsSpacing.xl }}>
-            <ToolkitGrid
-              accentColor={addiction.color}
-              onSelect={setRunningTechnique}
-            />
-          </View>
+          <ToolkitPane
+            accentColor={addiction.color}
+            onSelect={setRunningTechnique}
+          />
         )}
         {subTab === 'triggers' && (
           <TriggersPane
