@@ -182,7 +182,7 @@ export function TechniqueCard({
               total,
             })}
           </Text>
-          <PlayButton onPress={onSelect} />
+          <PlayButton />
         </View>
 
         {/* Passive progress bar — reflects (index+1)/total. Live
@@ -204,15 +204,15 @@ export function TechniqueCard({
   );
 }
 
-function PlayButton({ onPress }: { onPress: () => void }) {
+function PlayButton() {
+  // Kept as a plain View — the outer card <Pressable> already
+  // owns the tap. On web, nesting a Pressable inside another
+  // Pressable yields <button> inside <button> which HTML doesn't
+  // allow (hydration warning). The whole card is a huge tap
+  // target; the play button is a visual CTA, not a separate hit
+  // region.
   return (
-    <Pressable
-      onPress={onPress}
-      style={styles.playBtn}
-      hitSlop={6}
-      accessibilityRole="button"
-      accessibilityLabel="Play"
-    >
+    <View style={styles.playBtn} accessibilityElementsHidden>
       <Play
         color={PLAY_ICON_COLOR}
         size={22}
@@ -221,7 +221,7 @@ function PlayButton({ onPress }: { onPress: () => void }) {
         // Offset a hair right so the triangle sits optically centered.
         style={{ marginLeft: 2 }}
       />
-    </Pressable>
+    </View>
   );
 }
 
