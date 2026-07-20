@@ -26,10 +26,13 @@ export const GLASS_INSET_HIGHLIGHT = 'rgba(255,255,255,0.08)';
 
 export const CARD_W = 300;
 export const CARD_H = 452;
-export const CARD_GAP = 14;
-export const CARD_RADIUS = 30;
-export const CARD_BG_TOP = '#0d1020';
-export const CARD_BG_BOT = '#090b14';
+export const CARD_GAP = 12;
+// Aligned with the Journey hero card (radius 24) so the two
+// screens read as one visual family. Scenes still bleed edge-to-
+// edge inside this radius.
+export const CARD_RADIUS = 24;
+export const CARD_BG_TOP = '#141d2e';
+export const CARD_BG_BOT = '#0b1220';
 
 // ─── Glass info panel (inside card, bottom) ───
 
