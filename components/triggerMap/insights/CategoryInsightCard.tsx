@@ -201,7 +201,9 @@ export function CategoryInsightCard({
 const styles = StyleSheet.create({
   card: {
     borderRadius: triggersSurface.radius,
-    backgroundColor: triggersSurface.bg,
+    // Slightly more opaque so category text stays legible over the
+    // parent AmbientGlow + TriggersAurora atmosphere.
+    backgroundColor: '#131F3A',
     borderWidth: 1,
     marginBottom: 12,
     flexDirection: 'row',

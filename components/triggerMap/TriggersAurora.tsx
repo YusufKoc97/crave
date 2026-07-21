@@ -22,16 +22,14 @@ type Disc = {
   color: string;
 };
 
+// Parent detail screen already renders two AmbientGlow layers
+// (blue + addiction color), so these discs stay VERY subtle —
+// just enough to tint the Triggers pane without dimming the
+// text that sits on top.
 const DISCS: readonly Disc[] = [
-  // top-left hero anchor — strongest violet so the insights hero
-  // radial ring reads as if lit from behind
-  { leftPct: 18, topPct: 12, size: 260, color: triggersAccentAlpha(0.22) },
-  // top-right, softer — balances the aurora without shouting near
-  // the PREMIUM/FREE chip position
-  { leftPct: 82, topPct: 20, size: 200, color: triggersAccentAlpha(0.14) },
-  // mid-page cool violet — sits under the heatmap so the empty
-  // cells never look like a black hole
-  { leftPct: 50, topPct: 62, size: 320, color: triggersAccentAlpha(0.1) },
+  { leftPct: 18, topPct: 12, size: 220, color: triggersAccentAlpha(0.09) },
+  { leftPct: 82, topPct: 22, size: 180, color: triggersAccentAlpha(0.06) },
+  { leftPct: 50, topPct: 62, size: 260, color: triggersAccentAlpha(0.05) },
 ];
 
 type Props = {
@@ -68,11 +66,11 @@ function AuroraDisc({ leftPct, topPct, size, color }: Disc) {
   };
   if (Platform.OS === 'web') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return <View style={{ ...base, filter: 'blur(34px)' } as any} />;
+    return <View style={{ ...base, filter: 'blur(28px)' } as any} />;
   }
   // Native fallback: softer opacity, no blur — same rule the rest
   // of the app follows for ambient layers.
-  return <View style={[base, { opacity: 0.7 }]} />;
+  return <View style={[base, { opacity: 0.5 }]} />;
 }
 
 const styles = StyleSheet.create({

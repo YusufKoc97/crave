@@ -134,9 +134,11 @@ export function InsightsHero({
 const styles = StyleSheet.create({
   card: {
     borderRadius: triggersSurface.radius,
-    backgroundColor: triggersSurface.bg,
+    // Slightly more opaque than the shared token so the aurora +
+    // parent AmbientGlow don't wash out the hero copy.
+    backgroundColor: '#131F3A',
     borderWidth: 1,
-    borderColor: triggersAccentAlpha(0.32),
+    borderColor: triggersAccentAlpha(0.42),
     marginBottom: 14,
     overflow: 'hidden',
     // Web-only soft violet glow (RN native ignores boxShadow prior to 0.76,
@@ -197,7 +199,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   bigValue: {
-    color: '#F8FAFF',
+    color: '#FFFFFF',
     fontSize: 26,
     fontWeight: '800',
     letterSpacing: 0.3,
@@ -205,7 +207,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   description: {
-    color: '#B8C4E0',
+    color: '#D9E1F2',
     fontSize: 13,
     lineHeight: 18,
   },

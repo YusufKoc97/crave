@@ -56,9 +56,11 @@ export function triggersColorFor(key: string): string {
  * with the addiction's own accent glow above.
  */
 export const triggersSurface = {
-  bg: '#0F1A32', // slightly warmer than dsColors.bgBase for glass "lift"
-  bgElevated: '#141F3A',
-  border: 'rgba(143, 123, 240, 0.18)', // violet tint on border
+  // Bumped a hair opaquer so cards read clearly on top of the parent
+  // detail screen's two AmbientGlow layers + TriggersAurora tint.
+  bg: '#131F3A',
+  bgElevated: '#1A2748',
+  border: 'rgba(143, 123, 240, 0.22)', // violet tint on border
   borderSubtle: 'rgba(255, 255, 255, 0.06)',
   radius: 18,
 } as const;
