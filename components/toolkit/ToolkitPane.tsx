@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { Technique } from '@/constants/toolkitCatalog';
 import { GlassSegmentedControl, type ToolkitSegment } from './CarouselChrome';
 import { ToolkitCarousel } from './ToolkitCarousel';
+import { ToolkitAurora } from './ToolkitAurora';
 import { BreathingOrbPreview } from './previews/BreathingOrbPreview';
 import { WaveSurfPreview } from './previews/WaveSurfPreview';
 import { GroundingDotsPreview } from './previews/GroundingDotsPreview';
@@ -55,6 +56,12 @@ export function ToolkitPane({ accentColor, onSelect }: Props) {
 
   return (
     <View style={styles.root}>
+      {/* Subtle aurora layer behind everything — a whisper of
+          colour so the pane doesn't read as bare next to the
+          Journey PATH scene. Sits BELOW all content (z-order
+          via render order in RN). */}
+      <ToolkitAurora />
+
       {/* Section kicker — matches Journey's "THE PATH" pattern
           so the two tabs read as one visual family. */}
       <View style={styles.kickerRow}>
