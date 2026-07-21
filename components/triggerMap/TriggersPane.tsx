@@ -62,6 +62,12 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
   const isPremium = useIsPremium();
   const query = useTriggerMap(addiction.id, period);
   const cellSheetRef = useRef<CellDetailSheetHandle>(null);
+  // Mount-on-demand — @gorhom/bottom-sheet has a bug on RN Web where
+  // it renders in the "open" position on initial mount even when
+  // `index={-1}`, occupying the bottom half of the screen. Gating
+  // the mount behind a "has ever been asked to open" flag sidesteps
+  // it entirely: no cell tap → no sheet → no phantom overlay.
+  const [sheetMounted, setSheetMounted] = useState(false);
 
   // TEMP-TRIGGER-MOCK-DATA — fall back to mock when the real query
   // has no data yet (design polish preview). Real users get real
@@ -144,12 +150,18 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
             onCellPress={(day, hour) => {
               const count = data.heatmap[day]?.[hour] ?? 0;
               const avgIntensity = data.intensity_map[day]?.[hour] ?? null;
-              cellSheetRef.current?.open({
-                day,
-                hour,
-                count,
-                avgIntensity,
-              });
+              const detail = { day, hour, count, avgIntensity };
+              // Mount the sheet on first press, then open on the
+              // next frame so the ref is wired before we ask it
+              // to snap open.
+              if (!sheetMounted) {
+                setSheetMounted(true);
+                requestAnimationFrame(() => {
+                  cellSheetRef.current?.open(detail);
+                });
+              } else {
+                cellSheetRef.current?.open(detail);
+              }
             }}
           />
         </View>
@@ -209,8 +221,12 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
 
       {/* Bottom sheet lives outside the gate so it can render
           full-screen without the blur veil above sitting on top
-          of it. */}
-      <CellDetailSheet ref={cellSheetRef} accentColor={triggersAccent} />
+          of it. Mount-gated to work around a @gorhom/bottom-sheet
+          bug on RN Web that renders in the open position on
+          initial mount even with `index={-1}`. */}
+      {sheetMounted ? (
+        <CellDetailSheet ref={cellSheetRef} accentColor={triggersAccent} />
+      ) : null}
     </View>
   );
 }
