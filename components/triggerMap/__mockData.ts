@@ -19,30 +19,38 @@ import type { TriggerMapResponse } from '@/lib/triggerMap';
  * -----------------------------------------------------------------
  */
 
-/** A deterministic 7×24 heatmap with a couple of realistic hotspots. */
+/** A deterministic 7×24 heatmap with realistic hotspots that
+ *  match the three peak windows listed below. */
 function makeMockHeatmap(): number[][] {
   const grid: number[][] = Array.from({ length: 7 }, () =>
     Array.from({ length: 24 }, () => 0)
   );
-  // Weekday evening slump 6pm-10pm
-  for (let d = 0; d < 5; d++) {
-    grid[d][18] = 2;
-    grid[d][19] = 3;
-    grid[d][20] = 4;
-    grid[d][21] = 3;
-    grid[d][22] = 2;
-  }
-  // Friday evening spike
-  grid[4][21] = 6;
-  grid[4][22] = 5;
-  // Weekend afternoons
-  grid[5][14] = 3;
-  grid[5][15] = 4;
-  grid[5][16] = 3;
-  grid[6][15] = 5;
-  grid[6][16] = 4;
+  // Monday morning peak (rank 3): 8-10 AM
+  grid[0][8] = 3;
+  grid[0][9] = 4;
+  // Tuesday evening peak (rank 1): 7-10 PM
+  grid[1][19] = 3;
+  grid[1][20] = 5;
+  grid[1][21] = 4;
+  // Wednesday-Thursday evenings — supporting evening cluster
+  grid[2][19] = 2;
+  grid[2][20] = 3;
+  grid[2][21] = 2;
+  grid[3][20] = 3;
+  grid[3][21] = 4;
+  // Friday evening peak (rank 2): 8-11 PM
+  grid[4][20] = 3;
+  grid[4][21] = 5;
+  grid[4][22] = 4;
+  // Weekend afternoons — some ambient warmth
+  grid[5][14] = 2;
+  grid[5][15] = 3;
+  grid[5][16] = 2;
+  grid[6][15] = 3;
+  grid[6][16] = 2;
   // Late Sunday scroll
-  grid[6][23] = 4;
+  grid[6][22] = 2;
+  grid[6][23] = 3;
   // Sparse mid-mornings
   grid[1][10] = 1;
   grid[2][11] = 2;
@@ -55,16 +63,17 @@ function makeMockIntensity(): (number | null)[][] {
   const grid: (number | null)[][] = Array.from({ length: 7 }, () =>
     Array.from({ length: 24 }, () => null)
   );
-  // Match the hotspots above with strong (4-5) intensities
+  // Peak-window intensities (strong = white dot on cell)
+  grid[1][20] = 5;
+  grid[1][21] = 4;
   grid[4][21] = 5;
   grid[4][22] = 4;
-  grid[6][15] = 4;
-  grid[6][23] = 5;
-  grid[3][20] = 4;
+  grid[0][9] = 4;
+  grid[3][21] = 4;
+  grid[6][23] = 4;
   // Softer cells with moderate intensity
-  grid[0][19] = 3;
-  grid[1][10] = 2;
-  grid[5][14] = 3;
+  grid[2][20] = 3;
+  grid[5][15] = 3;
   return grid;
 }
 
@@ -72,10 +81,13 @@ export const MOCK_TRIGGER_MAP: TriggerMapResponse = {
   cravings_count: 47,
   heatmap: makeMockHeatmap(),
   intensity_map: makeMockIntensity(),
+  // Peaks intentionally chosen to line up with cells in the mock
+  // heatmap so the PeakHoursList mini-histograms show real weight
+  // when derived from `heatmap[day]`.
   peak_hours: [
-    { day: 4, hour: 21, count: 6 }, // Fri 9pm
-    { day: 6, hour: 15, count: 5 }, // Sun 3pm
-    { day: 6, hour: 23, count: 4 }, // Sun 11pm
+    { day: 1, hour: 20, count: 12 }, // Tue 7-10 PM window
+    { day: 4, hour: 21, count: 9 }, // Fri 8-11 PM window
+    { day: 0, hour: 9, count: 7 }, // Mon 8-10 AM window
   ],
   triggers: [
     {

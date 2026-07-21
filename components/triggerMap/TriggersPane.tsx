@@ -167,6 +167,9 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
             </Text>
             <PeakHoursList
               peaks={data.peak_hours}
+              heatmap={data.heatmap}
+              triggers={data.triggers}
+              addictionId={addiction.id}
               accentColor={triggersAccent}
             />
           </View>

@@ -25,29 +25,23 @@ import {
 } from './triggersTheme';
 
 /**
- * Faz 8a — 7-day × 24-hour heatmap.
+ * Weekly craving heatmap — Modül 3 redesign.
  *
- * Grid orientation (karar #2): days as top-row columns (Mon…Sun),
- * hours as left-column labels (0–23 stacked vertically). Reads
- * like iOS Screen Time — natural on mobile.
+ * Orientation (post design-handoff): **days = rows (Mon-Sun),
+ * hours = columns (00-23)**. Wide landscape layout so an evening
+ * cluster reads as a solid vertical stripe on the right side of
+ * every day row instead of a horizontal band the user has to trace
+ * across seven columns.
  *
- * Redesign (2026-07-21):
- *   • Ramp switched from generic indigo to the Triggers violet
- *     scale (`triggersHeatmapFill`) so the grid reads as part of
- *     the module family, not a stock chart.
- *   • Hot cells (≥5 cravings) render an extra soft violet halo to
- *     match the design brief's "glow" hint.
- *   • Cells fade in with a staggered `cellPop` on mount (Reanimated
- *     opacity), matching the brief. Reduced-motion → instant.
- *   • Whole grid sits in a glass card with a violet-tinted border
- *     so it plays with `TriggersAurora` behind the pane.
+ * Ramp: `triggersHeatmapFill` (violet scale). Hot cells (≥5) get
+ * a soft violet halo to match the brief's "glow" cue. Cells with
+ * avg intensity ≥ 4 draw an extra white dot in the top-right.
  *
- * Cells whose average intensity is ≥ 4 (strong+) get an extra
- * top-right dot marker in the accent colour so the "how hard" cue
- * layers on top of the "how often" cue.
+ * Grid fades in on mount (Reanimated single opacity + translate)
+ * — matches the brief's cellPop feeling without 168 shared
+ * values. Reduced-motion goes straight to final state.
  *
- * Tap a cell → onCellPress(day, hour). The parent renders the
- * bottom-sheet detail. Tapping an empty cell is a no-op.
+ * Tap a cell → `onCellPress(day, hour)`. Empty cells are no-ops.
  */
 
 type Props = {
@@ -58,13 +52,13 @@ type Props = {
   onCellPress: (day: number, hour: number) => void;
 };
 
-const CELL_SIZE = 12;
+const CELL_SIZE = 11;
 const CELL_GAP = 3;
-const HOUR_LABEL_WIDTH = 28;
-const DAY_LABEL_HEIGHT = 22;
-const INTENSITY_MARKER_RADIUS = 2;
-const INTENSITY_THRESHOLD = 4; // avg intensity ≥ 4 draws the dot
-const HOT_CELL_COUNT = 5; // draws the glow halo
+const DAY_LABEL_WIDTH = 32;
+const HOUR_LABEL_HEIGHT = 20;
+const INTENSITY_MARKER_RADIUS = 1.8;
+const INTENSITY_THRESHOLD = 4;
+const HOT_CELL_COUNT = 5;
 
 export function HeatmapGrid({
   heatmap,
@@ -73,12 +67,10 @@ export function HeatmapGrid({
   onCellPress,
 }: Props) {
   void accentColor;
-  const gridWidth = HOUR_LABEL_WIDTH + DAYS_IN_WEEK * (CELL_SIZE + CELL_GAP);
-  const gridHeight = DAY_LABEL_HEIGHT + HOURS_IN_DAY * (CELL_SIZE + CELL_GAP);
+  const gridWidth = DAY_LABEL_WIDTH + HOURS_IN_DAY * (CELL_SIZE + CELL_GAP);
+  const gridHeight = HOUR_LABEL_HEIGHT + DAYS_IN_WEEK * (CELL_SIZE + CELL_GAP);
 
-  // Precompute cell rect coordinates once — SVG isn't re-laying
-  // out on every render, and the memo shields the render function
-  // from recomputing 168 positions on each parent update.
+  // Precompute cell geometry. (day, hour) → (x, y, count, avg).
   const cells = useMemo(() => {
     const out: {
       day: number;
@@ -90,8 +82,8 @@ export function HeatmapGrid({
     }[] = [];
     for (let day = 0; day < DAYS_IN_WEEK; day++) {
       for (let hour = 0; hour < HOURS_IN_DAY; hour++) {
-        const x = HOUR_LABEL_WIDTH + day * (CELL_SIZE + CELL_GAP);
-        const y = DAY_LABEL_HEIGHT + hour * (CELL_SIZE + CELL_GAP);
+        const x = DAY_LABEL_WIDTH + hour * (CELL_SIZE + CELL_GAP);
+        const y = HOUR_LABEL_HEIGHT + day * (CELL_SIZE + CELL_GAP);
         out.push({
           day,
           hour,
@@ -105,32 +97,53 @@ export function HeatmapGrid({
     return out;
   }, [heatmap, intensityMap]);
 
+  // Which hour labels to render across the top. Every 6 hours plus
+  // the trailing 23 so the right edge is anchored.
+  const hourTicks = useMemo(() => [0, 6, 12, 18, 23] as const, []);
+
   return (
     <View style={styles.wrap}>
-      <View style={styles.subtitleRow}>
-        <Text style={styles.subtitle}>{t('trigger_map.heatmap.subtitle')}</Text>
-        <LegendStrip />
-      </View>
-
-      {/* Wrapper for the staggered mount animation — the whole grid
-          fades in as one, then cells pop individually. */}
       <CellPopWrap>
         <View style={{ width: gridWidth, height: gridHeight }}>
           <Svg width={gridWidth} height={gridHeight} pointerEvents="none">
-            {/* Day labels — top row, one per column. */}
+            {/* Hour labels — top row. */}
             <G>
-              {DAY_KEYS.map((dayKey, i) => {
+              {hourTicks.map((h) => {
                 const x =
-                  HOUR_LABEL_WIDTH + i * (CELL_SIZE + CELL_GAP) + CELL_SIZE / 2;
+                  DAY_LABEL_WIDTH + h * (CELL_SIZE + CELL_GAP) + CELL_SIZE / 2;
+                return (
+                  <SvgText
+                    key={h}
+                    x={x}
+                    y={HOUR_LABEL_HEIGHT - 6}
+                    fill="#8FA5CC"
+                    fontSize={9}
+                    fontWeight="600"
+                    textAnchor="middle"
+                  >
+                    {String(h).padStart(2, '0')}
+                  </SvgText>
+                );
+              })}
+            </G>
+
+            {/* Day labels — left column. */}
+            <G>
+              {DAY_KEYS.map((dayKey, d) => {
+                const y =
+                  HOUR_LABEL_HEIGHT +
+                  d * (CELL_SIZE + CELL_GAP) +
+                  CELL_SIZE / 2 +
+                  3;
                 return (
                   <SvgText
                     key={dayKey}
-                    x={x}
-                    y={DAY_LABEL_HEIGHT - 8}
+                    x={DAY_LABEL_WIDTH - 10}
+                    y={y}
                     fill="#8FA5CC"
                     fontSize={9}
-                    textAnchor="middle"
                     fontWeight="600"
+                    textAnchor="end"
                   >
                     {t(`trigger_map.heatmap.days.${dayKey}`)}
                   </SvgText>
@@ -138,34 +151,7 @@ export function HeatmapGrid({
               })}
             </G>
 
-            {/* Hour labels — left column, every 3 hours to keep
-                things readable at this cell size. */}
-            <G>
-              {Array.from({ length: HOURS_IN_DAY }, (_, i) => i)
-                .filter((h) => h % 3 === 0)
-                .map((h) => {
-                  const y =
-                    DAY_LABEL_HEIGHT +
-                    h * (CELL_SIZE + CELL_GAP) +
-                    CELL_SIZE / 2 +
-                    3;
-                  return (
-                    <SvgText
-                      key={h}
-                      x={HOUR_LABEL_WIDTH - 8}
-                      y={y}
-                      fill="#6B7FA1"
-                      fontSize={8.5}
-                      textAnchor="end"
-                      fontWeight="500"
-                    >
-                      {String(h).padStart(2, '0')}
-                    </SvgText>
-                  );
-                })}
-            </G>
-
-            {/* Cells + intensity markers + hot-cell glow. */}
+            {/* Cells + intensity markers + hot-cell halo. */}
             <G>
               {cells.map((cell) => {
                 const fill = triggersHeatmapFill(cell.count);
@@ -174,12 +160,12 @@ export function HeatmapGrid({
                   <G key={`${cell.day}-${cell.hour}`}>
                     {isHot ? (
                       <Rect
-                        x={cell.x - 1.5}
-                        y={cell.y - 1.5}
-                        width={CELL_SIZE + 3}
-                        height={CELL_SIZE + 3}
-                        rx={3}
-                        ry={3}
+                        x={cell.x - 1.4}
+                        y={cell.y - 1.4}
+                        width={CELL_SIZE + 2.8}
+                        height={CELL_SIZE + 2.8}
+                        rx={2.5}
+                        ry={2.5}
                         fill={triggersAccentAlpha(0.22)}
                       />
                     ) : null}
@@ -208,8 +194,7 @@ export function HeatmapGrid({
             </G>
           </Svg>
 
-          {/* Invisible tap layer — positioned absolutely on top of
-              the SVG so cell hits go straight to onCellPress. */}
+          {/* Invisible tap layer above the SVG. */}
           <View
             style={[
               StyleSheet.absoluteFillObject,
@@ -240,16 +225,30 @@ export function HeatmapGrid({
           </View>
         </View>
       </CellPopWrap>
+
+      <View style={styles.legendRow}>
+        <Text style={styles.legendLabel}>Less</Text>
+        <View style={styles.legendSwatchRow}>
+          {[0, 1, 3, 5].map((count) => (
+            <View
+              key={count}
+              style={[
+                styles.legendSwatch,
+                { backgroundColor: triggersHeatmapFill(count) },
+              ]}
+            />
+          ))}
+        </View>
+        <Text style={styles.legendLabel}>More</Text>
+      </View>
     </View>
   );
 }
 
 /**
- * Simple grid-wide fade-in wrapper — the design brief calls for a
- * staggered cell pop, but 168 shared values would be overkill. A
- * single opacity + translateY fade on the whole grid reads as the
- * same "settling in" gesture without the animation-loop cost, and
- * the ambient aurora behind supplies the motion continuity.
+ * Single-shot fade + rise-in wrapper. Cheaper than 168 per-cell
+ * shared values while reading like the same "settling in" gesture
+ * the design brief calls for.
  */
 function CellPopWrap({ children }: { children: React.ReactNode }) {
   const opacity = useSharedValue(0);
@@ -286,34 +285,13 @@ function CellPopWrap({ children }: { children: React.ReactNode }) {
   return <Animated.View style={style}>{children}</Animated.View>;
 }
 
-/** Small "less → more" legend chip below the subtitle. */
-function LegendStrip() {
-  return (
-    <View style={styles.legendRow}>
-      <Text style={styles.legendLabel}>Less</Text>
-      <View style={styles.legendSwatchRow}>
-        {[0, 1, 3, 5].map((count) => (
-          <View
-            key={count}
-            style={[
-              styles.legendSwatch,
-              { backgroundColor: triggersHeatmapFill(count) },
-            ]}
-          />
-        ))}
-      </View>
-      <Text style={styles.legendLabel}>More</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   wrap: {
     backgroundColor: triggersSurface.bg,
     borderWidth: 1,
     borderColor: triggersSurface.border,
     borderRadius: triggersSurface.radius,
-    padding: 16,
+    padding: 14,
     alignItems: 'center',
     ...Platform.select({
       web: {
@@ -328,40 +306,27 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  subtitleRow: {
-    alignSelf: 'stretch',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  subtitle: {
-    color: '#8FA5CC',
-    fontSize: 11,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    fontWeight: '600',
-  },
   legendRow: {
+    alignSelf: 'flex-end',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    marginTop: 10,
   },
   legendLabel: {
     color: '#6B7FA1',
-    fontSize: 9.5,
+    fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.4,
-    textTransform: 'uppercase',
   },
   legendSwatchRow: {
     flexDirection: 'row',
     gap: 3,
   },
   legendSwatch: {
-    width: 10,
-    height: 10,
-    borderRadius: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 3,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
   },
