@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import Animated, { Easing, FadeIn, FadeOut } from 'react-native-reanimated';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
@@ -126,20 +127,31 @@ export default function AddictionLandingScreen() {
         contentContainerStyle={styles.bodyContent}
         showsVerticalScrollIndicator={false}
       >
-        {subTab === 'journey' && <JourneyPane addiction={addiction} />}
-        {subTab === 'toolkit' && (
-          <ToolkitPane
-            accentColor={addiction.color}
-            onSelect={setRunningTechnique}
-          />
-        )}
-        {subTab === 'triggers' && (
-          <TriggersPane
-            addiction={addiction}
-            onNavigateSubTab={(next) => setSubTab(next)}
-          />
-        )}
-        {subTab === 'comparison' && <ComingSoonPane />}
+        {/* Reanimated keyed remount — swapping `key` triggers
+            entering/exiting animations. Fade + subtle upward
+            drift matches the OS-native cross-fade feel the main
+            bottom tabs use, keeps the tab switch direction-
+            agnostic (works whether you go left or right). */}
+        <Animated.View
+          key={subTab}
+          entering={FadeIn.duration(220).easing(Easing.out(Easing.cubic))}
+          exiting={FadeOut.duration(140)}
+        >
+          {subTab === 'journey' && <JourneyPane addiction={addiction} />}
+          {subTab === 'toolkit' && (
+            <ToolkitPane
+              accentColor={addiction.color}
+              onSelect={setRunningTechnique}
+            />
+          )}
+          {subTab === 'triggers' && (
+            <TriggersPane
+              addiction={addiction}
+              onNavigateSubTab={(next) => setSubTab(next)}
+            />
+          )}
+          {subTab === 'comparison' && <ComingSoonPane />}
+        </Animated.View>
       </ScrollView>
 
       {/* Faz 6 — guided-flow overlay. Sits on top of the Info tab
@@ -220,20 +232,10 @@ function SubTabBar({
             >
               <Ionicons
                 name={tab.icon}
-                size={16}
+                size={20}
                 color="#ffffff"
                 style={!isActive ? styles.inactiveGlyph : undefined}
               />
-              <Text
-                style={[
-                  styles.subTabLabel,
-                  isActive
-                    ? styles.subTabLabelActive
-                    : styles.subTabLabelInactive,
-                ]}
-              >
-                {t(tab.labelKey)}
-              </Text>
             </View>
           </Pressable>
         );
@@ -377,25 +379,28 @@ const styles = StyleSheet.create({
   // Glass-pill sub-tab bar. No underline, no bottom border —
   // the active pill carries all the visual weight, and the deep
   // navy screen bg (dsColors.bgBase) sits behind it.
+  // Icon-only, centered pills. Text labels dropped — the four
+  // icons are distinct enough that copy was noise, and the row
+  // now breathes with balanced whitespace.
   subTabRow: {
     flexDirection: 'row',
+    justifyContent: 'center',
     marginTop: dsSpacing.sm,
     paddingHorizontal: dsSpacing.sm,
     paddingVertical: dsSpacing.xs,
-    gap: 6,
+    gap: 12,
   },
   subTabBtn: {
-    flex: 1,
-    alignItems: 'stretch',
+    // Fixed slot per tab keeps spacing symmetric regardless of
+    // how many tabs are active (currently 4).
+    alignItems: 'center',
     justifyContent: 'center',
   },
   subTabPill: {
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    width: 56,
+    height: 44,
     borderRadius: 9999,
     borderWidth: 1,
     borderColor: 'transparent',
@@ -414,19 +419,6 @@ const styles = StyleSheet.create({
       } as never,
       default: {},
     }),
-  },
-  subTabLabel: {
-    fontSize: 14,
-    letterSpacing: dsFont.letterSpacing.tight,
-  },
-  subTabLabelActive: {
-    color: '#ffffff',
-    fontWeight: dsFont.weight.semibold,
-  },
-  subTabLabelInactive: {
-    color: '#ffffff',
-    opacity: 0.4,
-    fontWeight: dsFont.weight.regular,
   },
   inactiveGlyph: {
     opacity: 0.4,
