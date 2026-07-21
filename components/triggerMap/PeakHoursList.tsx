@@ -526,10 +526,17 @@ function PeakCard({
 
 /**
  * 24-cell strip where each cell's HEIGHT reflects that hour's
- * craving count (relative to the day's max). Cells inside the
- * peak window use the violet accent; the rest render as
- * faint grey scaffolding so the peak reads as a "swell" against
- * a hush background.
+ * craving count. Bars inside the peak window paint in violet with
+ * dramatic height variation (a 5-count hour towers over a 1-count
+ * hour so the "peak within the peak" is obvious at a glance).
+ * Non-window hours stay as a flat, faint baseline so the eye
+ * doesn't have to disambiguate — the swell inside the window IS
+ * the story.
+ *
+ * Height scales COUNT-DIRECTLY (units of px per craving) rather
+ * than count/dayMax, so the same "5 cravings" bar looks the same
+ * across Tuesday and Monday cards even though their day-maxes
+ * differ — the viewer's intuition about "5" stays anchored.
  */
 function PeakHistogramStrip({
   hourlyCounts,
@@ -543,36 +550,65 @@ function PeakHistogramStrip({
   isTop: boolean;
 }) {
   const stripWidth = 288;
-  const stripHeight = 22;
+  const stripHeight = 34;
   const gap = 2;
   const cellW = (stripWidth - gap * 23) / 24;
-  const dayMax = Math.max(1, ...hourlyCounts);
-  const inWindowAlpha = isTop ? 0.95 : 0.7;
+
+  // Direct scale — px per craving. Cap keeps really-busy hours from
+  // pushing over the strip; floor keeps 1-count hours visible.
+  const PX_PER_CRAVING = 6;
+  const MIN_ACTIVE_H = 6; // any non-zero window bar shows this tall
+  const MAX_H = stripHeight - 2;
+  // Flat baseline outside the window — no scaffolding noise, no
+  // count-per-count fluctuation to compete with the peak.
+  const OUTSIDE_H = 3;
+
   return (
     <View style={{ width: stripWidth, height: stripHeight, marginTop: 10 }}>
       <Svg width={stripWidth} height={stripHeight}>
         {Array.from({ length: 24 }, (_, i) => {
           const count = hourlyCounts[i] ?? 0;
           const isInWindow = i >= windowStart && i <= windowEnd;
-          // Minimum height so empty hours still show scaffolding.
-          const baseH = 3;
-          const scaledH = Math.max(
-            baseH,
-            Math.round((count / dayMax) * (stripHeight - 2))
-          );
-          const y = stripHeight - scaledH;
-          const fill = isInWindow
-            ? triggersAccentAlpha(inWindowAlpha)
-            : 'rgba(255,255,255,0.08)';
+
+          let barH: number;
+          let fill: string;
+
+          if (isInWindow) {
+            // Count-scaled height inside the window. A 0-count hour
+            // inside the window still gets the flat baseline so the
+            // ordering of hours reads correctly.
+            barH =
+              count === 0
+                ? OUTSIDE_H
+                : Math.min(
+                    MAX_H,
+                    Math.max(MIN_ACTIVE_H, count * PX_PER_CRAVING)
+                  );
+            // Brightness ALSO scales with count so higher bars pop
+            // even more. Top card gets a stronger ceiling.
+            const relative =
+              count === 0 ? 0 : 0.55 + Math.min(0.4, count * 0.08);
+            const alpha =
+              (isTop ? 0.95 : 0.75) * (count === 0 ? 0.35 : relative);
+            fill =
+              count === 0
+                ? 'rgba(255,255,255,0.08)'
+                : triggersAccentAlpha(Math.min(0.95, alpha + 0.35));
+          } else {
+            barH = OUTSIDE_H;
+            fill = 'rgba(255,255,255,0.08)';
+          }
+
+          const y = stripHeight - barH;
           return (
             <Rect
               key={i}
               x={i * (cellW + gap)}
               y={y}
               width={cellW}
-              height={scaledH}
-              rx={1.2}
-              ry={1.2}
+              height={barH}
+              rx={1.4}
+              ry={1.4}
               fill={fill}
             />
           );
