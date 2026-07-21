@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { t } from '@/lib/i18n';
+import { triggersSurface } from './triggersTheme';
 
 /**
  * Faz 8a — progressive-disclosure placeholders for the
@@ -60,10 +61,10 @@ function hexAlpha(hex: string, alpha: number): string {
 const styles = StyleSheet.create({
   wrap: {
     padding: 20,
-    borderRadius: 16,
-    backgroundColor: '#0A1628',
+    borderRadius: triggersSurface.radius,
+    backgroundColor: triggersSurface.bg,
     borderWidth: 1,
-    borderColor: '#1E2D4D',
+    borderColor: triggersSurface.border,
     alignItems: 'center',
     marginBottom: 16,
   },

@@ -405,6 +405,7 @@
     "among_resisting": "You're among those resisting"
   },
   "trigger_map": {
+    "section_kicker": "WHAT LIGHTS THE FUSE",
     "period": {
       "7d": "Last 7 days",
       "30d": "Last 30 days",
@@ -476,8 +477,35 @@
     "empty_message": "Insights appear as you build history",
     "detail_show": "Show details",
     "detail_hide": "Hide details",
+    "details_toggle": "Details",
     "action": {
       "open_toolkit": "See techniques"
+    },
+    "category_label": {
+      "time": "TIMING",
+      "trigger": "TRIGGER",
+      "technique": "TECHNIQUE",
+      "trend": "TREND"
+    },
+    "sublabel": {
+      "peak_hour": "HARDEST HOUR",
+      "dominant_trigger": "TOP TRIGGER",
+      "effective_technique": "MOST EFFECTIVE",
+      "weekend_concentration": "WEEKEND SHIFT",
+      "rising_resistance": "GAINING GROUND",
+      "silence_check": "QUIET STREAK"
+    },
+    "hero": {
+      "value_hour": "{{hour}}",
+      "value_percent": "{{percent}}%",
+      "value_days": "{{days}}d",
+      "value_multiplier": "{{multiplier}}×",
+      "description_peak_hour": "Your most-craving hour of the week",
+      "description_dominant_trigger": "of your cravings trace back to {{trigger}}",
+      "description_effective_technique": "success rate with {{technique}}",
+      "description_weekend_concentration": "weekend intensity vs weekday baseline",
+      "description_rising_resistance": "improvement in resistance this week",
+      "description_silence_check": "quiet days since your last craving"
     },
     "peak_hour": {
       "template": "{{hour}} is your hardest time",

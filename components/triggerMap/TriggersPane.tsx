@@ -10,6 +10,7 @@ import type { Addiction } from '@/constants/addictions';
 import { useTriggerMap } from '@/lib/triggerMap';
 import { useIsPremium } from '@/lib/premium';
 import { t } from '@/lib/i18n';
+import { dsSectionHeaderStyle, dsSpacing } from '@/constants/designSystem';
 import { PeriodFilter } from './PeriodFilter';
 import { FreeTierGate } from './FreeTierGate';
 import { EmptyState } from './EmptyStates';
@@ -18,6 +19,8 @@ import { PeakHoursList } from './PeakHoursList';
 import { TriggerDistribution } from './TriggerDistribution';
 import { CellDetailSheet, type CellDetailSheetHandle } from './CellDetailSheet';
 import { InsightSection } from './InsightSection';
+import { TriggersAurora } from './TriggersAurora';
+import { triggersAccent } from './triggersTheme';
 
 /**
  * Faz 8a — Modül 3 root panel. Renders the trigger-map response
@@ -36,6 +39,14 @@ import { InsightSection } from './InsightSection';
  * Free-tier layer: when the user isn't premium, the whole content
  * region is wrapped in `<FreeTierGate>` — content still renders
  * underneath but is blurred + veiled, with an Upgrade CTA.
+ *
+ * Triggers-redesign (2026-07-21): the module now owns a dedicated
+ * violet accent (`triggersAccent`). Sub-components no longer receive
+ * `addiction.color` — the addiction identity is expressed by the
+ * detail-screen header + AmbientGlow above; this pane paints its
+ * own charts in violet regardless of which addiction is open. A
+ * subtle `TriggersAurora` layer sits behind everything so the
+ * chart cards read as glass instead of floating on cold navy.
  */
 
 type Props = {
@@ -67,11 +78,19 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
 
   const content = (
     <View>
+      {/* Section kicker — matches Journey's "THE PATH" and Toolkit's
+          "TRY DURING A CRAVING" so all three sub-tabs read as one
+          visual family with only the copy shifting per module. */}
+      <View style={styles.kickerRow}>
+        <Text style={styles.kicker}>{t('trigger_map.section_kicker')}</Text>
+        <View style={styles.hairline} />
+      </View>
+
       {!showSpinner && !query.isError && (
         <InsightSection
           insights={insights}
           addictionId={addiction.id}
-          accentColor={addiction.color}
+          accentColor={triggersAccent}
           onAction={(actionKey) => {
             if (actionKey === 'open_toolkit') {
               onNavigateSubTab?.('toolkit');
@@ -83,12 +102,12 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
       <PeriodFilter
         value={period}
         onChange={setPeriod}
-        accentColor={addiction.color}
+        accentColor={triggersAccent}
       />
 
       {showSpinner && (
         <View style={styles.spinnerWrap}>
-          <ActivityIndicator color={addiction.color} />
+          <ActivityIndicator color={triggersAccent} />
         </View>
       )}
 
@@ -101,7 +120,7 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
       )}
 
       {!showSpinner && !query.isError && isZero && (
-        <EmptyState variant="zero" accentColor={addiction.color} />
+        <EmptyState variant="zero" accentColor={triggersAccent} />
       )}
 
       {!showSpinner && (isSparse || isFull) && query.data && (
@@ -112,7 +131,7 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
           <HeatmapGrid
             heatmap={query.data.heatmap}
             intensityMap={query.data.intensity_map}
-            accentColor={addiction.color}
+            accentColor={triggersAccent}
             onCellPress={(day, hour) => {
               const count = query.data?.heatmap[day]?.[hour] ?? 0;
               const avgIntensity =
@@ -129,7 +148,7 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
       )}
 
       {!showSpinner && isSparse && (
-        <EmptyState variant="sparse" accentColor={addiction.color} />
+        <EmptyState variant="sparse" accentColor={triggersAccent} />
       )}
 
       {!showSpinner && isFull && query.data && (
@@ -140,13 +159,13 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
             </Text>
             <PeakHoursList
               peaks={query.data.peak_hours}
-              accentColor={addiction.color}
+              accentColor={triggersAccent}
             />
           </View>
           <View style={styles.section}>
             <TriggerDistribution
               triggers={query.data.triggers}
-              accentColor={addiction.color}
+              accentColor={triggersAccent}
               addictionId={addiction.id}
               periodLabel={t(`trigger_map.period.${period}`)}
             />
@@ -169,21 +188,47 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
   void FreeTierGate;
 
   return (
-    <View style={styles.wrap}>
-      {content}
+    <View style={styles.root}>
+      {/* Ambient violet layer — a whisper of colour behind the
+          content so the pane matches Journey/Toolkit atmosphere.
+          Sits BELOW all content by render order. */}
+      <TriggersAurora />
+
+      <View style={styles.wrap}>{content}</View>
+
       {/* Bottom sheet lives outside the gate so it can render
           full-screen without the blur veil above sitting on top
           of it. */}
-      <CellDetailSheet ref={cellSheetRef} accentColor={addiction.color} />
+      <CellDetailSheet ref={cellSheetRef} accentColor={triggersAccent} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    paddingTop: 8,
+    paddingBottom: 32,
+  },
   wrap: {
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 24,
+    paddingTop: 4,
+  },
+  kickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 0,
+    marginBottom: dsSpacing.md,
+  },
+  kicker: {
+    ...dsSectionHeaderStyle,
+    marginTop: 0,
+    marginBottom: 0,
+  },
+  hairline: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   spinnerWrap: {
     paddingVertical: 40,
