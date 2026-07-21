@@ -74,9 +74,9 @@ export function CategoryInsightCard({
   const p = buildInsightPresentation(insight, addictionId);
   const cardColor = triggersColorFor(insight.category);
   const IconComp = CATEGORY_ICON[insight.category] ?? Sparkles;
-  const message = t(insight.templateKey, insight.interpolation ?? {});
+  const message = t(insight.templateKey, p.resolvedInterpolation);
   const detailText = insight.detailKey
-    ? t(insight.detailKey, insight.interpolation ?? {})
+    ? t(insight.detailKey, p.resolvedInterpolation)
     : '';
   const hasDetail = !!insight.detailKey;
   const hasAction = !!insight.actionKey;

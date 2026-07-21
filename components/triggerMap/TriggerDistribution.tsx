@@ -13,7 +13,11 @@ import Animated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated';
-import { triggerLabel } from '@/constants/triggerCatalog';
+import {
+  ADDICTION_TRIGGERS,
+  COMMON_TRIGGERS,
+  triggerLabel,
+} from '@/constants/triggerCatalog';
 import type { TriggerMapTrigger } from '@/lib/triggerMap';
 import { t } from '@/lib/i18n';
 import {
@@ -49,6 +53,23 @@ type Props = {
   periodLabel: string;
 };
 
+/**
+ * Trigger label resolver — try the common set first, then the
+ * addiction-specific set, and finally fall back to the raw id.
+ * Same policy as `heroData.ts` so insight card copy and the
+ * distribution list agree on labels.
+ */
+function resolveTriggerLabel(id: string, addictionId: string): string {
+  if (COMMON_TRIGGERS.some((row) => row.id === id)) {
+    return triggerLabel({ id, scope: 'common', displayOrder: 0 });
+  }
+  const list = ADDICTION_TRIGGERS[addictionId] ?? [];
+  if (list.some((row) => row.id === id)) {
+    return triggerLabel({ id, scope: addictionId, displayOrder: 0 });
+  }
+  return id;
+}
+
 export function TriggerDistribution({
   triggers,
   accentColor,
@@ -80,11 +101,7 @@ export function TriggerDistribution({
         {t('trigger_map.distribution.title', { period: periodLabel })}
       </Text>
       {triggers.map((row, i) => {
-        const label = triggerLabel({
-          id: row.trigger_id,
-          scope: addictionId,
-          displayOrder: 0,
-        });
+        const label = resolveTriggerLabel(row.trigger_id, addictionId);
         const relative = topPct > 0 ? row.percentage / topPct : 0;
         const dotColor = triggersColorFor(row.trigger_id);
         const isTop = i === 0;

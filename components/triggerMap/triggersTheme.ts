@@ -35,6 +35,10 @@ export const triggersCategoryColors = {
   tiredness: '#e0aa60',
   boredom: '#7dc98a',
   social: '#5bb6d9',
+  social_situation: '#5bb6d9',
+  anxiety: '#e0607a',
+  sadness: '#e0aa60',
+  anger: '#e0607a',
 } as const;
 
 /**

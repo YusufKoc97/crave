@@ -21,6 +21,8 @@ import { CellDetailSheet, type CellDetailSheetHandle } from './CellDetailSheet';
 import { InsightSection } from './InsightSection';
 import { TriggersAurora } from './TriggersAurora';
 import { triggersAccent } from './triggersTheme';
+// TEMP-TRIGGER-MOCK-DATA — remove import + fallback below before ship.
+import { MOCK_TRIGGER_MAP } from './__mockData';
 
 /**
  * Faz 8a — Modül 3 root panel. Renders the trigger-map response
@@ -61,8 +63,14 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
   const query = useTriggerMap(addiction.id, period);
   const cellSheetRef = useRef<CellDetailSheetHandle>(null);
 
-  const cravingsCount = query.data?.cravings_count ?? 0;
-  const isZero = !query.data || cravingsCount === 0;
+  // TEMP-TRIGGER-MOCK-DATA — fall back to mock when the real query
+  // has no data yet (design polish preview). Real users get real
+  // data as soon as the Edge Function returns.
+  const usingMock = !query.data || query.data.cravings_count === 0;
+  const data =
+    query.data && query.data.cravings_count > 0 ? query.data : MOCK_TRIGGER_MAP;
+  const cravingsCount = data.cravings_count;
+  const isZero = false; // forced non-empty while mock is active
   const isSparse =
     !isZero &&
     cravingsCount >= CRAVING_THRESHOLD_SPARSE &&
@@ -72,9 +80,10 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
   // Loading state — the first fetch on this tab. Query keeps the
   // previous cache warm across period changes so this only fires
   // on the initial mount for a given (addiction, period) pair.
-  const showSpinner = query.isLoading && !query.data;
+  // Skip spinner when the mock is doing the work.
+  const showSpinner = query.isLoading && !query.data && !usingMock;
 
-  const insights = query.data?.insights ?? [];
+  const insights = data.insights;
 
   const content = (
     <View>
@@ -86,7 +95,7 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
         <View style={styles.hairline} />
       </View>
 
-      {!showSpinner && !query.isError && (
+      {!showSpinner && !(query.isError && !usingMock) && (
         <InsightSection
           insights={insights}
           addictionId={addiction.id}
@@ -111,7 +120,7 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
         </View>
       )}
 
-      {query.isError && !query.data && (
+      {query.isError && !usingMock && !query.data && (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>
             {t('trigger_map.error.load_failed')}
@@ -119,23 +128,22 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
         </View>
       )}
 
-      {!showSpinner && !query.isError && isZero && (
+      {!showSpinner && !(query.isError && !usingMock) && isZero && (
         <EmptyState variant="zero" accentColor={triggersAccent} />
       )}
 
-      {!showSpinner && (isSparse || isFull) && query.data && (
+      {!showSpinner && (isSparse || isFull) && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             {t('trigger_map.heatmap.title')}
           </Text>
           <HeatmapGrid
-            heatmap={query.data.heatmap}
-            intensityMap={query.data.intensity_map}
+            heatmap={data.heatmap}
+            intensityMap={data.intensity_map}
             accentColor={triggersAccent}
             onCellPress={(day, hour) => {
-              const count = query.data?.heatmap[day]?.[hour] ?? 0;
-              const avgIntensity =
-                query.data?.intensity_map[day]?.[hour] ?? null;
+              const count = data.heatmap[day]?.[hour] ?? 0;
+              const avgIntensity = data.intensity_map[day]?.[hour] ?? null;
               cellSheetRef.current?.open({
                 day,
                 hour,
@@ -151,20 +159,20 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
         <EmptyState variant="sparse" accentColor={triggersAccent} />
       )}
 
-      {!showSpinner && isFull && query.data && (
+      {!showSpinner && isFull && (
         <>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               {t('trigger_map.peak_hours.title')}
             </Text>
             <PeakHoursList
-              peaks={query.data.peak_hours}
+              peaks={data.peak_hours}
               accentColor={triggersAccent}
             />
           </View>
           <View style={styles.section}>
             <TriggerDistribution
-              triggers={query.data.triggers}
+              triggers={data.triggers}
               accentColor={triggersAccent}
               addictionId={addiction.id}
               periodLabel={t(`trigger_map.period.${period}`)}

@@ -33,6 +33,12 @@ export type InsightPresentation = {
   viz: 'minibar' | 'sparkline' | 'none';
   /** Optional trend chip copy shown top-right on category cards. */
   trend: { label: string; direction: 'up' | 'flat' } | null;
+  /**
+   * Interpolation with trigger/technique IDs swapped for human
+   * labels — safe to feed into `t(insight.templateKey, ...)` so
+   * card titles never show raw IDs.
+   */
+  resolvedInterpolation: Record<string, string | number>;
 };
 
 /**
@@ -97,6 +103,7 @@ export function buildInsightPresentation(
         description: t('insights.hero.description_peak_hour'),
         viz: 'minibar',
         trend: null,
+        resolvedInterpolation: resolved,
       };
     }
     case 'dominant_trigger': {
@@ -112,6 +119,7 @@ export function buildInsightPresentation(
         }),
         viz: 'minibar',
         trend: { label: `${percent}%`, direction: 'up' },
+        resolvedInterpolation: resolved,
       };
     }
     case 'effective_technique': {
@@ -127,6 +135,7 @@ export function buildInsightPresentation(
         }),
         viz: 'sparkline',
         trend: { label: `${percent}%`, direction: 'up' },
+        resolvedInterpolation: resolved,
       };
     }
     case 'rising_resistance': {
@@ -139,6 +148,7 @@ export function buildInsightPresentation(
         description: t('insights.hero.description_rising_resistance'),
         viz: 'sparkline',
         trend: { label: `+${percent}%`, direction: 'up' },
+        resolvedInterpolation: resolved,
       };
     }
     case 'weekend_concentration': {
@@ -155,6 +165,7 @@ export function buildInsightPresentation(
         description: t('insights.hero.description_weekend_concentration'),
         viz: 'minibar',
         trend: { label: `${raw}×`, direction: 'up' },
+        resolvedInterpolation: resolved,
       };
     }
     case 'silence_check': {
@@ -167,6 +178,7 @@ export function buildInsightPresentation(
         description: t('insights.hero.description_silence_check'),
         viz: 'none',
         trend: null,
+        resolvedInterpolation: resolved,
       };
     }
     default: {
@@ -179,6 +191,7 @@ export function buildInsightPresentation(
         description: t(insight.templateKey, resolved),
         viz: 'none',
         trend: null,
+        resolvedInterpolation: resolved,
       };
     }
   }

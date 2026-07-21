@@ -58,7 +58,7 @@ export function InsightsHero({
   const p = buildInsightPresentation(insight, addictionId);
   const hasDetail = !!insight.detailKey;
   const detailText = insight.detailKey
-    ? t(insight.detailKey, insight.interpolation ?? {})
+    ? t(insight.detailKey, p.resolvedInterpolation)
     : '';
 
   const handleToggleDetail = () => {
