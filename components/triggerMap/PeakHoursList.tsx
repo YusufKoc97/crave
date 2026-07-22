@@ -4,7 +4,6 @@ import Svg, {
   Circle,
   Defs,
   G,
-  Line,
   Path,
   RadialGradient,
   Rect,
@@ -57,11 +56,9 @@ type Props = {
 };
 
 const CLOCK_SIZE = 220;
-const CLOCK_STROKE_MAJOR = 2;
-const CLOCK_STROKE_MINOR = 1;
-const CLOCK_TICK_LEN_MAJOR = 10;
-const CLOCK_TICK_LEN_MINOR = 5;
-const CLOCK_ARC_STROKE = 9;
+/** Min/max stroke thickness for hourly arc segments. */
+const ARC_STROKE_MIN = 3;
+const ARC_STROKE_MAX = 14;
 /** How many hours around each peak to include in its window. */
 const PEAK_WINDOW_RADIUS = 1;
 
@@ -138,7 +135,7 @@ export function PeakHoursList({
       </Text>
 
       <View style={styles.clockWrap}>
-        <RadialClock peaks={enrichedPeaks} total={clockTotal} />
+        <RadialClock heatmap={heatmap} total={clockTotal} />
       </View>
 
       {enrichedPeaks.map((peak, idx) => {
@@ -165,92 +162,60 @@ export function PeakHoursList({
 
 // ─────────────────────── Radial 24h clock ───────────────────────
 
-type EnrichedPeak = TriggerMapPeak & {
-  startHour: number;
-  /** Last hour that's part of the window (inclusive). */
-  endHourInc: number;
-  windowCount: number;
-  hourlyCounts: number[];
-};
-
 function RadialClock({
-  peaks,
+  heatmap,
   total,
 }: {
-  peaks: EnrichedPeak[];
+  heatmap: number[][];
   total: number;
 }) {
   const cx = CLOCK_SIZE / 2;
   const cy = CLOCK_SIZE / 2;
   const outerR = CLOCK_SIZE / 2 - 4;
-  const arcR = outerR - 20;
-  const innerGuideR = arcR - 16;
+  const arcR = outerR - 16;
 
-  // Order arcs weakest-first so the strongest paints on top.
-  const sortedPeaks = useMemo(
-    () => [...peaks].sort((a, b) => a.windowCount - b.windowCount),
-    [peaks]
-  );
-  const strongestPeak = useMemo(
-    () =>
-      peaks.reduce(
-        (best, p) => (p.windowCount > (best?.windowCount ?? -1) ? p : best),
-        peaks[0]
-      ),
-    [peaks]
-  );
-
-  // 24 tick marks, majors at 0/6/12/18.
-  const ticks = useMemo(() => {
-    const out: {
-      x1: number;
-      y1: number;
-      x2: number;
-      y2: number;
-      major: boolean;
-    }[] = [];
-    for (let h = 0; h < 24; h++) {
-      const major = h % 6 === 0;
-      const angle = hourToRadians(h);
-      const tickLen = major ? CLOCK_TICK_LEN_MAJOR : CLOCK_TICK_LEN_MINOR;
-      const x1 = cx + (outerR - tickLen) * Math.cos(angle);
-      const y1 = cy + (outerR - tickLen) * Math.sin(angle);
-      const x2 = cx + outerR * Math.cos(angle);
-      const y2 = cy + outerR * Math.sin(angle);
-      out.push({ x1, y1, x2, y2, major });
+  // Aggregate craving count per hour of day across the week.
+  // Each of the 24 hours becomes one arc segment whose thickness +
+  // opacity map to that hour's total count. The busier the hour,
+  // the fatter and darker its segment reads.
+  const hourlyTotals = useMemo(() => {
+    const out: number[] = Array.from({ length: 24 }, () => 0);
+    for (let d = 0; d < 7; d++) {
+      const row = heatmap[d] ?? [];
+      for (let h = 0; h < 24; h++) out[h] += row[h] ?? 0;
     }
     return out;
-  }, [cx, cy, outerR]);
+  }, [heatmap]);
+  const maxHour = Math.max(1, ...hourlyTotals);
 
-  // Cardinal labels (12A / 6A / 12P / 6P) — sit just outside the
-  // ring so the arc geometry has room to breathe inside.
+  // Cardinal labels — sit just outside the ring so the arcs breathe.
   const cardinals = useMemo(() => {
     const labelR = outerR + 12;
     return (
       [
-        { hour: 0, text: '12A', dx: 0, dy: 4 },
-        { hour: 6, text: '6A', dx: 0, dy: 4 },
-        { hour: 12, text: '12P', dx: 0, dy: 4 },
-        { hour: 18, text: '6P', dx: 0, dy: 4 },
+        { hour: 0, text: '12A' },
+        { hour: 6, text: '6A' },
+        { hour: 12, text: '12P' },
+        { hour: 18, text: '6P' },
       ] as const
-    ).map(({ hour, text, dx, dy }) => {
+    ).map(({ hour, text }) => {
       const angle = hourToRadians(hour);
       return {
         text,
-        x: cx + labelR * Math.cos(angle) + dx,
-        y: cy + labelR * Math.sin(angle) + dy,
+        x: cx + labelR * Math.cos(angle),
+        y: cy + labelR * Math.sin(angle) + 4,
       };
     });
   }, [cx, cy, outerR]);
 
-  const svgSize = CLOCK_SIZE + 28; // room for cardinal labels
+  const svgSize = CLOCK_SIZE + 28;
   const offset = 14;
 
   return (
     <Svg width={svgSize} height={svgSize}>
       <Defs>
         <RadialGradient id="clockGlow" cx="50%" cy="50%" r="50%">
-          <Stop offset="0%" stopColor={triggersAccent} stopOpacity={0.22} />
+          <Stop offset="0%" stopColor={triggersAccent} stopOpacity={0.18} />
           <Stop offset="100%" stopColor={triggersAccent} stopOpacity={0} />
         </RadialGradient>
       </Defs>
@@ -259,118 +224,45 @@ function RadialClock({
         {/* Inner ambient glow. */}
         <Circle cx={cx} cy={cy} r={arcR + 2} fill="url(#clockGlow)" />
 
-        {/* Base ring — subtle full circle so ticks feel anchored. */}
+        {/* Base ring — one continuous hairline showing the 24h
+            frame. No ticks, no marks, no extra dots. */}
         <Circle
           cx={cx}
           cy={cy}
-          r={outerR}
-          stroke={triggersAccentAlpha(0.14)}
+          r={arcR}
+          stroke={triggersAccentAlpha(0.1)}
           strokeWidth={1}
           fill="none"
         />
 
-        {/* Inner guide ring (super subtle). */}
-        <Circle
-          cx={cx}
-          cy={cy}
-          r={innerGuideR}
-          stroke={triggersAccentAlpha(0.14)}
-          strokeWidth={1}
-          fill="none"
-        />
-
-        {/* Tick marks. */}
+        {/* Per-hour arc segments — one per hour with a non-zero
+            count. Thickness + alpha scale with count/maxHour so a
+            busy 8 PM hour visibly towers over a quiet 4 AM. */}
         <G>
-          {ticks.map((tick, i) => (
-            <Line
-              key={i}
-              x1={tick.x1}
-              y1={tick.y1}
-              x2={tick.x2}
-              y2={tick.y2}
-              stroke={
-                tick.major
-                  ? triggersAccentAlpha(0.6)
-                  : triggersAccentAlpha(0.25)
-              }
-              strokeWidth={tick.major ? CLOCK_STROKE_MAJOR : CLOCK_STROKE_MINOR}
-              strokeLinecap="round"
-            />
-          ))}
-        </G>
-
-        {/* Peak arcs + white-dot tips at both ends of each arc. */}
-        <G>
-          {sortedPeaks.map((peak) => {
-            const isTop =
-              peak.hour === strongestPeak?.hour &&
-              peak.day === strongestPeak?.day;
-            const alpha = isTop ? 0.95 : 0.5;
-            const arcStartH = peak.startHour;
-            const arcEndH = peak.endHourInc + 1; // inclusive → +1 span
-            const start = hourToRadians(arcStartH);
-            const end = hourToRadians(arcEndH);
+          {hourlyTotals.map((count, hour) => {
+            if (count <= 0) return null;
+            const ratio = count / maxHour;
+            const stroke =
+              ARC_STROKE_MIN + ratio * (ARC_STROKE_MAX - ARC_STROKE_MIN);
+            const alpha = 0.35 + ratio * 0.6;
+            // Slight overlap between neighbours (0.02 rad ≈ 1°) so
+            // consecutive busy hours read as one thicker band.
+            const pad = 0.02;
+            const start = hourToRadians(hour) - pad;
+            const end = hourToRadians(hour + 1) + pad;
             const d = describeArc(cx, cy, arcR, start, end);
-            const leadX = cx + arcR * Math.cos(end);
-            const leadY = cy + arcR * Math.sin(end);
-            const tailX = cx + arcR * Math.cos(start);
-            const tailY = cy + arcR * Math.sin(start);
             return (
-              <G key={`${peak.day}-${peak.hour}`}>
-                <Path
-                  d={d}
-                  stroke={triggersAccentAlpha(alpha)}
-                  strokeWidth={CLOCK_ARC_STROKE}
-                  strokeLinecap="round"
-                  fill="none"
-                />
-                {/* White dot tips — start (dim) + end (bright) so the
-                    arc's direction reads as "swelling toward peak". */}
-                <Circle
-                  cx={tailX}
-                  cy={tailY}
-                  r={2.6}
-                  fill="#FFFFFF"
-                  fillOpacity={0.55}
-                />
-                <Circle
-                  cx={leadX}
-                  cy={leadY}
-                  r={3.2}
-                  fill="#FFFFFF"
-                  fillOpacity={0.95}
-                />
-              </G>
+              <Path
+                key={hour}
+                d={d}
+                stroke={triggersAccentAlpha(alpha)}
+                strokeWidth={stroke}
+                strokeLinecap="butt"
+                fill="none"
+              />
             );
           })}
         </G>
-
-        {/* Thin needle from center to the strongest peak's midpoint. */}
-        {strongestPeak
-          ? (() => {
-              const midHour =
-                (strongestPeak.startHour + strongestPeak.endHourInc + 1) / 2;
-              const angle = hourToRadians(midHour);
-              const nx = cx + (arcR - 6) * Math.cos(angle);
-              const ny = cy + (arcR - 6) * Math.sin(angle);
-              return (
-                <G>
-                  <Line
-                    x1={cx}
-                    y1={cy}
-                    x2={nx}
-                    y2={ny}
-                    stroke={triggersAccent}
-                    strokeWidth={1.6}
-                    strokeLinecap="round"
-                    strokeOpacity={0.85}
-                  />
-                  <Circle cx={nx} cy={ny} r={3} fill="#FFFFFF" />
-                  <Circle cx={cx} cy={cy} r={3} fill={triggersAccent} />
-                </G>
-              );
-            })()
-          : null}
 
         {/* Cardinal labels. */}
         <G>

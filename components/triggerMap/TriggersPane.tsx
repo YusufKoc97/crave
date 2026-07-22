@@ -22,7 +22,7 @@ import { InsightSection } from './InsightSection';
 import { TriggersAurora } from './TriggersAurora';
 import { triggersAccent } from './triggersTheme';
 // TEMP-TRIGGER-MOCK-DATA — remove import + fallback below before ship.
-import { MOCK_TRIGGER_MAP } from './__mockData';
+import { mockTriggerMapFor } from './__mockData';
 
 /**
  * Faz 8a — Modül 3 root panel. Renders the trigger-map response
@@ -71,10 +71,13 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
 
   // TEMP-TRIGGER-MOCK-DATA — fall back to mock when the real query
   // has no data yet (design polish preview). Real users get real
-  // data as soon as the Edge Function returns.
+  // data as soon as the Edge Function returns. Mock rotates per
+  // period so the 7d / 30d / all pills feel like real filters.
   const usingMock = !query.data || query.data.cravings_count === 0;
   const data =
-    query.data && query.data.cravings_count > 0 ? query.data : MOCK_TRIGGER_MAP;
+    query.data && query.data.cravings_count > 0
+      ? query.data
+      : mockTriggerMapFor(period);
   const cravingsCount = data.cravings_count;
   const isZero = false; // forced non-empty while mock is active
   const isSparse =

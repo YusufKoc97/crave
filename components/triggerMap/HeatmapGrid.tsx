@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AccessibilityInfo,
+  type LayoutChangeEvent,
   Platform,
   Pressable,
   StyleSheet,
@@ -52,13 +53,17 @@ type Props = {
   onCellPress: (day: number, hour: number) => void;
 };
 
-const CELL_SIZE = 11;
-const CELL_GAP = 3;
-const DAY_LABEL_WIDTH = 32;
+const CELL_GAP = 2;
+const CELL_SIZE_MIN = 8;
+const CELL_SIZE_MAX = 14;
+const DAY_LABEL_WIDTH = 28;
 const HOUR_LABEL_HEIGHT = 20;
 const INTENSITY_MARKER_RADIUS = 1.8;
 const INTENSITY_THRESHOLD = 4;
 const HOT_CELL_COUNT = 5;
+/** Card padding (see styles.wrap below). Used to compute the
+ *  amount of horizontal room the SVG grid has to fit inside. */
+const CARD_PADDING = 14;
 
 export function HeatmapGrid({
   heatmap,
@@ -67,8 +72,28 @@ export function HeatmapGrid({
   onCellPress,
 }: Props) {
   void accentColor;
-  const gridWidth = DAY_LABEL_WIDTH + HOURS_IN_DAY * (CELL_SIZE + CELL_GAP);
-  const gridHeight = HOUR_LABEL_HEIGHT + DAYS_IN_WEEK * (CELL_SIZE + CELL_GAP);
+  // Measure the card's inner width once mounted, then derive a
+  // cell size that always fits — no more right-edge overflow on
+  // narrow phones or when the pane is embedded in a tighter
+  // parent (Comparison tab, tablet split, etc.).
+  const [containerWidth, setContainerWidth] = useState(0);
+  const handleLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w !== containerWidth) setContainerWidth(w);
+  };
+  const availableForGrid = Math.max(
+    0,
+    containerWidth - CARD_PADDING * 2 - DAY_LABEL_WIDTH
+  );
+  const cellSize = clamp(
+    Math.floor(
+      (availableForGrid - CELL_GAP * (HOURS_IN_DAY - 1)) / HOURS_IN_DAY
+    ),
+    CELL_SIZE_MIN,
+    CELL_SIZE_MAX
+  );
+  const gridWidth = DAY_LABEL_WIDTH + HOURS_IN_DAY * (cellSize + CELL_GAP);
+  const gridHeight = HOUR_LABEL_HEIGHT + DAYS_IN_WEEK * (cellSize + CELL_GAP);
 
   // Precompute cell geometry. (day, hour) → (x, y, count, avg).
   const cells = useMemo(() => {
@@ -82,8 +107,8 @@ export function HeatmapGrid({
     }[] = [];
     for (let day = 0; day < DAYS_IN_WEEK; day++) {
       for (let hour = 0; hour < HOURS_IN_DAY; hour++) {
-        const x = DAY_LABEL_WIDTH + hour * (CELL_SIZE + CELL_GAP);
-        const y = HOUR_LABEL_HEIGHT + day * (CELL_SIZE + CELL_GAP);
+        const x = DAY_LABEL_WIDTH + hour * (cellSize + CELL_GAP);
+        const y = HOUR_LABEL_HEIGHT + day * (cellSize + CELL_GAP);
         out.push({
           day,
           hour,
@@ -102,129 +127,135 @@ export function HeatmapGrid({
   const hourTicks = useMemo(() => [0, 6, 12, 18, 23] as const, []);
 
   return (
-    <View style={styles.wrap}>
-      <CellPopWrap>
-        <View style={{ width: gridWidth, height: gridHeight }}>
-          <Svg width={gridWidth} height={gridHeight} pointerEvents="none">
-            {/* Hour labels — top row. */}
-            <G>
-              {hourTicks.map((h) => {
-                const x =
-                  DAY_LABEL_WIDTH + h * (CELL_SIZE + CELL_GAP) + CELL_SIZE / 2;
-                return (
-                  <SvgText
-                    key={h}
-                    x={x}
-                    y={HOUR_LABEL_HEIGHT - 6}
-                    fill="#8FA5CC"
-                    fontSize={9}
-                    fontWeight="600"
-                    textAnchor="middle"
-                  >
-                    {String(h).padStart(2, '0')}
-                  </SvgText>
-                );
-              })}
-            </G>
+    <View style={styles.wrap} onLayout={handleLayout}>
+      {containerWidth === 0 ? (
+        // Reserve height until we know the width so the pane
+        // doesn't jump when the grid measures itself.
+        <View style={{ height: gridHeight + 24 }} />
+      ) : (
+        <CellPopWrap>
+          <View style={{ width: gridWidth, height: gridHeight }}>
+            <Svg width={gridWidth} height={gridHeight} pointerEvents="none">
+              {/* Hour labels — top row. */}
+              <G>
+                {hourTicks.map((h) => {
+                  const x =
+                    DAY_LABEL_WIDTH + h * (cellSize + CELL_GAP) + cellSize / 2;
+                  return (
+                    <SvgText
+                      key={h}
+                      x={x}
+                      y={HOUR_LABEL_HEIGHT - 6}
+                      fill="#8FA5CC"
+                      fontSize={9}
+                      fontWeight="600"
+                      textAnchor="middle"
+                    >
+                      {String(h).padStart(2, '0')}
+                    </SvgText>
+                  );
+                })}
+              </G>
 
-            {/* Day labels — left column. */}
-            <G>
-              {DAY_KEYS.map((dayKey, d) => {
-                const y =
-                  HOUR_LABEL_HEIGHT +
-                  d * (CELL_SIZE + CELL_GAP) +
-                  CELL_SIZE / 2 +
-                  3;
-                return (
-                  <SvgText
-                    key={dayKey}
-                    x={DAY_LABEL_WIDTH - 10}
-                    y={y}
-                    fill="#8FA5CC"
-                    fontSize={9}
-                    fontWeight="600"
-                    textAnchor="end"
-                  >
-                    {t(`trigger_map.heatmap.days.${dayKey}`)}
-                  </SvgText>
-                );
-              })}
-            </G>
+              {/* Day labels — left column. */}
+              <G>
+                {DAY_KEYS.map((dayKey, d) => {
+                  const y =
+                    HOUR_LABEL_HEIGHT +
+                    d * (cellSize + CELL_GAP) +
+                    cellSize / 2 +
+                    3;
+                  return (
+                    <SvgText
+                      key={dayKey}
+                      x={DAY_LABEL_WIDTH - 10}
+                      y={y}
+                      fill="#8FA5CC"
+                      fontSize={9}
+                      fontWeight="600"
+                      textAnchor="end"
+                    >
+                      {t(`trigger_map.heatmap.days.${dayKey}`)}
+                    </SvgText>
+                  );
+                })}
+              </G>
 
-            {/* Cells + intensity markers + hot-cell halo. */}
-            <G>
-              {cells.map((cell) => {
-                const fill = triggersHeatmapFill(cell.count);
-                const isHot = cell.count >= HOT_CELL_COUNT;
-                return (
-                  <G key={`${cell.day}-${cell.hour}`}>
-                    {isHot ? (
+              {/* Cells + intensity markers + hot-cell halo. */}
+              <G>
+                {cells.map((cell) => {
+                  const fill = triggersHeatmapFill(cell.count);
+                  const isHot = cell.count >= HOT_CELL_COUNT;
+                  return (
+                    <G key={`${cell.day}-${cell.hour}`}>
+                      {isHot ? (
+                        <Rect
+                          x={cell.x - 1.4}
+                          y={cell.y - 1.4}
+                          width={cellSize + 2.8}
+                          height={cellSize + 2.8}
+                          rx={2.5}
+                          ry={2.5}
+                          fill={triggersAccentAlpha(0.22)}
+                        />
+                      ) : null}
                       <Rect
-                        x={cell.x - 1.4}
-                        y={cell.y - 1.4}
-                        width={CELL_SIZE + 2.8}
-                        height={CELL_SIZE + 2.8}
-                        rx={2.5}
-                        ry={2.5}
-                        fill={triggersAccentAlpha(0.22)}
+                        x={cell.x}
+                        y={cell.y}
+                        width={cellSize}
+                        height={cellSize}
+                        rx={2}
+                        ry={2}
+                        fill={fill}
                       />
-                    ) : null}
-                    <Rect
-                      x={cell.x}
-                      y={cell.y}
-                      width={CELL_SIZE}
-                      height={CELL_SIZE}
-                      rx={2}
-                      ry={2}
-                      fill={fill}
-                    />
-                    {cell.avgIntensity !== null &&
-                    cell.avgIntensity >= INTENSITY_THRESHOLD ? (
-                      <Circle
-                        cx={cell.x + CELL_SIZE - 2}
-                        cy={cell.y + 2}
-                        r={INTENSITY_MARKER_RADIUS}
-                        fill="#FFFFFF"
-                        fillOpacity={0.92}
-                      />
-                    ) : null}
-                  </G>
-                );
-              })}
-            </G>
-          </Svg>
+                      {cell.avgIntensity !== null &&
+                      cell.avgIntensity >= INTENSITY_THRESHOLD ? (
+                        <Circle
+                          cx={cell.x + cellSize - 2}
+                          cy={cell.y + 2}
+                          r={INTENSITY_MARKER_RADIUS}
+                          fill="#FFFFFF"
+                          fillOpacity={0.92}
+                        />
+                      ) : null}
+                    </G>
+                  );
+                })}
+              </G>
+            </Svg>
 
-          {/* Invisible tap layer above the SVG. */}
-          <View
-            style={[
-              StyleSheet.absoluteFillObject,
-              { width: gridWidth, height: gridHeight },
-            ]}
-            pointerEvents="box-none"
-          >
-            {cells.map((cell) => (
-              <Pressable
-                key={`hit-${cell.day}-${cell.hour}`}
-                onPress={() => {
-                  if (cell.count === 0) return;
-                  onCellPress(cell.day, cell.hour);
-                }}
-                style={{
-                  position: 'absolute',
-                  left: cell.x,
-                  top: cell.y,
-                  width: CELL_SIZE,
-                  height: CELL_SIZE,
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  cell.count > 0 ? `${cell.count} cravings` : `no cravings`
-                }
-              />
-            ))}
+            {/* Invisible tap layer above the SVG. */}
+            <View
+              style={[
+                StyleSheet.absoluteFillObject,
+                { width: gridWidth, height: gridHeight },
+              ]}
+              pointerEvents="box-none"
+            >
+              {cells.map((cell) => (
+                <Pressable
+                  key={`hit-${cell.day}-${cell.hour}`}
+                  onPress={() => {
+                    if (cell.count === 0) return;
+                    onCellPress(cell.day, cell.hour);
+                  }}
+                  style={{
+                    position: 'absolute',
+                    left: cell.x,
+                    top: cell.y,
+                    width: cellSize,
+                    height: cellSize,
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    cell.count > 0 ? `${cell.count} cravings` : `no cravings`
+                  }
+                />
+              ))}
+            </View>
           </View>
-        </View>
-      </CellPopWrap>
+        </CellPopWrap>
+      )}
 
       <View style={styles.legendRow}>
         <Text style={styles.legendLabel}>Less</Text>
@@ -243,6 +274,11 @@ export function HeatmapGrid({
       </View>
     </View>
   );
+}
+
+function clamp(n: number, min: number, max: number): number {
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
 }
 
 /**
