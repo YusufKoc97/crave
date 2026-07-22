@@ -6,6 +6,8 @@ import { t } from '@/lib/i18n';
 import { dsSectionHeaderStyle, dsSpacing } from '@/constants/designSystem';
 import { ComparisonAurora } from './ComparisonAurora';
 import { PulseCard } from './PulseCard';
+import { DistributionCard } from './DistributionCard';
+import { StandingCard } from './StandingCard';
 import { compColors, compHexAlpha } from './comparisonTheme';
 // TEMP-COMPARISON-MOCK-DATA — remove import + call in ComparisonPane
 // when the real `comparison-data` Edge Function lands.
@@ -79,7 +81,36 @@ export function ComparisonPane({ addiction }: Props) {
             Pulse visible on Free too (marketing / belonging cue). */}
         <PulseCard addiction={addiction} data={data.pulse} />
 
-        {/* M3-M4 cards mount here in the following commits. */}
+        {/* M3 — You vs. Community: 3 distribution cards. LowData
+            state ghosts the user side; other states render the
+            full comparison. */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionKicker}>
+            {t('comparison.you_vs_community')}
+          </Text>
+          <View style={styles.sectionRule} />
+        </View>
+        <View style={styles.stack}>
+          {data.distribution.map((metric, i) => (
+            <DistributionCard
+              key={metric.key}
+              metric={metric}
+              addiction={addiction}
+              index={i}
+              ghost={state === 'lowdata'}
+            />
+          ))}
+        </View>
+
+        {/* M3 — Your Standing hero. Hidden in LowData (user data
+            insufficient) and Launch (no community aggregate yet). */}
+        {state === 'full' || state === 'free' ? (
+          <View style={{ marginTop: 20 }}>
+            <StandingCard addiction={addiction} data={data.standing} />
+          </View>
+        ) : null}
+
+        {/* M4 — Community Patterns land here (next commit). */}
 
         {/* Anonymous footer — the design brief calls it out on
             every state so the trust cue never disappears. */}
@@ -182,6 +213,27 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.6,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 26,
+    marginBottom: 12,
+  },
+  sectionKicker: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    letterSpacing: 2.3,
+    color: compColors.textMuted,
+  },
+  sectionRule: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(154,163,184,0.16)',
+  },
+  stack: {
+    gap: 11,
   },
   anonFooter: {
     flexDirection: 'row',
