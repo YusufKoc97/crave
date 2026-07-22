@@ -23,6 +23,7 @@ import { JourneyBar } from '@/components/JourneyBar';
 import { ToolkitPane } from '@/components/toolkit/ToolkitPane';
 import { TechniqueRunnerModal } from '@/components/TechniqueRunnerModal';
 import { TriggersPane } from '@/components/triggerMap/TriggersPane';
+import { ComparisonPane } from '@/components/comparison/ComparisonPane';
 import { AmbientGlow } from '@/components/ui/AmbientGlow';
 import {
   dsColors,
@@ -150,7 +151,7 @@ export default function AddictionLandingScreen() {
               onNavigateSubTab={(next) => setSubTab(next)}
             />
           )}
-          {subTab === 'comparison' && <ComingSoonPane />}
+          {subTab === 'comparison' && <ComparisonPane addiction={addiction} />}
         </Animated.View>
       </ScrollView>
 
@@ -323,7 +324,11 @@ function NotTrackedCta({
   );
 }
 
-function ComingSoonPane() {
+function _ComingSoonPane() {
+  // Kept as a defensive fallback — no longer mounted now that
+  // ComparisonPane replaced it, but useful if a future 5th tab
+  // stubs in before its module is ready. Underscore prefix
+  // matches the eslint unused-vars allow-pattern.
   return (
     <View style={styles.comingSoonWrap}>
       <Ionicons
