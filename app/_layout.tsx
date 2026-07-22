@@ -171,21 +171,21 @@ function useWebFocusOutlineFix() {
 /**
  * CRAVE is a mobile-first app — on desktop-width browsers we don't
  * want the layout to stretch to 1200px+ (heatmap floats in an
- * ocean of empty space, insight cards become billboards). Constrain
- * the root to a phone-column (~480px) centered horizontally with a
- * pitch-black gutter so the surrounding chrome reads as "phone
- * docked in dark canvas" — a common pattern for mobile web apps
- * rendered inside dev previews or on desktop browsers.
+ * ocean of empty space, insight cards become billboards). Paint
+ * the html/body background pitch-black on web so the phone-column
+ * wrapper (rendered inside `<RootLayout>` via `<View style=...>`)
+ * reads as a phone docked on a dark canvas.
  *
- * Only kicks in above 640px viewport width so real mobile users are
- * unaffected. RN Web's window.innerWidth still reports the true
- * viewport, but every layout inside the phone column measures 480px
- * or less because the body itself is constrained.
+ * The actual width constraint lives on the JSX wrapper (see
+ * `styles.phoneColumn` below) — using CSS `max-width` on `body`
+ * would clip RN Web's inline layout width (which still measures
+ * the true viewport), leaving cards laid out at 1400 px but only
+ * the leftmost 480 px visible — the exact bug this replaces.
  */
-function useWebPhoneFrame() {
+function useWebDarkCanvas() {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const id = 'crave-web-phone-frame';
+    const id = 'crave-web-dark-canvas';
     if (document.getElementById(id)) return;
     const styleEl = document.createElement('style');
     styleEl.id = id;
@@ -195,19 +195,8 @@ function useWebPhoneFrame() {
         margin: 0 !important;
         padding: 0 !important;
       }
-      @media (min-width: 640px) {
-        body {
-          max-width: 480px !important;
-          margin: 0 auto !important;
-          min-height: 100vh;
-          background: ${colors.bg} !important;
-          box-shadow: 0 0 60px rgba(0, 0, 0, 0.7);
-          overflow-x: hidden;
-        }
-        #root, #root > div {
-          width: 100% !important;
-          max-width: 480px !important;
-        }
+      #root {
+        min-height: 100vh;
       }
     `;
     document.head.appendChild(styleEl);
@@ -216,23 +205,25 @@ function useWebPhoneFrame() {
 
 export default function RootLayout() {
   useWebFocusOutlineFix();
-  useWebPhoneFrame();
+  useWebDarkCanvas();
   return (
     <GestureHandlerRootView style={styles.rootFlex}>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <AddictionsProvider>
-            <SessionsProvider>
-              <AddictionScoresProvider>
-                <ToastProvider>
-                  <StatusBar style="light" />
-                  <RootStack />
-                </ToastProvider>
-              </AddictionScoresProvider>
-            </SessionsProvider>
-          </AddictionsProvider>
-        </AuthProvider>
-      </QueryClientProvider>
+      <View style={styles.phoneColumn}>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <AddictionsProvider>
+              <SessionsProvider>
+                <AddictionScoresProvider>
+                  <ToastProvider>
+                    <StatusBar style="light" />
+                    <RootStack />
+                  </ToastProvider>
+                </AddictionScoresProvider>
+              </SessionsProvider>
+            </AddictionsProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </View>
     </GestureHandlerRootView>
   );
 }
@@ -246,5 +237,30 @@ const styles = StyleSheet.create({
   },
   rootFlex: {
     flex: 1,
+    // On web the outer gesture root becomes the "dark canvas" that
+    // the phone column sits in. `alignItems: center` centers the
+    // 480 px child horizontally in wider browsers; on native it's a
+    // no-op because there's no extra room to distribute.
+    ...(Platform.OS === 'web'
+      ? {
+          alignItems: 'center',
+          backgroundColor: '#000',
+        }
+      : {}),
+  },
+  phoneColumn: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: colors.bg,
+    // Constrain the app to a phone-sized column on wide browsers.
+    // Every child measures its own layout width via `onLayout` or
+    // flex, so the whole tree renders as if it were on a 480 px
+    // device — no clipping, no viewport-vs-body mismatch.
+    ...(Platform.OS === 'web'
+      ? {
+          maxWidth: 480,
+          boxShadow: '0 0 60px rgba(0, 0, 0, 0.7)',
+        }
+      : {}),
   },
 });
