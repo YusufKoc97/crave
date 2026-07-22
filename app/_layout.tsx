@@ -256,9 +256,16 @@ const styles = StyleSheet.create({
     // Every child measures its own layout width via `onLayout` or
     // flex, so the whole tree renders as if it were on a 480 px
     // device — no clipping, no viewport-vs-body mismatch.
+    //
+    // `overflow: hidden` is required because material-top-tabs
+    // renders a 3-screen-wide pager container (~1440 px for 3
+    // screens × 480 px) inside this box. Without clipping, the
+    // neighbour screens would leak into the black gutter on either
+    // side while sitting at rest on the middle screen.
     ...(Platform.OS === 'web'
       ? {
           maxWidth: 480,
+          overflow: 'hidden',
           boxShadow: '0 0 60px rgba(0, 0, 0, 0.7)',
         }
       : {}),

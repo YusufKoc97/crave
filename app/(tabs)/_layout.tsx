@@ -1,6 +1,17 @@
-import { Tabs, Redirect } from 'expo-router';
-import { Pressable, StyleSheet, View, Platform } from 'react-native';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { useEffect, useState } from 'react';
+import { Redirect, withLayoutContext } from 'expo-router';
+import {
+  AccessibilityInfo,
+  Animated,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
+import {
+  createMaterialTopTabNavigator,
+  type MaterialTopTabBarProps,
+} from '@react-navigation/material-top-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/constants/theme';
 import { useAuth } from '@/context/AuthContext';
@@ -25,21 +36,61 @@ const PILL_HORIZONTAL_PADDING = 14;
 const PILL_WIDTH =
   TAB_ORDER.length * PER_TAB_WIDTH + PILL_HORIZONTAL_PADDING * 2;
 
-function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+// ────────────────── Material-top-tabs bridge ──────────────────
+//
+// expo-router doesn't ship a first-party material-top-tabs binding, so we
+// use `withLayoutContext` to hoist react-navigation's Navigator into the
+// expo-router file-based tree. Same pattern as expo's own docs. This gives
+// us pager-view semantics (native UIPageViewController / ViewPager2) with
+// finger-tracking swipe + snap + spring — none of which the plain
+// expo-router <Tabs> (bottom-tabs) provides — while keeping deep-link
+// routing intact (`/(tabs)/profile`, `/info/nicotine`, etc.).
+const { Navigator } = createMaterialTopTabNavigator();
+const MaterialTopTabs = withLayoutContext(Navigator);
+
+/**
+ * Custom bottom pill. Receives `position: Animated.AnimatedInterpolation`
+ * from material-top-tabs — a live value in [0, tabCount-1] that reflects
+ * pager scroll position, not just the settled index. Interpolating against
+ * that value makes the active bubble + indicator dot move CONTINUOUSLY as
+ * the user drags, instead of jumping when the swipe threshold flips.
+ *
+ * Kept the classic RN `Animated` API (not Reanimated) here on purpose —
+ * `position` is already a native AnimatedValue on the JS side and using
+ * `.interpolate(...)` composes cleanly without a bridge shared value.
+ */
+function CustomTabBar({ state, navigation, position }: MaterialTopTabBarProps) {
   const orderedRoutes = TAB_ORDER.map((name) =>
     state.routes.find((r) => r.name === name)
   ).filter(Boolean) as typeof state.routes;
+
+  const inputRange = state.routes.map((_, i) => i);
 
   return (
     <View pointerEvents="box-none" style={styles.wrap}>
       <View style={styles.pill}>
         {orderedRoutes.map((route) => {
           const realIndex = state.routes.findIndex((r) => r.key === route.key);
-          const isFocused = state.index === realIndex;
           const icons = TAB_ICONS[route.name] ?? {
             idle: 'ellipse-outline' as IoniconName,
             active: 'ellipse' as IoniconName,
           };
+
+          // Bubble is fully visible when position === realIndex, fades to 0
+          // at every other tab. Same interpolation for the dot underneath
+          // and the inverse for the idle icon so the crossfade is smooth.
+          const bubbleOpacity = position.interpolate({
+            inputRange,
+            outputRange: inputRange.map((i) => (i === realIndex ? 1 : 0)),
+          });
+          const idleOpacity = position.interpolate({
+            inputRange,
+            outputRange: inputRange.map((i) => (i === realIndex ? 0 : 0.65)),
+          });
+          const dotOpacity = position.interpolate({
+            inputRange,
+            outputRange: inputRange.map((i) => (i === realIndex ? 0.8 : 0)),
+          });
 
           const onPress = () => {
             const event = navigation.emit({
@@ -47,8 +98,9 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
               target: route.key,
               canPreventDefault: true,
             });
+            const isFocused = state.index === realIndex;
             if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name as never);
+              navigation.navigate(route.name);
             }
           };
 
@@ -58,19 +110,33 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
               onPress={onPress}
               style={styles.tabBtn}
               hitSlop={8}
+              accessibilityRole="button"
+              accessibilityState={{ selected: state.index === realIndex }}
             >
-              {isFocused ? (
-                <View style={styles.activeBubble}>
-                  <Ionicons name={icons.active} size={19} color="#E2E8F0" />
-                </View>
-              ) : (
+              {/* Active bubble — fades in as the pager settles on this tab. */}
+              <Animated.View
+                style={[styles.activeBubble, { opacity: bubbleOpacity }]}
+                pointerEvents="none"
+              >
+                <Ionicons name={icons.active} size={19} color="#E2E8F0" />
+              </Animated.View>
+              {/* Idle outline icon underneath — visible when this tab isn't
+                  the active one; opacity interpolation makes the crossfade
+                  read as one smooth motion. */}
+              <Animated.View
+                style={[styles.idleIconLayer, { opacity: idleOpacity }]}
+                pointerEvents="none"
+              >
                 <Ionicons
                   name={icons.idle}
                   size={19}
                   color="rgba(148, 163, 184, 0.65)"
                 />
-              )}
-              {isFocused && <View style={styles.dot} />}
+              </Animated.View>
+              <Animated.View
+                style={[styles.dot, { opacity: dotOpacity }]}
+                pointerEvents="none"
+              />
             </Pressable>
           );
         })}
@@ -84,22 +150,51 @@ export default function TabsLayout() {
   // "Çıkış yap" on the profile screen). The root index would also redirect on
   // a fresh launch, but we want sign-out to feel instant without a reload.
   const { session, loading } = useAuth();
+
+  // Reduced-motion consumers get an instant swap instead of the slide —
+  // disable both the swipe gesture and the settle animation so the pager
+  // behaves like a plain page-swap.
+  const [reducedMotion, setReducedMotion] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((r) => {
+      if (!cancelled) setReducedMotion(r);
+    });
+    const sub = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      (r) => {
+        if (!cancelled) setReducedMotion(r);
+      }
+    );
+    return () => {
+      cancelled = true;
+      sub.remove();
+    };
+  }, []);
+
   if (!DEV_SKIP_AUTH && !loading && !session) {
     return <Redirect href="/(auth)/sign-in" />;
   }
 
   return (
-    <Tabs
+    <MaterialTopTabs
+      tabBarPosition="bottom"
       tabBar={(props) => <CustomTabBar {...props} />}
+      initialRouteName="index"
       screenOptions={{
-        headerShown: false,
+        // Full finger-tracking pager gesture — native UI thread, 60fps.
+        swipeEnabled: !reducedMotion,
+        animationEnabled: !reducedMotion,
+        // Keep all three screens mounted so a mid-drag never shows blank
+        // content and per-screen state (scroll offsets, timers) survives.
+        lazy: false,
         sceneStyle: { backgroundColor: colors.bg },
       }}
     >
-      <Tabs.Screen name="profile" />
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="info" />
-    </Tabs>
+      <MaterialTopTabs.Screen name="profile" />
+      <MaterialTopTabs.Screen name="index" />
+      <MaterialTopTabs.Screen name="info" />
+    </MaterialTopTabs>
   );
 }
 
@@ -111,6 +206,10 @@ const styles = StyleSheet.create({
     bottom: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    // Ensure the pill sits ABOVE the material-top-tabs pager scene, even
+    // though tabBarPosition="bottom" already renders it in the correct
+    // stacking order — belt and braces for web z-index quirks.
+    zIndex: 10,
   },
   pill: {
     flexDirection: 'row',
@@ -148,6 +247,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
   },
+  idleIconLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   dot: {
     position: 'absolute',
     bottom: 4,
@@ -155,6 +259,5 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 1.5,
     backgroundColor: colors.textPrimary,
-    opacity: 0.8,
   },
 });
