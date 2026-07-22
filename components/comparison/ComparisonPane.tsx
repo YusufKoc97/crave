@@ -5,6 +5,7 @@ import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
 import { dsSectionHeaderStyle, dsSpacing } from '@/constants/designSystem';
 import { ComparisonAurora } from './ComparisonAurora';
+import { PulseCard } from './PulseCard';
 import { compColors, compHexAlpha } from './comparisonTheme';
 // TEMP-COMPARISON-MOCK-DATA — remove import + call in ComparisonPane
 // when the real `comparison-data` Edge Function lands.
@@ -73,16 +74,12 @@ export function ComparisonPane({ addiction }: Props) {
           />
         ) : null}
 
-        {/* M2-M4 cards mount here. For M1 we ship an empty
-            placeholder so `tsc` + preview stay green while the
-            visual content lands in the following commits. The
-            `data` binding is intentionally referenced-but-unused
-            for now so it type-checks. */}
-        <View style={styles.debugPlaceholder}>
-          <Text style={styles.debugText}>
-            Comparison scaffold — state: {data.state}
-          </Text>
-        </View>
+        {/* M2 — Community Pulse (living stats strip). Mounted on
+            all four states because the design brief keeps the
+            Pulse visible on Free too (marketing / belonging cue). */}
+        <PulseCard addiction={addiction} data={data.pulse} />
+
+        {/* M3-M4 cards mount here in the following commits. */}
 
         {/* Anonymous footer — the design brief calls it out on
             every state so the trust cue never disappears. */}
@@ -185,21 +182,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.6,
-  },
-  debugPlaceholder: {
-    padding: 24,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  debugText: {
-    color: compColors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.4,
   },
   anonFooter: {
     flexDirection: 'row',
