@@ -1,6 +1,6 @@
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 import { GlowDisc } from '@/components/ui/GlowDisc';
-import { compColors, compHexAlpha } from './comparisonTheme';
+import { dsModuleAmbient, hexAlpha } from '@/constants/designSystem';
 
 /**
  * Comparison sub-tab atmospheric layer.
@@ -17,41 +17,11 @@ import { compColors, compHexAlpha } from './comparisonTheme';
  * which degraded to a hard-edged circle on native). Kept subtle —
  * the design brief calls for a "calmer, data-forward sibling" to
  * Triggers.
+ *
+ * Disc colour + placement now come from `dsModuleAmbient`, which the
+ * Toolkit and Triggers auroras share, so the four Info sub-tabs read
+ * as one continuous navy instead of three different hues.
  */
-
-type Disc = {
-  leftPct: number;
-  topPct: number;
-  size: number;
-  color: string;
-};
-
-const DISCS: readonly Disc[] = [
-  // Top-left — sits behind the Community Pulse card so the ECG
-  // heartbeat has a faint grey-blue backlight.
-  {
-    leftPct: 20,
-    topPct: 10,
-    size: 320,
-    color: compHexAlpha(compColors.community, 0.14),
-  },
-  // Top-right — balances the aurora without drawing attention
-  // near the dev chip.
-  {
-    leftPct: 82,
-    topPct: 20,
-    size: 260,
-    color: compHexAlpha(compColors.community, 0.1),
-  },
-  // Mid-page — sits under the bell-curve cards so their charts
-  // have some warmth instead of floating on flat navy.
-  {
-    leftPct: 50,
-    topPct: 60,
-    size: 400,
-    color: compHexAlpha(compColors.community, 0.09),
-  },
-];
 
 type Props = {
   /** Total height the aurora layer covers. Parent ScrollView clips. */
@@ -66,8 +36,14 @@ export function ComparisonAurora({ height = '100%' }: Props) {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      {DISCS.map((d, i) => (
-        <GlowDisc key={i} {...d} />
+      {dsModuleAmbient.discs.map((d, i) => (
+        <GlowDisc
+          key={i}
+          leftPct={d.leftPct}
+          topPct={d.topPct}
+          size={d.size}
+          color={hexAlpha(dsModuleAmbient.color, d.alpha)}
+        />
       ))}
     </View>
   );

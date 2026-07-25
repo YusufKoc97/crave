@@ -126,6 +126,31 @@ export const dsSectionHeaderStyle = {
   marginBottom: dsSpacing.lg,
 };
 
+/**
+ * Shared ambient wash behind the four Info sub-tab modules
+ * (Journey / Toolkit / Triggers / Comparison).
+ *
+ * Each module used to tint its own aurora — Toolkit blue+purple+teal,
+ * Triggers violet, Comparison grey-blue — so swiping between sub-tabs
+ * shifted the hue of the entire screen and Triggers in particular read
+ * as pale blue instead of the deep navy the rest of the app uses. The
+ * modules are meant to share one background; only individual elements
+ * (icons, charts, deltas) carry a module accent.
+ *
+ * Single source of truth so the three aurora layers can't drift apart
+ * again. `color` is a neutral grey-blue — it has no hue of its own
+ * against `bgBase`, it just lifts the navy so the pane isn't flat.
+ */
+export const dsModuleAmbient = {
+  color: '#6A7FA0',
+  /** Disc placement + alpha, back to front. */
+  discs: [
+    { leftPct: 20, topPct: 12, size: 320, alpha: 0.14 },
+    { leftPct: 82, topPct: 22, size: 260, alpha: 0.1 },
+    { leftPct: 50, topPct: 60, size: 380, alpha: 0.09 },
+  ],
+} as const;
+
 /** hex → rgba(). Used for addiction-color tints on cards. */
 export function hexAlpha(hex: string, alpha: number): string {
   const h = hex.replace('#', '');
