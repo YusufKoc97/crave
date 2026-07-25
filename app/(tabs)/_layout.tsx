@@ -172,7 +172,22 @@ export default function TabsLayout() {
     };
   }, []);
 
-  if (!DEV_SKIP_AUTH && !loading && !session) {
+  // TEMP-AUTH-GATE-DISABLED — 2026-07-25
+  // Sibling of the TEMP-AGE-GATE-DISABLED marker in `app/index.tsx`.
+  // That one stops the age gate from firing on launch, but landing on
+  // /(tabs) with no Supabase session used to bounce straight back out
+  // to /(auth)/sign-in — same dead end, one screen later.
+  //
+  // The whole sign-in / sign-up flow is left intact and untouched; it
+  // is simply not reachable while the app is half-built. Auth comes
+  // back as its own phase, alongside the real onboarding flow.
+  //
+  // Restore by deleting this constant and the `&& !AUTH_GATE_DISABLED`
+  // term below — the original guard is otherwise unchanged, so sign-out
+  // will resume bouncing out of the tabs instantly.
+  const AUTH_GATE_DISABLED = true;
+
+  if (!AUTH_GATE_DISABLED && !DEV_SKIP_AUTH && !loading && !session) {
     return <Redirect href="/(auth)/sign-in" />;
   }
 

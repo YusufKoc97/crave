@@ -119,6 +119,13 @@ function RootStack() {
         }}
       >
         <Stack.Screen name="index" />
+        {/*
+          TEMP-AGE-GATE-DISABLED — the (onboarding) group is still
+          declared so its screen options survive, but nothing routes
+          into it: `app/index.tsx` short-circuits to /(tabs) before the
+          onboarding redirect can fire. Deliberately NOT removed — the
+          age gate returns inside the real onboarding flow later.
+        */}
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="setup-username" />

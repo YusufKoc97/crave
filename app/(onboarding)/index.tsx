@@ -6,6 +6,16 @@ import { StepIndicator } from '@/components/StepIndicator';
 
 const MIN_AGE = 18;
 
+/**
+ * 18+ age gate — step 1 of onboarding (step 2 is `consent.tsx`).
+ *
+ * NOTE: This screen is currently NOT REACHABLE. It waits behind the
+ * `TEMP-AGE-GATE-DISABLED` marker in `app/index.tsx`, which redirects
+ * every launch straight to /(tabs). The file is preserved verbatim
+ * because age verification is coming back — deliberately re-placed
+ * inside the onboarding flow once that flow is designed. Do not
+ * delete this screen or `lib/onboarding.ts`.
+ */
 export default function AgeGateScreen() {
   const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
