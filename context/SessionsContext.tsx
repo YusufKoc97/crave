@@ -85,25 +85,33 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   const refreshTotals = useCallback(async () => {
     if (!user) return;
     // Cumulative score — server-truth from the view.
-    const { data: totalRow } = await supabase
+    const { data: totalRow, error: totalErr } = await supabase
       .from('user_total_score')
       .select('total_score')
       .eq('user_id', user.id)
       .maybeSingle();
-    if (typeof totalRow?.total_score === 'number') {
+    if (totalErr) {
+      // A transient fetch failure must NOT wipe the score to 0 — that
+      // reads to the user as "all my progress is gone". Keep the last
+      // known value and log for diagnosis.
+      console.warn('refreshTotals: total_score fetch failed', totalErr);
+    } else if (typeof totalRow?.total_score === 'number') {
       setTotalPoints(totalRow.total_score);
     } else {
+      // Genuinely no row yet (new user) → zero is correct.
       setTotalPoints(0);
     }
 
     // Momentum + streak also live on profiles now (still, but written
     // by the Edge Function instead of client). Hydrate them alongside.
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr } = await supabase
       .from('profiles')
       .select('momentum, streak')
       .eq('id', user.id)
       .single();
-    if (profile) {
+    if (profileErr) {
+      console.warn('refreshTotals: profile fetch failed', profileErr);
+    } else if (profile) {
       if (typeof profile.momentum === 'number') setMomentum(profile.momentum);
       if (typeof profile.streak === 'number') setStreak(profile.streak);
     }
@@ -119,7 +127,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       // per-day tallies (Won/Lost Today + weekly bar chart). The
       // cumulative score comes from user_total_score below, not from
       // summing this list.
-      const { data: rows } = await supabase
+      const { data: rows, error: rowsErr } = await supabase
         .from('craving_sessions')
         .select(
           'id, addiction_id, outcome, duration_seconds, points_delta, sensitivity, created_at'
@@ -128,6 +136,12 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
         .eq('status', 'resolved')
         .order('created_at', { ascending: false })
         .limit(30);
+
+      if (rowsErr) {
+        // Keep whatever's already cached rather than blanking the
+        // profile's Won/Lost + weekly chart on a transient failure.
+        console.warn('SessionsContext hydrate failed', rowsErr);
+      }
 
       if (!cancelled && rows) {
         setSessions(

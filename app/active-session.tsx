@@ -487,6 +487,7 @@ export default function ActiveSession() {
               // Blob stays on disk for the ActiveSessionRestorer
               // replay on next launch. UI already committed the
               // optimistic estimate; user sees no interruption.
+              console.warn('resolve-craving returned error', error);
               return;
             }
             clearPendingFinish();
@@ -504,6 +505,11 @@ export default function ActiveSession() {
             // Faz 8a — refresh trigger-map cache so the Info tab
             // reflects the newly-captured triggers on next visit.
             invalidateTriggerMaps();
+          })
+          .catch((e) => {
+            // Network reject (not an HTTP error body) — same recovery
+            // path: pending_finish blob replays on next cold launch.
+            console.warn('resolve-craving invoke rejected', e);
           });
       }
     }

@@ -11,12 +11,12 @@ import { colors } from '@/constants/theme';
 // The 18+ age gate (`app/(onboarding)/index.tsx`) and the KVKK consent
 // step (`app/(onboarding)/consent.tsx`) are intentionally unreachable:
 // `isOnboardingCompleted()` is false on a fresh install, so every launch
-// landed on "Yaş Doğrulama" with no way past it while the rest of the
-// app is half-built.
+// used to land on "Yaş Doğrulama" with no way past it while the rest of
+// the app is half-built.
 //
 // Both screen files are LEFT IN PLACE on purpose — age verification is
 // coming back, but deliberately placed inside the real onboarding flow
-// once that flow is designed. Nothing there should be deleted.
+// once that flow is designed. Nothing here should be deleted.
 //
 // Restoring is a one-line flip: set this to `false` and the original
 // onboarding → auth → username → tabs ladder below runs untouched.
@@ -43,9 +43,17 @@ export default function Index() {
 
   useEffect(() => {
     let cancelled = false;
-    isOnboardingCompleted().then((done) => {
-      if (!cancelled) setOnboardingDone(done);
-    });
+    isOnboardingCompleted()
+      .then((done) => {
+        if (!cancelled) setOnboardingDone(done);
+      })
+      .catch((e) => {
+        // Never leave this null on a read error — that would pin the app
+        // on the splash spinner. Fall back to "not done" so the (legally
+        // required) onboarding/consent flow is shown rather than skipped.
+        console.warn('isOnboardingCompleted failed', e);
+        if (!cancelled) setOnboardingDone(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -57,9 +65,16 @@ export default function Index() {
       return;
     }
     let cancelled = false;
-    getUsername(user.id).then((u) => {
-      if (!cancelled) setHasUsername(!!u && u.trim().length > 0);
-    });
+    getUsername(user.id)
+      .then((u) => {
+        if (!cancelled) setHasUsername(!!u && u.trim().length > 0);
+      })
+      .catch((e) => {
+        // Don't strand on the spinner if the handle probe fails; treat as
+        // "no username" → the setup screen (which is skippable anyway).
+        console.warn('getUsername failed', e);
+        if (!cancelled) setHasUsername(false);
+      });
     return () => {
       cancelled = true;
     };

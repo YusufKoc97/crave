@@ -7,11 +7,14 @@ import { supabase } from './supabase';
  * user hasn't chosen one yet.
  */
 export async function getUsername(userId: string): Promise<string | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .select('username')
     .eq('id', userId)
     .single();
+  // A genuine fetch failure is otherwise indistinguishable from "no
+  // handle yet" — log it so a broken probe isn't read as a fresh user.
+  if (error) console.warn('getUsername failed', error);
   return data?.username ?? null;
 }
 

@@ -141,8 +141,10 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
           );
           setActiveIds(next);
         }
-      } catch {
-        /* keep local cache */
+      } catch (e) {
+        // Keep the local AsyncStorage cache on a server refresh failure —
+        // but log so a persistently failing sync is diagnosable.
+        console.warn('AddictionsContext server refresh failed', e);
       }
     })();
     return () => {
@@ -156,8 +158,10 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(
       STORAGE_KEY_ACTIVE,
       JSON.stringify(Array.from(activeIds))
-    ).catch(() => {
-      /* device storage failure — surface a banner later if needed */
+    ).catch((e) => {
+      // Device storage failure — the in-memory set is still correct for
+      // this session; log so a persistently failing disk is diagnosable.
+      console.warn('AddictionsContext mirror write failed', e);
     });
   }, [activeIds]);
 
@@ -193,7 +197,9 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
       if (!user) return;
       try {
         await deactivateUserAddiction(user.id, id);
-      } catch {
+      } catch (e) {
+        // Roll back the optimistic removal so the UI matches the server.
+        console.warn('removeAddiction failed', e);
         setActiveIds(snapshot);
       }
     },

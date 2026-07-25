@@ -30,10 +30,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+        setLoading(false);
+      })
+      .catch((e) => {
+        // Without this, a rejected getSession (e.g. cold launch with no
+        // network) would leave `loading` true forever → app stuck on the
+        // splash spinner. Fall through to the unauthenticated flow.
+        console.warn('getSession failed', e);
+        setSession(null);
+        setLoading(false);
+      });
 
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, newSession) => {

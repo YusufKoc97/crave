@@ -66,6 +66,9 @@ export async function fetchSessionTriggers(
     .from('craving_session_triggers')
     .select('trigger_id')
     .eq('session_id', sessionId);
-  if (error || !data) return [];
+  if (error || !data) {
+    if (error) console.warn('fetchSessionTriggers failed', error);
+    return [];
+  }
   return data.map((r) => r.trigger_id);
 }

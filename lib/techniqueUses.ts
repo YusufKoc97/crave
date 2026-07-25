@@ -52,7 +52,10 @@ export async function logTechniqueStart(
     })
     .select('id')
     .single();
-  if (error || !data) return null;
+  if (error || !data) {
+    if (error) console.warn('logTechniqueStart failed', error);
+    return null;
+  }
   return data.id;
 }
 
@@ -68,9 +71,11 @@ export type LogEndInput = {
  * skipped the rating.
  */
 export async function logTechniqueEnd(input: LogEndInput): Promise<void> {
-  await supabase
+  const { error } = await supabase
     .from('technique_uses')
     .update({ completed: input.completed, feedback: input.feedback })
     .eq('id', input.useId);
-  // Failures are silent — telemetry, not scoring.
+  // Non-fatal — telemetry, not scoring — but log so a persistently
+  // failing write is diagnosable rather than dropped silently.
+  if (error) console.warn('logTechniqueEnd failed', error);
 }

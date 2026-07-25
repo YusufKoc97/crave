@@ -7,7 +7,8 @@ const CONSENT_KEY = 'onboarding_consent_signed_at';
 export async function isOnboardingCompleted(): Promise<boolean> {
   try {
     return (await AsyncStorage.getItem(KEY)) === 'true';
-  } catch {
+  } catch (e) {
+    console.warn('isOnboardingCompleted read failed', e);
     return false;
   }
 }
@@ -16,22 +17,22 @@ export async function markOnboardingCompleted(opts: {
   dob: string; // ISO date "YYYY-MM-DD"
   consentSignedAt: string; // ISO timestamp
 }) {
-  try {
-    await AsyncStorage.multiSet([
-      [KEY, 'true'],
-      [DOB_KEY, opts.dob],
-      [CONSENT_KEY, opts.consentSignedAt],
-    ]);
-  } catch {
-    /* noop */
-  }
+  // Intentionally does NOT swallow: this write persists the KVKK
+  // consent record. If it fails, the caller must NOT navigate the
+  // user past the consent gate (that would skip a legal prerequisite
+  // and loop them back through onboarding on next launch anyway).
+  await AsyncStorage.multiSet([
+    [KEY, 'true'],
+    [DOB_KEY, opts.dob],
+    [CONSENT_KEY, opts.consentSignedAt],
+  ]);
 }
 
 export async function resetOnboarding() {
   try {
     await AsyncStorage.multiRemove([KEY, DOB_KEY, CONSENT_KEY]);
-  } catch {
-    /* noop */
+  } catch (e) {
+    console.warn('resetOnboarding failed', e);
   }
 }
 

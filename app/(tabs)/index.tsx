@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import Animated, {
+  cancelAnimation,
   useSharedValue,
   useAnimatedStyle,
   withTiming,
@@ -21,6 +22,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import type { Addiction } from '@/constants/addictions';
+import { maxMinutesFor } from '@/constants/addictions';
 import { useAddictions } from '@/context/AddictionsContext';
 import { NeonRing } from '@/components/NeonRing';
 import { t } from '@/lib/i18n';
@@ -194,6 +196,10 @@ export default function HomeScreen() {
         emoji: a.emoji,
         color: a.color,
         sensitivity: String(a.sensitivity),
+        // Without this the timer falls back to a flat 9-min cycle
+        // (active-session default), ignoring the addiction's
+        // sensitivity-derived max and mis-timing the cycle bonus.
+        maxMinutes: String(maxMinutesFor(a.sensitivity)),
       },
     });
   }, []);
@@ -498,6 +504,9 @@ function AddictionIcon({
     } else {
       wigglePhase.value = withTiming(0, { duration: 140 });
     }
+    // Stop the infinite wiggle loop if the tile unmounts mid-rock —
+    // otherwise the worklet keeps ticking against a dead node.
+    return () => cancelAnimation(wigglePhase);
   }, [wiggleMode, index, wigglePhase]);
 
   const animStyle = useAnimatedStyle(() => {

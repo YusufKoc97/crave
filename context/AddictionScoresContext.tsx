@@ -127,8 +127,21 @@ export function AddictionScoresProvider({ children }: { children: ReactNode }) {
           .select('addiction_id, rank_id, unlocked_at')
           .eq('user_id', user.id),
       ]);
-      if (scoresRes.data) setScores(scoresRes.data as ScoreRow[]);
-      if (unlocksRes.data) setUnlocks(unlocksRes.data as UnlockRow[]);
+      // A transient fetch failure must NOT blank the ladder — that reads
+      // as "I lost my ranks". Keep the prior state and log for diagnosis;
+      // only overwrite when the fetch actually returned rows.
+      if (scoresRes.error) {
+        console.warn('AddictionScores: scores fetch failed', scoresRes.error);
+      } else if (scoresRes.data) {
+        setScores(scoresRes.data as ScoreRow[]);
+      }
+      if (unlocksRes.error) {
+        console.warn('AddictionScores: unlocks fetch failed', unlocksRes.error);
+      } else if (unlocksRes.data) {
+        setUnlocks(unlocksRes.data as UnlockRow[]);
+      }
+    } catch (e) {
+      console.warn('AddictionScores refresh failed', e);
     } finally {
       setLoading(false);
     }

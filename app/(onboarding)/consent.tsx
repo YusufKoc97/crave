@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { markOnboardingCompleted } from '@/lib/onboarding';
 import { StepIndicator } from '@/components/StepIndicator';
@@ -11,13 +18,28 @@ export default function ConsentScreen() {
 
   const canSubmit = acceptTerms && acceptHealth;
 
+  const [submitting, setSubmitting] = useState(false);
+
   const onSubmit = async () => {
-    if (!canSubmit) return;
-    await markOnboardingCompleted({
-      dob: params.dob ?? '',
-      consentSignedAt: new Date().toISOString(),
-    });
-    router.replace('/(tabs)');
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
+    try {
+      await markOnboardingCompleted({
+        dob: params.dob ?? '',
+        consentSignedAt: new Date().toISOString(),
+      });
+      router.replace('/(tabs)');
+    } catch (e) {
+      // Don't advance if the consent record didn't persist — otherwise
+      // the KVKK rıza is lost and the user is silently looped back
+      // through onboarding on the next cold launch.
+      console.warn('markOnboardingCompleted failed', e);
+      Alert.alert(
+        'Kayıt tamamlanamadı',
+        'Onayınız cihaza kaydedilemedi. Lütfen tekrar deneyin.'
+      );
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -57,7 +79,7 @@ export default function ConsentScreen() {
       <View style={styles.footer}>
         <Pressable
           onPress={onSubmit}
-          disabled={!canSubmit}
+          disabled={!canSubmit || submitting}
           style={[
             styles.submitBtn,
             canSubmit ? styles.submitBtnActive : styles.submitBtnIdle,

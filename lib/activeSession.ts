@@ -45,8 +45,10 @@ export type ActiveSnapshot = {
 export async function saveActiveSessionId(id: string) {
   try {
     await AsyncStorage.setItem(ID_KEY, id);
-  } catch {
-    /* noop */
+  } catch (e) {
+    // Non-fatal, but log so a persistently failing storage layer is
+    // diagnosable rather than silently dropping the session id.
+    console.warn('saveActiveSessionId failed', e);
   }
 }
 
@@ -54,15 +56,16 @@ export async function clearActiveSessionId() {
   try {
     await AsyncStorage.removeItem(ID_KEY);
     await AsyncStorage.removeItem(SNAPSHOT_KEY);
-  } catch {
-    /* noop */
+  } catch (e) {
+    console.warn('clearActiveSessionId failed', e);
   }
 }
 
 export async function getActiveSessionId(): Promise<string | null> {
   try {
     return await AsyncStorage.getItem(ID_KEY);
-  } catch {
+  } catch (e) {
+    console.warn('getActiveSessionId failed', e);
     return null;
   }
 }
@@ -70,8 +73,8 @@ export async function getActiveSessionId(): Promise<string | null> {
 export async function saveActiveSnapshot(snap: ActiveSnapshot) {
   try {
     await AsyncStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snap));
-  } catch {
-    /* noop */
+  } catch (e) {
+    console.warn('saveActiveSnapshot failed', e);
   }
 }
 
@@ -90,7 +93,8 @@ export async function getActiveSnapshot(): Promise<ActiveSnapshot | null> {
       return parsed;
     }
     return null;
-  } catch {
+  } catch (e) {
+    console.warn('getActiveSnapshot failed', e);
     return null;
   }
 }
@@ -121,8 +125,11 @@ export type PendingFinish = {
 export async function savePendingFinish(p: PendingFinish) {
   try {
     await AsyncStorage.setItem(PENDING_FINISH_KEY, JSON.stringify(p));
-  } catch {
-    /* noop */
+  } catch (e) {
+    // This blob is the crash-recovery safety net for a mid-flight
+    // resolve. If the write fails and the network then drops, the
+    // session is unrecoverable — worth a loud log at minimum.
+    console.warn('savePendingFinish failed', e);
   }
 }
 
@@ -148,7 +155,8 @@ export async function getPendingFinish(): Promise<PendingFinish | null> {
       return parsed;
     }
     return null;
-  } catch {
+  } catch (e) {
+    console.warn('getPendingFinish failed', e);
     return null;
   }
 }
@@ -156,7 +164,7 @@ export async function getPendingFinish(): Promise<PendingFinish | null> {
 export async function clearPendingFinish() {
   try {
     await AsyncStorage.removeItem(PENDING_FINISH_KEY);
-  } catch {
-    /* noop */
+  } catch (e) {
+    console.warn('clearPendingFinish failed', e);
   }
 }
