@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -16,18 +16,25 @@ import { useAddictionScores } from '@/context/AddictionScoresContext';
 import { getUsername } from '@/lib/profile';
 import { useUserStats } from '@/lib/userStats';
 import { overallRankFromTotalPoints } from '@/lib/overallRank';
+import { weeklyResistCounts } from '@/lib/scoring';
+import { TOOLKIT_TECHNIQUES } from '@/constants/toolkitCatalog';
 import { SurfaceCard } from '@/components/ui/SurfaceCard';
-import { AmbientGlow } from '@/components/ui/AmbientGlow';
+import { HeroRankCard } from '@/components/profile/HeroRankCard';
+import {
+  CravingsResistedCard,
+  LongestStreakCard,
+  SuccessRateCard,
+  TechniquesCard,
+} from '@/components/profile/StatCards';
+import { TrackingRow } from '@/components/profile/TrackingRow';
 import {
   dsColors,
   dsFont,
   dsRadius,
   dsSectionHeaderStyle,
   dsSpacing,
-  hexAlpha,
 } from '@/constants/designSystem';
 import { t } from '@/lib/i18n';
-import type { Addiction } from '@/constants/addictions';
 
 /**
  * Profile screen — polish-phase rewrite (M4).
@@ -54,7 +61,7 @@ import type { Addiction } from '@/constants/addictions';
  */
 
 export default function ProfileScreen() {
-  const { totalPoints } = useSessions();
+  const { totalPoints, sessions } = useSessions();
   const { user, signOut } = useAuth();
   const { addictions } = useAddictions();
   const { viewFor } = useAddictionScores();
@@ -109,6 +116,22 @@ export default function ProfileScreen() {
     return a.id.localeCompare(b.id);
   });
 
+  // Weekly resist-count sparklines: one overall series (cravings-resisted
+  // stat card) plus one per tracked addiction (tracking rows). Memoised
+  // on the sessions list so the pure aggregation doesn't re-run per render.
+  const { overallWeekly, weeklyByAddiction } = useMemo(() => {
+    const nowMs = Date.now();
+    const overall = weeklyResistCounts({ sessions, nowMs });
+    const byAddiction: Record<string, number[]> = {};
+    for (const a of addictions) {
+      byAddiction[a.id] = weeklyResistCounts({
+        sessions: sessions.filter((s) => s.addictionId === a.id),
+        nowMs,
+      });
+    }
+    return { overallWeekly: overall, weeklyByAddiction: byAddiction };
+  }, [sessions, addictions]);
+
   return (
     <ScrollView
       style={styles.root}
@@ -118,51 +141,37 @@ export default function ProfileScreen() {
       <Text style={styles.pageTitle}>{t('profile.screen_title')}</Text>
 
       {/* ── Hero rank card ─────────────────────────────────────── */}
-      <SurfaceCard variant="elevated" style={styles.heroCard} radius={24}>
-        <View style={styles.heroGlowLayer} pointerEvents="none">
-          <AmbientGlow
-            color={dsColors.accentBlue}
-            size={320}
-            intensity="medium"
-            position={{ x: 165, y: 120 }}
-          />
-        </View>
-
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{avatarGlyph}</Text>
-        </View>
-
-        <Text style={styles.usernameLabel}>
-          {username || user?.email || ''}
-        </Text>
-
-        <Text style={styles.overallKicker}>
-          {t('profile.overall_rank_label')}
-        </Text>
-        <Text style={styles.overallRankName}>{overall.current.name}</Text>
-        <Text style={styles.overallTotalPoints}>
-          {t('profile.total_points', { count: totalPoints })}
-        </Text>
-      </SurfaceCard>
+      <HeroRankCard
+        avatarGlyph={avatarGlyph}
+        displayName={username || user?.email || ''}
+        overall={overall}
+        totalPoints={totalPoints}
+      />
 
       {/* ── Statistics 2×2 grid ────────────────────────────────── */}
       <Text style={styles.sectionLabel}>{t('profile.statistics_section')}</Text>
       <View style={styles.statsGrid}>
-        <StatSquare
-          value={String(stats.cravingsResisted)}
+        <CravingsResistedCard
+          value={stats.cravingsResisted}
+          weekly={overallWeekly}
           label={t('profile.stat_cravings_resisted')}
+          index={0}
         />
-        <StatSquare
-          value={String(stats.longestStreakDays)}
+        <LongestStreakCard
+          value={stats.longestStreakDays}
           label={`${t('profile.stat_longest_streak')} (${t('profile.stat_streak_unit')})`}
+          index={1}
         />
-        <StatSquare
-          value={`${Math.round(stats.successRate * 100)}%`}
+        <SuccessRateCard
+          rate={stats.successRate}
           label={t('profile.stat_success_rate')}
+          index={2}
         />
-        <StatSquare
-          value={String(stats.techniquesUsed)}
+        <TechniquesCard
+          used={stats.techniquesUsed}
+          total={TOOLKIT_TECHNIQUES.length}
           label={t('profile.stat_techniques_used')}
+          index={3}
         />
       </View>
 
@@ -174,12 +183,13 @@ export default function ProfileScreen() {
           </Text>
           <SurfaceCard style={styles.listCard} radius={dsRadius.card}>
             {sortedTracked.map((a, idx) => (
-              <ProfileAddictionRow
+              <TrackingRow
                 key={a.id}
                 addiction={a}
                 showDivider={idx < sortedTracked.length - 1}
                 rankName={viewFor(a.id).currentRank.name}
                 score={viewFor(a.id).score}
+                weekly={weeklyByAddiction[a.id] ?? []}
                 onPress={() => goToAddictionLanding(a.id)}
               />
             ))}
@@ -221,54 +231,6 @@ export default function ProfileScreen() {
 }
 
 // ─────────────────────── Sub-components ───────────────────────
-
-function StatSquare({ value, label }: { value: string; label: string }) {
-  return (
-    <SurfaceCard style={styles.statSquare} radius={dsRadius.card}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </SurfaceCard>
-  );
-}
-
-function ProfileAddictionRow({
-  addiction,
-  rankName,
-  score,
-  showDivider,
-  onPress,
-}: {
-  addiction: Addiction;
-  rankName: string;
-  score: number;
-  showDivider: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <>
-      <Pressable
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.addictionRow,
-          pressed && styles.rowPressed,
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel={`${addiction.name} — ${rankName}`}
-      >
-        <Text style={styles.addictionEmoji}>{addiction.emoji}</Text>
-        <Text style={styles.addictionName} numberOfLines={1}>
-          {addiction.name}
-        </Text>
-        <Text style={styles.addictionMeta}>
-          <Text style={{ color: addiction.color }}>{rankName}</Text>
-          <Text style={styles.addictionMetaSep}> · </Text>
-          <Text>{score}</Text>
-        </Text>
-      </Pressable>
-      {showDivider && <View style={styles.divider} />}
-    </>
-  );
-}
 
 type IonName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -341,127 +303,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
 
-  // ── Hero card ──
-  heroCard: {
-    padding: dsSpacing.x3l,
-    alignItems: 'center',
-    overflow: 'hidden',
-    marginTop: dsSpacing.md,
-  },
-  heroGlowLayer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: hexAlpha(dsColors.accentBlue, 0.12),
-    borderWidth: 2,
-    borderColor: hexAlpha(dsColors.accentBlue, 0.55),
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: dsColors.accentBlue,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  avatarText: {
-    color: dsColors.accentBlue,
-    fontSize: dsFont.size.displayMd,
-    fontWeight: dsFont.weight.bold,
-  },
-  usernameLabel: {
-    marginTop: dsSpacing.md,
-    color: dsColors.textPrimary,
-    fontSize: dsFont.size.displaySm,
-    fontWeight: dsFont.weight.semibold,
-    letterSpacing: dsFont.letterSpacing.tight,
-  },
-  overallKicker: {
-    marginTop: dsSpacing.xl,
-    color: dsColors.textSecondary,
-    fontSize: dsFont.size.tiny,
-    fontWeight: dsFont.weight.semibold,
-    letterSpacing: dsFont.letterSpacing.caps,
-    textTransform: 'uppercase',
-  },
-  overallRankName: {
-    marginTop: dsSpacing.sm,
-    color: dsColors.textPrimary,
-    fontSize: dsFont.size.displayMd,
-    fontWeight: dsFont.weight.bold,
-    letterSpacing: dsFont.letterSpacing.normal,
-    textShadowColor: hexAlpha(dsColors.accentBlue, 0.5),
-    textShadowRadius: 12,
-    textShadowOffset: { width: 0, height: 0 },
-  },
-  overallTotalPoints: {
-    marginTop: dsSpacing.sm,
-    color: dsColors.textSecondary,
-    fontSize: dsFont.size.body,
-    fontWeight: dsFont.weight.regular,
-  },
-
   // ── Stats grid ──
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: dsSpacing.md,
   },
-  statSquare: {
-    flexBasis: '48%',
-    flexGrow: 1,
-    minHeight: 120,
-    padding: dsSpacing.xxl,
-    justifyContent: 'space-between',
-  },
-  statValue: {
-    color: dsColors.textPrimary,
-    fontSize: dsFont.size.displayLg,
-    fontWeight: dsFont.weight.bold,
-    fontVariant: ['tabular-nums'],
-    lineHeight: dsFont.size.displayLg,
-  },
-  statLabel: {
-    marginTop: dsSpacing.md,
-    color: dsColors.textSecondary,
-    fontSize: dsFont.size.label,
-    fontWeight: dsFont.weight.semibold,
-    letterSpacing: dsFont.letterSpacing.tight,
-  },
 
   // ── Grouped list card ──
   listCard: {
     // Uses SurfaceCard defaults; rows self-render dividers.
-  },
-  addictionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: dsSpacing.md,
-    height: 56,
-    paddingHorizontal: dsSpacing.lg,
-  },
-  addictionEmoji: {
-    fontSize: 22,
-    width: 26,
-    textAlign: 'center',
-  },
-  addictionName: {
-    flex: 1,
-    color: dsColors.textPrimary,
-    fontSize: dsFont.size.body,
-    fontWeight: dsFont.weight.semibold,
-    letterSpacing: dsFont.letterSpacing.tight,
-  },
-  addictionMeta: {
-    color: dsColors.textSecondary,
-    fontSize: dsFont.size.label,
-    fontWeight: dsFont.weight.semibold,
-    fontVariant: ['tabular-nums'],
-  },
-  addictionMetaSep: {
-    color: dsColors.textTertiary,
   },
 
   // ── Settings rows ──
