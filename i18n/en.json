@@ -48,9 +48,21 @@
   },
   "picker": {
     "title": "Add addiction",
-    "add_button": "Add",
-    "added_button": "Added",
-    "limit_reached": "Limit reached — remove one first"
+    "subtitle_one": "One slot on the free plan — tap a token to equip it",
+    "subtitle_many": "Equip up to {{count}} — tap a token to slot it in",
+    "subtitle_over": "Tracking {{count}} — your plan covers {{limit}}",
+    "loadout": "LOADOUT",
+    "slots_free": "/{{total}} free",
+    "socket_next": "Next",
+    "socket_empty": "Empty",
+    "hint_first": "Tap a token below to equip your first",
+    "hint_unequip": "Tap a slot to unequip it",
+    "hint_full": "All slots equipped — go Premium for more",
+    "category_count": "{{shown}} of {{total}}",
+    "equip_a11y": "Equip {{name}}",
+    "unequip_a11y": "Unequip {{name}}",
+    "locked_a11y": "{{name}} — all slots equipped, unequip one first",
+    "close_a11y": "Close"
   },
   "removal": {
     "title": "Remove {{name}}?",
