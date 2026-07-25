@@ -6,7 +6,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import Svg, { Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
+import Svg, {
+  Defs,
+  Line,
+  LinearGradient,
+  Path,
+  RadialGradient,
+  Rect,
+  Stop,
+} from 'react-native-svg';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -219,17 +227,39 @@ export function StandingCard({ addiction, data }: Props) {
       ]}
     >
       {/* Card halo — positioned near the user X so the glow reads
-          as "your zone is lit". */}
+          as "your zone is lit". Soft SVG radial gradient (not a solid
+          circle + web-only `filter: blur()`) so the falloff survives
+          on native. */}
       <View
         pointerEvents="none"
-        style={[
-          styles.halo,
-          {
-            left: `${data.percentPos - 20}%`,
-            backgroundColor: toneAlpha(0.22),
-          },
-        ]}
-      />
+        style={[styles.halo, { left: `${data.percentPos - 20}%` }]}
+      >
+        <Svg width="100%" height="100%" viewBox="0 0 100 100">
+          <Defs>
+            <RadialGradient
+              id="standingHalo"
+              cx="50"
+              cy="50"
+              rx="50"
+              ry="50"
+              fx="50"
+              fy="50"
+              gradientUnits="userSpaceOnUse"
+            >
+              <Stop offset="0%" stopColor={toneColor} stopOpacity={0.32} />
+              <Stop offset="60%" stopColor={toneColor} stopOpacity={0.12} />
+              <Stop offset="100%" stopColor={toneColor} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Rect
+            x="0"
+            y="0"
+            width="100"
+            height="100"
+            fill="url(#standingHalo)"
+          />
+        </Svg>
+      </View>
 
       {/* Kicker */}
       <View style={styles.kickerRow}>
@@ -419,14 +449,7 @@ const styles = StyleSheet.create({
     top: -40,
     width: 200,
     height: 200,
-    borderRadius: 100,
     marginLeft: -40,
-    ...Platform.select({
-      web: {
-        filter: 'blur(20px)',
-      } as any,
-      default: {},
-    }),
   },
   kickerRow: {
     position: 'relative',

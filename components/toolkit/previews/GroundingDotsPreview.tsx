@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
@@ -70,6 +71,7 @@ function PulseDot({ index, reduced }: { index: number; reduced: boolean }) {
         false
       )
     );
+    return () => cancelAnimation(t);
   }, [index, reduced, t]);
 
   const style = useAnimatedStyle(() => ({

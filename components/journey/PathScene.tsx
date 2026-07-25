@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedProps,
   useSharedValue,
@@ -19,6 +20,7 @@ import Svg, {
   Rect,
   Stop,
 } from 'react-native-svg';
+import { GlowDisc } from '@/components/ui/GlowDisc';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -210,6 +212,7 @@ function useTwinkleGroups() {
         )
       );
     });
+    return () => svs.forEach((sv) => cancelAnimation(sv));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return svs;
@@ -273,7 +276,7 @@ function ConstellationShape({
             key={si}
             points={points}
             fill="none"
-            stroke="rgba(200,214,240,0.28)"
+            stroke="rgba(210,224,248,0.42)"
             strokeWidth={1}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -294,6 +297,11 @@ function ConstellationShape({
   );
 }
 
+// Monotonic counter → globally-unique SVG gradient ids. react-native-svg
+// resolves `url(#id)` against a shared registry on native, so hardcoded
+// ids shared across mounts can repaint each other's gradient.
+let sceneSeq = 0;
+
 export function PathScene() {
   const stars = useMemo(() => seededStars(40), []);
   const twinkleGroups = useTwinkleGroups();
@@ -304,6 +312,20 @@ export function PathScene() {
   const width = 400;
   const height = 600;
 
+  // Unique gradient ids per mount. Gradients also use userSpaceOnUse
+  // with numeric coords (not objectBoundingBox %) — the only form
+  // react-native-svg paints reliably on native (same lesson GlowDisc
+  // learned). With % coords the mountains/auroras vanished on device.
+  const uid = useRef((sceneSeq += 1)).current;
+  const ID = {
+    peak: `peakGlow${uid}`,
+    horizon: `horizonAurora${uid}`,
+    ridgeA: `ridgeA${uid}`,
+    ridgeB: `ridgeB${uid}`,
+    ridgeC: `ridgeC${uid}`,
+    read: `readability${uid}`,
+  };
+
   return (
     <View
       pointerEvents="none"
@@ -313,23 +335,23 @@ export function PathScene() {
     >
       {/* ── Aurora clouds ─── positioned as % of container so they
              land in roughly the same spots regardless of size. */}
-      <AuroraDiscPct
+      <GlowDisc
         leftPct={15}
         topPct={8}
-        size={220}
-        color="rgba(120,140,236,0.34)"
+        size={340}
+        color="rgba(120,140,236,0.50)"
       />
-      <AuroraDiscPct
+      <GlowDisc
         leftPct={70}
         topPct={18}
-        size={180}
-        color="rgba(150,120,200,0.26)"
+        size={280}
+        color="rgba(150,120,200,0.40)"
       />
-      <AuroraDiscPct
+      <GlowDisc
         leftPct={45}
         topPct={35}
-        size={260}
-        color="rgba(90,150,170,0.22)"
+        size={400}
+        color="rgba(90,150,170,0.30)"
       />
 
       {/* ── Mountains + horizon aurora + peak glow (SVG) ────── */}
@@ -338,76 +360,91 @@ export function PathScene() {
         height="100%"
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="xMidYMax slice"
-        style={StyleSheet.absoluteFill}
       >
         <Defs>
-          {/* Peak glow — purple radial behind the highest ridge */}
+          {/* Peak glow — purple radial behind the highest ridge.
+              userSpaceOnUse numeric coords in the 400×600 viewBox. */}
           <RadialGradient
-            id="peakGlow"
-            cx="50%"
-            cy="90%"
-            rx="60%"
-            ry="35%"
-            fx="50%"
-            fy="90%"
+            id={ID.peak}
+            cx={width * 0.5}
+            cy={height * 0.9}
+            rx={width * 0.6}
+            ry={height * 0.35}
+            fx={width * 0.5}
+            fy={height * 0.9}
+            gradientUnits="userSpaceOnUse"
           >
-            <Stop
-              offset="0%"
-              stopColor="rgba(150,120,200,0.4)"
-              stopOpacity={1}
-            />
-            <Stop
-              offset="100%"
-              stopColor="rgba(150,120,200,0)"
-              stopOpacity={0}
-            />
+            <Stop offset="0%" stopColor="rgb(150,120,200)" stopOpacity={0.4} />
+            <Stop offset="100%" stopColor="rgb(150,120,200)" stopOpacity={0} />
           </RadialGradient>
           {/* Horizon aurora — thin white radial hugging the bottom */}
           <RadialGradient
-            id="horizonAurora"
-            cx="50%"
-            cy="100%"
-            rx="85%"
-            ry="12%"
-            fx="50%"
-            fy="100%"
+            id={ID.horizon}
+            cx={width * 0.5}
+            cy={height}
+            rx={width * 0.85}
+            ry={height * 0.12}
+            fx={width * 0.5}
+            fy={height}
+            gradientUnits="userSpaceOnUse"
           >
-            <Stop
-              offset="0%"
-              stopColor="rgba(236,243,253,0.55)"
-              stopOpacity={1}
-            />
+            <Stop offset="0%" stopColor="rgb(236,243,253)" stopOpacity={0.55} />
             <Stop
               offset="60%"
-              stopColor="rgba(236,243,253,0.12)"
-              stopOpacity={1}
+              stopColor="rgb(236,243,253)"
+              stopOpacity={0.12}
             />
-            <Stop
-              offset="100%"
-              stopColor="rgba(236,243,253,0)"
-              stopOpacity={0}
-            />
+            <Stop offset="100%" stopColor="rgb(236,243,253)" stopOpacity={0} />
           </RadialGradient>
 
-          {/* Ridge gradients — darker as we come down */}
-          <LinearGradient id="ridgeA" x1="0" y1="0" x2="0" y2="1">
+          {/* Ridge gradients — darker as we come down. Each spans its
+              own vertical extent (peak → bottom) in user space. */}
+          <LinearGradient
+            id={ID.ridgeA}
+            x1="0"
+            y1={height * 0.48}
+            x2="0"
+            y2={height}
+            gradientUnits="userSpaceOnUse"
+          >
             <Stop offset="0%" stopColor="#2a3358" />
             <Stop offset="100%" stopColor="#16203a" />
           </LinearGradient>
-          <LinearGradient id="ridgeB" x1="0" y1="0" x2="0" y2="1">
+          <LinearGradient
+            id={ID.ridgeB}
+            x1="0"
+            y1={height * 0.68}
+            x2="0"
+            y2={height}
+            gradientUnits="userSpaceOnUse"
+          >
             <Stop offset="0%" stopColor="#1c2544" />
             <Stop offset="100%" stopColor="#111a30" />
           </LinearGradient>
-          <LinearGradient id="ridgeC" x1="0" y1="0" x2="0" y2="1">
+          <LinearGradient
+            id={ID.ridgeC}
+            x1="0"
+            y1={height * 0.82}
+            x2="0"
+            y2={height}
+            gradientUnits="userSpaceOnUse"
+          >
             <Stop offset="0%" stopColor="#141c33" />
             <Stop offset="100%" stopColor="#0b1220" />
           </LinearGradient>
 
           {/* Readability overlay — top-to-bottom dark wash */}
-          <LinearGradient id="readability" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="rgba(11,18,32,0.42)" />
-            <Stop offset="50%" stopColor="rgba(11,18,32,0.70)" />
-            <Stop offset="100%" stopColor="rgba(11,18,32,0.50)" />
+          <LinearGradient
+            id={ID.read}
+            x1="0"
+            y1="0"
+            x2="0"
+            y2={height}
+            gradientUnits="userSpaceOnUse"
+          >
+            <Stop offset="0%" stopColor="rgb(11,18,32)" stopOpacity={0.3} />
+            <Stop offset="50%" stopColor="rgb(11,18,32)" stopOpacity={0.52} />
+            <Stop offset="100%" stopColor="rgb(11,18,32)" stopOpacity={0.38} />
           </LinearGradient>
         </Defs>
 
@@ -417,13 +454,96 @@ export function PathScene() {
           y={height * 0.55}
           width={width}
           height={height * 0.45}
-          fill="url(#peakGlow)"
+          fill={`url(#${ID.peak})`}
+        />
+
+        {/* Ridge A — furthest, tallest peaks */}
+        <Path
+          d={ridgePath(
+            width,
+            height,
+            [
+              [0, 0.72],
+              [0.15, 0.58],
+              [0.28, 0.65],
+              [0.42, 0.5],
+              [0.55, 0.58],
+              [0.68, 0.48],
+              [0.82, 0.6],
+              [1, 0.55],
+            ],
+            1
+          )}
+          fill={`url(#${ID.ridgeA})`}
+          stroke="rgba(200,214,240,0.15)"
+          strokeWidth={0.8}
+        />
+
+        {/* Ridge B — middle */}
+        <Path
+          d={ridgePath(
+            width,
+            height,
+            [
+              [0, 0.82],
+              [0.18, 0.72],
+              [0.36, 0.78],
+              [0.5, 0.68],
+              [0.65, 0.75],
+              [0.82, 0.68],
+              [1, 0.75],
+            ],
+            1
+          )}
+          fill={`url(#${ID.ridgeB})`}
+          stroke="rgba(200,214,240,0.1)"
+          strokeWidth={0.8}
+        />
+
+        {/* Ridge C — nearest, hugs the bottom */}
+        <Path
+          d={ridgePath(
+            width,
+            height,
+            [
+              [0, 0.9],
+              [0.2, 0.83],
+              [0.4, 0.88],
+              [0.6, 0.82],
+              [0.8, 0.88],
+              [1, 0.84],
+            ],
+            1
+          )}
+          fill={`url(#${ID.ridgeC})`}
+          stroke="rgba(200,214,240,0.08)"
+          strokeWidth={0.8}
+        />
+
+        {/* Horizon aurora — thin bright hug at the very bottom */}
+        <Rect
+          x="0"
+          y={height * 0.86}
+          width={width}
+          height={height * 0.14}
+          fill={`url(#${ID.horizon})`}
+        />
+
+        {/* Readability wash — top-to-bottom dark gradient so the
+            rank text stays legible over the scene. Sits above the
+            mountains but below the stars. */}
+        <Rect
+          x="0"
+          y="0"
+          width={width}
+          height={height}
+          fill={`url(#${ID.read})`}
         />
 
         {/* Stars — one animated <Circle> per star, driven by a
             shared value picked from an 8-group phase pool so the
             field twinkles at varied paces without needing one
-            worklet per star. */}
+            worklet per star. On top of the wash so they read bright. */}
         {stars.map((s, i) => (
           <TwinkleStar
             key={i}
@@ -445,87 +565,6 @@ export function PathScene() {
             height={height}
           />
         ))}
-
-        {/* Ridge A — furthest, tallest peaks */}
-        <Path
-          d={ridgePath(
-            width,
-            height,
-            [
-              [0, 0.72],
-              [0.15, 0.58],
-              [0.28, 0.65],
-              [0.42, 0.5],
-              [0.55, 0.58],
-              [0.68, 0.48],
-              [0.82, 0.6],
-              [1, 0.55],
-            ],
-            1
-          )}
-          fill="url(#ridgeA)"
-          stroke="rgba(200,214,240,0.15)"
-          strokeWidth={0.8}
-        />
-
-        {/* Ridge B — middle */}
-        <Path
-          d={ridgePath(
-            width,
-            height,
-            [
-              [0, 0.82],
-              [0.18, 0.72],
-              [0.36, 0.78],
-              [0.5, 0.68],
-              [0.65, 0.75],
-              [0.82, 0.68],
-              [1, 0.75],
-            ],
-            1
-          )}
-          fill="url(#ridgeB)"
-          stroke="rgba(200,214,240,0.1)"
-          strokeWidth={0.8}
-        />
-
-        {/* Ridge C — nearest, hugs the bottom */}
-        <Path
-          d={ridgePath(
-            width,
-            height,
-            [
-              [0, 0.9],
-              [0.2, 0.83],
-              [0.4, 0.88],
-              [0.6, 0.82],
-              [0.8, 0.88],
-              [1, 0.84],
-            ],
-            1
-          )}
-          fill="url(#ridgeC)"
-          stroke="rgba(200,214,240,0.08)"
-          strokeWidth={0.8}
-        />
-
-        {/* Horizon aurora — thin bright hug at the very bottom */}
-        <Rect
-          x="0"
-          y={height * 0.86}
-          width={width}
-          height={height * 0.14}
-          fill="url(#horizonAurora)"
-        />
-
-        {/* Readability wash on top of everything */}
-        <Rect
-          x="0"
-          y="0"
-          width={width}
-          height={height}
-          fill="url(#readability)"
-        />
       </Svg>
     </View>
   );
@@ -534,36 +573,6 @@ export function PathScene() {
 /** Percentage-positioned aurora disc — the parent container size
  *  is unknown at render time, so we anchor via % + a translate
  *  offset that centers the disc on its (leftPct, topPct) point. */
-function AuroraDiscPct({
-  leftPct,
-  topPct,
-  size,
-  color,
-}: {
-  leftPct: number;
-  topPct: number;
-  size: number;
-  color: string;
-}) {
-  const base = {
-    position: 'absolute' as const,
-    left: `${leftPct}%` as const,
-    top: `${topPct}%` as const,
-    width: size,
-    height: size,
-    marginLeft: -size / 2,
-    marginTop: -size / 2,
-    borderRadius: size / 2,
-    backgroundColor: color,
-  };
-  if (Platform.OS === 'web') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return <View style={{ ...base, filter: 'blur(18px)' } as any} />;
-  }
-  // Native fallback: softer opacity + no blur (no expo-blur dep).
-  return <View style={[base, { opacity: 0.6 }]} />;
-}
-
 /** Convert normalized peak points to an SVG path that closes at
  *  the bottom of the viewBox. Points are [x, y] where both are
  *  0..1 fractions of width / height. y=0 is top, y=1 is bottom. */

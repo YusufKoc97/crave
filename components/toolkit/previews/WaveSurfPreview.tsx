@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
@@ -58,6 +59,10 @@ export function WaveSurfPreview() {
       -1,
       false
     );
+    return () => {
+      cancelAnimation(x1);
+      cancelAnimation(x2);
+    };
   }, [reduced, x1, x2]);
 
   const style1 = useAnimatedStyle(() => ({

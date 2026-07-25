@@ -6,7 +6,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import Svg, { Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg';
+import Svg, {
+  Defs,
+  Line,
+  LinearGradient,
+  Path,
+  RadialGradient,
+  Rect,
+  Stop,
+} from 'react-native-svg';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -106,6 +114,7 @@ export function DistributionCard({
 
   const path = bellPath(W, BASE, AMP);
   const gradId = `distGrad${metric.key}${index}`;
+  const haloId = `distHalo${metric.key}${index}`;
 
   // Card mount stagger + delta chip fade-in
   const cardOp = useSharedValue(0);
@@ -262,18 +271,41 @@ export function DistributionCard({
         cardStyle,
       ]}
     >
-      {/* Accent radial halo top-right */}
-      <View
-        pointerEvents="none"
-        style={[
-          styles.halo,
-          {
-            backgroundColor: ghost
-              ? 'rgba(255,255,255,0.03)'
-              : accentAlpha(0.16),
-          },
-        ]}
-      />
+      {/* Accent radial halo top-right — soft SVG gradient (not a solid
+          circle + web-only `filter: blur()`) so it survives on native. */}
+      <View pointerEvents="none" style={styles.halo}>
+        <Svg width="100%" height="100%" viewBox="0 0 100 100">
+          <Defs>
+            <RadialGradient
+              id={haloId}
+              cx="50"
+              cy="50"
+              rx="50"
+              ry="50"
+              fx="50"
+              fy="50"
+              gradientUnits="userSpaceOnUse"
+            >
+              <Stop
+                offset="0%"
+                stopColor={ghost ? '#ffffff' : accentColor}
+                stopOpacity={ghost ? 0.05 : 0.34}
+              />
+              <Stop
+                offset="60%"
+                stopColor={ghost ? '#ffffff' : accentColor}
+                stopOpacity={ghost ? 0.02 : 0.12}
+              />
+              <Stop
+                offset="100%"
+                stopColor={ghost ? '#ffffff' : accentColor}
+                stopOpacity={0}
+              />
+            </RadialGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100" height="100" fill={`url(#${haloId})`} />
+        </Svg>
+      </View>
 
       {/* Header: icon + title + delta chip */}
       <View style={styles.headRow}>
@@ -496,13 +528,6 @@ const styles = StyleSheet.create({
     top: -48,
     width: 130,
     height: 130,
-    borderRadius: 65,
-    ...Platform.select({
-      web: {
-        filter: 'blur(15px)',
-      } as any,
-      default: {},
-    }),
   },
   headRow: {
     position: 'relative',

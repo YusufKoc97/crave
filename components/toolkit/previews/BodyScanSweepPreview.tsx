@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
@@ -52,6 +53,10 @@ export function BodyScanSweepPreview() {
       -1,
       false
     );
+    return () => {
+      cancelAnimation(y);
+      cancelAnimation(opacity);
+    };
   }, [reduced, y, opacity]);
 
   const scanStyle = useAnimatedStyle(() => {

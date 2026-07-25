@@ -2,7 +2,10 @@ import { useEffect } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { PathScene } from '@/components/journey/PathScene';
+import { GlowDisc } from '@/components/ui/GlowDisc';
+import { GradientSurface } from '@/components/ui/GradientSurface';
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
@@ -60,6 +63,18 @@ const RING_RADIUS = 34;
 const RING_STROKE = 6;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS; // ~213.6
 
+// Width of the sweeping progress-bar glint (matches styles.sheen).
+const SHEEN_W = 40;
+
+// Faint accent particles sprinkled inside the hero card — static,
+// low-alpha; positioned so they cluster near the lower-right glow.
+const HERO_PARTICLES = [
+  { left: '30%', top: 118, size: 3, alpha: 0.5 },
+  { left: '58%', top: 132, size: 2.5, alpha: 0.4 },
+  { left: '74%', top: 108, size: 3, alpha: 0.45 },
+  { left: '46%', top: 96, size: 2, alpha: 0.35 },
+] as const;
+
 function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -109,34 +124,85 @@ export function JourneyBar({ view, accentColor }: Props) {
   // Sheen — 40pt-wide white glint sweeping across the bar every 3.4s.
   // Hidden until the bar has actually filled to some value; a bar at
   // 0% has nothing worth glinting off.
-  const sheenAnim = useSharedValue(-40);
+  //
+  // We drive a normalized 0..1 progress and translate in *pixels*
+  // across the measured bar width. An earlier version translated a
+  // percentage, but RN resolves percentage translateX against the
+  // node's OWN width (the 40pt sheen), not the bar — so the glint
+  // parked off the left edge instead of sweeping. Measuring the bar
+  // via onLayout lets the glint travel the real track width on both
+  // web and native.
+  const barWidth = useSharedValue(0);
+  const sheenAnim = useSharedValue(0);
   useEffect(() => {
     if (progress <= 0.02) return; // near-zero → no sheen
-    sheenAnim.value = -40;
+    sheenAnim.value = 0;
     sheenAnim.value = withRepeat(
       withTiming(1, {
-        // 1 = "full width away from left edge" — mapped to a
-        // container-width translateX at style time. RN doesn't
-        // expose the animated node's own layout width in a worklet
-        // cheaply, so we translate a normalized 0..1 value into
-        // percent and let the layout engine handle the actual px.
         duration: 3400,
         easing: Easing.inOut(Easing.sin),
       }),
       -1,
       false
     );
+    return () => cancelAnimation(sheenAnim);
   }, [sheenAnim, progress]);
-  const sheenStyle = useAnimatedStyle(() => ({
-    // translate as a percentage of the bar width — RN Web + native
-    // both accept percentage translateX strings.
-    transform: [{ translateX: `${sheenAnim.value * 100}%` }],
-  }));
+  const sheenStyle = useAnimatedStyle(() => {
+    // Sweep from just off the left edge (−SHEEN_W) to just past the
+    // right edge (barWidth), so the glint fully crosses the track.
+    const x = -SHEEN_W + sheenAnim.value * (barWidth.value + SHEEN_W);
+    return { transform: [{ translateX: x }] };
+  });
 
   return (
     <View style={styles.root}>
       {/* ── Hero rank card ─────────────────────────────────────── */}
       <View style={[styles.heroCard, heroCardBg(accentColor)]}>
+        {/* Native has no backgroundImage — paint the card's linear +
+            accent radial base with SVG so device matches web. */}
+        {Platform.OS !== 'web' && (
+          <GradientSurface
+            top="#141d2e"
+            bottom="#0b1220"
+            accent={accentColor}
+            accentPeak={0.14}
+            accentMid={0.04}
+          />
+        )}
+        {/* Neon ambient glow behind the card content — two soft
+            accent discs + faint drifting particles. Renders on both
+            web and native (GlowDisc uses SVG radial, no filter). */}
+        <View style={styles.heroGlow} pointerEvents="none">
+          <GlowDisc
+            leftPct={22}
+            topPct={18}
+            size={260}
+            color={hexAlpha(accentColor, 0.32)}
+          />
+          <GlowDisc
+            leftPct={84}
+            topPct={82}
+            size={200}
+            color={hexAlpha(accentColor, 0.2)}
+          />
+          {HERO_PARTICLES.map((p, i) => (
+            <View
+              key={i}
+              style={[
+                styles.heroParticle,
+                {
+                  left: p.left,
+                  top: p.top,
+                  width: p.size,
+                  height: p.size,
+                  borderRadius: p.size / 2,
+                  backgroundColor: hexAlpha(accentColor, p.alpha),
+                },
+              ]}
+            />
+          ))}
+        </View>
+
         <View style={styles.heroTopRow}>
           {/* Left — score ring */}
           <View style={styles.ringWrap}>
@@ -185,7 +251,12 @@ export function JourneyBar({ view, accentColor }: Props) {
         </View>
 
         {/* Full-width bar */}
-        <View style={styles.barTrack}>
+        <View
+          style={styles.barTrack}
+          onLayout={(e) => {
+            barWidth.value = e.nativeEvent.layout.width;
+          }}
+        >
           <Animated.View
             style={[
               styles.barFill,
@@ -232,14 +303,14 @@ export function JourneyBar({ view, accentColor }: Props) {
 //     evaluation order stays clean. ────────────────────────
 const pathStyles = StyleSheet.create({
   container: {
-    marginTop: 8,
+    marginTop: 10,
     paddingLeft: 44,
     paddingRight: dsSpacing.lg,
-    paddingVertical: dsSpacing.lg,
-    borderRadius: 20,
-    backgroundColor: hexAlpha('#0b1220', 0.6),
+    paddingVertical: dsSpacing.xl,
+    borderRadius: 24,
+    backgroundColor: hexAlpha('#0b1220', 0.72),
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(160,180,220,0.12)',
     overflow: 'hidden',
     // Atmospheric scene (mountains, aurora, stars) mounts inside
     // this container in M3a — placed absolutely behind the rows.
@@ -459,6 +530,7 @@ function PathRow({
       -1,
       false
     );
+    return () => cancelAnimation(pulseAnim);
   }, [isCurrent, pulseAnim]);
   const pulseStyle = useAnimatedStyle(() => ({
     opacity: 0.55 - pulseAnim.value * 0.45,
@@ -639,6 +711,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     overflow: 'hidden',
+  },
+  heroGlow: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroParticle: {
+    position: 'absolute',
   },
   heroTopRow: {
     flexDirection: 'row',

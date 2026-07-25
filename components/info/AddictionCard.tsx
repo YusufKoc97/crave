@@ -1,6 +1,7 @@
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import type { Addiction } from '@/constants/addictions';
+import { GradientSurface } from '@/components/ui/GradientSurface';
 import { lucideIconFor } from './iconMap';
 import {
   CARD_BG_TRACKED_BOT,
@@ -87,6 +88,17 @@ export function AddictionCard({
   // so we structure them as siblings inside a shared visual frame.
   return (
     <View style={[styles.frame, cardSurface(tracked, hue)]}>
+      {/* Native has no backgroundImage — paint the design's radial +
+          linear card gradient with SVG so device matches web. */}
+      {Platform.OS !== 'web' && (
+        <GradientSurface
+          top={tracked ? CARD_BG_TRACKED_TOP : CARD_BG_UNTRACKED_TOP}
+          bottom={tracked ? CARD_BG_TRACKED_BOT : CARD_BG_UNTRACKED_BOT}
+          accent={tracked ? hue : undefined}
+          accentPeak={0.22}
+          accentMid={0.04}
+        />
+      )}
       <Pressable
         onPress={onPress}
         style={({ pressed }) => [styles.body, pressed && styles.pressedBody]}

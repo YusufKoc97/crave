@@ -1,4 +1,5 @@
 import { Platform, StyleSheet, Text, View } from 'react-native';
+import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { Flag, Sunrise } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
@@ -44,15 +45,33 @@ export function LaunchState({ addiction, count }: Props) {
           },
         ]}
       >
-        <View
-          pointerEvents="none"
-          style={[
-            styles.heroHalo,
-            {
-              backgroundColor: alpha(0.12),
-            },
-          ]}
-        />
+        <View pointerEvents="none" style={styles.heroHalo}>
+          <Svg width="100%" height="100%" viewBox="0 0 100 100">
+            <Defs>
+              <RadialGradient
+                id="launchHeroHalo"
+                cx="50"
+                cy="50"
+                rx="50"
+                ry="50"
+                fx="50"
+                fy="50"
+                gradientUnits="userSpaceOnUse"
+              >
+                <Stop offset="0%" stopColor={accent} stopOpacity={0.26} />
+                <Stop offset="60%" stopColor={accent} stopOpacity={0.1} />
+                <Stop offset="100%" stopColor={accent} stopOpacity={0} />
+              </RadialGradient>
+            </Defs>
+            <Rect
+              x="0"
+              y="0"
+              width="100"
+              height="100"
+              fill="url(#launchHeroHalo)"
+            />
+          </Svg>
+        </View>
         <View
           style={[
             styles.iconWrap,
@@ -160,13 +179,6 @@ const styles = StyleSheet.create({
     marginLeft: -75,
     width: 150,
     height: 150,
-    borderRadius: 75,
-    ...Platform.select({
-      web: {
-        filter: 'blur(20px)',
-      } as any,
-      default: {},
-    }),
   },
   iconWrap: {
     width: 52,

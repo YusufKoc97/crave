@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -192,17 +192,32 @@ function BreathingHalo({
     opacity: opacity.value,
   }));
 
+  // Soft SVG radial-gradient disc instead of a solid circle + web-only
+  // `filter: blur()`. The gradient's transparent falloff gives the same
+  // soft glow on native, where `filter` is a no-op. The Animated.View's
+  // opacity still drives the breathing loop.
   return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        styles.breathe,
-        {
-          backgroundColor: color,
-        },
-        style,
-      ]}
-    />
+    <Animated.View pointerEvents="none" style={[styles.breathe, style]}>
+      <Svg width="100%" height="100%" viewBox="0 0 100 100">
+        <Defs>
+          <RadialGradient
+            id="pulseBreathe"
+            cx="50"
+            cy="50"
+            rx="50"
+            ry="50"
+            fx="50"
+            fy="50"
+            gradientUnits="userSpaceOnUse"
+          >
+            <Stop offset="0%" stopColor={color} stopOpacity={1} />
+            <Stop offset="60%" stopColor={color} stopOpacity={0.35} />
+            <Stop offset="100%" stopColor={color} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100" height="100" fill="url(#pulseBreathe)" />
+      </Svg>
+    </Animated.View>
   );
 }
 
@@ -467,13 +482,6 @@ const styles = StyleSheet.create({
     right: -60,
     width: 200,
     height: 200,
-    borderRadius: 100,
-    ...Platform.select({
-      web: {
-        filter: 'blur(30px)',
-      } as any,
-      default: {},
-    }),
   },
   ecgWrap: {
     position: 'absolute',

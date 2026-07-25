@@ -12,6 +12,7 @@ import Svg, {
   Line,
   LinearGradient,
   Path,
+  RadialGradient,
   Rect,
   Stop,
 } from 'react-native-svg';
@@ -148,10 +149,35 @@ export function PatternCard({ kind, data, addiction, index }: Props) {
     <Animated.View
       style={[styles.card, { borderColor: alpha(0.22) }, cardStyle]}
     >
-      <View
-        pointerEvents="none"
-        style={[styles.halo, { backgroundColor: alpha(0.16) }]}
-      />
+      {/* Accent radial halo top-right — soft SVG gradient (not a solid
+          circle + web-only `filter: blur()`) so it survives on native. */}
+      <View pointerEvents="none" style={styles.halo}>
+        <Svg width="100%" height="100%" viewBox="0 0 100 100">
+          <Defs>
+            <RadialGradient
+              id={`patHalo${kind}`}
+              cx="50"
+              cy="50"
+              rx="50"
+              ry="50"
+              fx="50"
+              fy="50"
+              gradientUnits="userSpaceOnUse"
+            >
+              <Stop offset="0%" stopColor={cardColor} stopOpacity={0.34} />
+              <Stop offset="60%" stopColor={cardColor} stopOpacity={0.12} />
+              <Stop offset="100%" stopColor={cardColor} stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Rect
+            x="0"
+            y="0"
+            width="100"
+            height="100"
+            fill={`url(#patHalo${kind})`}
+          />
+        </Svg>
+      </View>
 
       <View style={styles.headRow}>
         <View
@@ -618,21 +644,18 @@ function BarColumn({
   const barStyle = useAnimatedStyle(() => ({
     transform: [{ scaleY: scaleY.value }],
   }));
-  // A `useAnimatedStyle` body is a worklet: it runs on the Reanimated UI
-  // runtime, where the only things in scope are worklets and captured
-  // values. `Platform.select` and `compHexAlpha` are plain JS functions,
-  // so calling them from here throws inside the worklet — and a throw on
-  // the UI runtime is uncatchable, so it aborts the process (SIGABRT, no
-  // redbox: the app just vanishes). Both are resolved in render scope
-  // below and the worklet closes over the finished values instead.
+  // Precompute non-worklet values on the render thread. Calling
+  // Platform.select / compHexAlpha *inside* the worklet aborts the
+  // native UI runtime (they aren't worklets) — web tolerated it
+  // because worklets run on the JS thread there.
+  const glowIsWeb = Platform.OS === 'web';
   const glowShadowColor = compHexAlpha(color, 0.9);
-  const supportsFilter = Platform.OS === 'web';
-
   const glowStyle = useAnimatedStyle(() => {
-    const opacity = 0.5 + glow.value * 0.5;
-    if (!supportsFilter) return { opacity };
+    if (!glowIsWeb) {
+      return { opacity: 0.5 + glow.value * 0.5 };
+    }
     return {
-      opacity,
+      opacity: 0.5 + glow.value * 0.5,
       filter: `brightness(${1 + glow.value * 0.22}) drop-shadow(0 0 ${
         2 + glow.value * 9
       }px ${glowShadowColor})`,
@@ -702,13 +725,6 @@ const styles = StyleSheet.create({
     top: -50,
     width: 140,
     height: 140,
-    borderRadius: 70,
-    ...Platform.select({
-      web: {
-        filter: 'blur(16px)',
-      } as any,
-      default: {},
-    }),
   },
   headRow: {
     position: 'relative',

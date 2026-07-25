@@ -1,4 +1,5 @@
-import { Platform, StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { GlowDisc } from '@/components/ui/GlowDisc';
 import { compColors, compHexAlpha } from './comparisonTheme';
 
 /**
@@ -10,10 +11,12 @@ import { compColors, compHexAlpha } from './comparisonTheme';
  * discs — so the pane reads as its own module without stepping
  * on the addiction color that dominates the header + charts.
  *
- * Same web/native fallback pattern as `TriggersAurora`: real CSS
- * blur on web, opacity fade on native (karar #6A — no expo-blur).
- * Kept very subtle (opacity 0.05–0.09) — the design brief calls
- * for a "calmer, data-forward sibling" to Triggers.
+ * Renders each disc as an SVG <RadialGradient> (same technique as
+ * the design-system `AmbientGlow`) so the glow has a true soft
+ * falloff on BOTH web and native — no `filter: blur()` (web-only,
+ * which degraded to a hard-edged circle on native). Kept subtle —
+ * the design brief calls for a "calmer, data-forward sibling" to
+ * Triggers.
  */
 
 type Disc = {
@@ -29,24 +32,24 @@ const DISCS: readonly Disc[] = [
   {
     leftPct: 20,
     topPct: 10,
-    size: 220,
-    color: compHexAlpha(compColors.community, 0.09),
+    size: 320,
+    color: compHexAlpha(compColors.community, 0.14),
   },
   // Top-right — balances the aurora without drawing attention
   // near the dev chip.
   {
     leftPct: 82,
     topPct: 20,
-    size: 180,
-    color: compHexAlpha(compColors.community, 0.06),
+    size: 260,
+    color: compHexAlpha(compColors.community, 0.1),
   },
   // Mid-page — sits under the bell-curve cards so their charts
   // have some warmth instead of floating on flat navy.
   {
     leftPct: 50,
     topPct: 60,
-    size: 280,
-    color: compHexAlpha(compColors.community, 0.05),
+    size: 400,
+    color: compHexAlpha(compColors.community, 0.09),
   },
 ];
 
@@ -64,29 +67,10 @@ export function ComparisonAurora({ height = '100%' }: Props) {
       importantForAccessibility="no-hide-descendants"
     >
       {DISCS.map((d, i) => (
-        <AuroraDisc key={i} {...d} />
+        <GlowDisc key={i} {...d} />
       ))}
     </View>
   );
-}
-
-function AuroraDisc({ leftPct, topPct, size, color }: Disc) {
-  const base: ViewStyle = {
-    position: 'absolute',
-    left: `${leftPct}%`,
-    top: `${topPct}%`,
-    width: size,
-    height: size,
-    marginLeft: -size / 2,
-    marginTop: -size / 2,
-    borderRadius: size / 2,
-    backgroundColor: color,
-  };
-  if (Platform.OS === 'web') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return <View style={{ ...base, filter: 'blur(28px)' } as any} />;
-  }
-  return <View style={[base, { opacity: 0.5 }]} />;
 }
 
 const styles = StyleSheet.create({

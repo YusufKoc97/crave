@@ -1,13 +1,21 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import Animated, {
   Easing,
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+
+// Monotonic counter → globally-unique SVG gradient ids. react-native-svg
+// resolves `url(#id)` against a shared registry on native, so a hardcoded
+// id shared by two mounted instances makes the later one repaint the
+// former's gradient (wrong colour). useId() is unusable here because it
+// yields `:r0:`, which is invalid in an SVG url() reference.
+let glowSeq = 0;
 
 /**
  * Design-system atmosphere primitive.
@@ -60,6 +68,7 @@ export function AmbientGlow({
 }: Props) {
   const stops = INTENSITY_STOPS[intensity];
   const opacity = useSharedValue(pulse ? stops.min : stops.center);
+  const gradientId = useRef(`ambientGlow${(glowSeq += 1)}`).current;
 
   useEffect(() => {
     if (!pulse) {
@@ -75,6 +84,7 @@ export function AmbientGlow({
       -1,
       true
     );
+    return () => cancelAnimation(opacity);
   }, [pulse, opacity, stops.center, stops.peak]);
 
   const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
@@ -102,7 +112,7 @@ export function AmbientGlow({
         <Svg width="100%" height="100%" viewBox="0 0 100 100">
           <Defs>
             <RadialGradient
-              id="glow"
+              id={gradientId}
               cx="50"
               cy="50"
               rx="50"
@@ -116,7 +126,13 @@ export function AmbientGlow({
               <Stop offset="100%" stopColor={color} stopOpacity={0} />
             </RadialGradient>
           </Defs>
-          <Rect x="0" y="0" width="100" height="100" fill="url(#glow)" />
+          <Rect
+            x="0"
+            y="0"
+            width="100"
+            height="100"
+            fill={`url(#${gradientId})`}
+          />
         </Svg>
       </View>
     </Animated.View>

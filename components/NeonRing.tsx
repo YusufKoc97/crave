@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
@@ -46,6 +47,7 @@ export function NeonRing({
       -1,
       false
     );
+    return () => cancelAnimation(rotate);
   }, [direction, duration, rotate]);
 
   const arcStyle = useAnimatedStyle(() => ({

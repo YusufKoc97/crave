@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
@@ -40,6 +41,7 @@ export function BreathingOrbPreview() {
       -1,
       false
     );
+    return () => cancelAnimation(t);
   }, [reduced, t]);
 
   const orbStyle = useAnimatedStyle(() => ({
