@@ -618,17 +618,26 @@ function BarColumn({
   const barStyle = useAnimatedStyle(() => ({
     transform: [{ scaleY: scaleY.value }],
   }));
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: 0.5 + glow.value * 0.5,
-    ...Platform.select({
-      web: {
-        filter: `brightness(${1 + glow.value * 0.22}) drop-shadow(0 0 ${
-          2 + glow.value * 9
-        }px ${compHexAlpha(color, 0.9)})`,
-      } as any,
-      default: {},
-    }),
-  }));
+  // A `useAnimatedStyle` body is a worklet: it runs on the Reanimated UI
+  // runtime, where the only things in scope are worklets and captured
+  // values. `Platform.select` and `compHexAlpha` are plain JS functions,
+  // so calling them from here throws inside the worklet — and a throw on
+  // the UI runtime is uncatchable, so it aborts the process (SIGABRT, no
+  // redbox: the app just vanishes). Both are resolved in render scope
+  // below and the worklet closes over the finished values instead.
+  const glowShadowColor = compHexAlpha(color, 0.9);
+  const supportsFilter = Platform.OS === 'web';
+
+  const glowStyle = useAnimatedStyle(() => {
+    const opacity = 0.5 + glow.value * 0.5;
+    if (!supportsFilter) return { opacity };
+    return {
+      opacity,
+      filter: `brightness(${1 + glow.value * 0.22}) drop-shadow(0 0 ${
+        2 + glow.value * 9
+      }px ${glowShadowColor})`,
+    } as any;
+  });
 
   return (
     <View style={styles.barCol}>
