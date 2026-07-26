@@ -23,6 +23,7 @@ import Animated, {
 import { router } from 'expo-router';
 import type { Addiction } from '@/constants/addictions';
 import { maxMinutesFor } from '@/constants/addictions';
+import { dsColors } from '@/constants/designSystem';
 import { useAddictions } from '@/context/AddictionsContext';
 import { NeonRing } from '@/components/NeonRing';
 import { t } from '@/lib/i18n';
@@ -613,26 +614,32 @@ function hexWithAlpha(hex: string, alpha: number) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#020810',
+    // Shared navy base across Home / Info / Profile so the floating tab
+    // pill never sits on a seam between two different darks.
+    backgroundColor: dsColors.bgBase,
   },
   ambient: {
     position: 'absolute',
     borderRadius: 9999,
   },
+  // Each disc is the old value shifted up by exactly the delta between
+  // the previous near-black root (#020810) and the shared navy base, so
+  // the glow still rises out of the page instead of reading as a dark
+  // ring against the lighter background.
   ambientOuter: {
     width: 420,
     height: 420,
-    backgroundColor: '#060F1E',
+    backgroundColor: '#0E1B36',
   },
   ambientMid: {
     width: 310,
     height: 310,
-    backgroundColor: '#091525',
+    backgroundColor: '#11213D',
   },
   ambientInner: {
     width: 220,
     height: 220,
-    backgroundColor: '#0D1E35',
+    backgroundColor: '#152A4D',
   },
   ambientHalo: {
     // A 1×1 anchor at the center; the visible atmosphere is entirely
@@ -669,7 +676,7 @@ const styles = StyleSheet.create({
       // was missing. Faint enough to read as atmosphere, not a ring.
       '0 0 280px 220px rgba(59, 130, 246, 0.08)',
       // Far-edge soft neon — feathers into the page bg so the boundary
-      // between halo and #020810 is imperceptible.
+      // between halo and the navy base is imperceptible.
       '0 0 380px 260px rgba(96, 165, 250, 0.04)',
     ].join(', '),
   },

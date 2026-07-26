@@ -37,9 +37,14 @@ export const ICON_BG_TOP = '#182236';
 export const ICON_BG_BOT = '#0c1322';
 
 /** Page background — used by the Info screen root. Three-stop
- *  radial approximated via View + linearGradient stack for RN. */
+ *  radial approximated via View + linearGradient stack for RN.
+ *
+ *  MID is the flat base the screen actually paints. It mirrors
+ *  `dsColors.bgBase` by value (this file keeps its zero-cross-import
+ *  scope guard) so Home, Info and Profile read as one continuous navy
+ *  behind the floating tab pill instead of three near-black tones. */
 export const PAGE_BG_INNER = '#101a30';
-export const PAGE_BG_MID = '#0a1120';
+export const PAGE_BG_MID = '#0A1428';
 export const PAGE_BG_OUTER = '#070b16';
 
 // ─── Text ───
