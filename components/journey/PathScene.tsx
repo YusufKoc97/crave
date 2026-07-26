@@ -13,6 +13,7 @@ import Animated, {
 import Svg, {
   Circle,
   Defs,
+  G,
   LinearGradient,
   Path,
   Polyline,
@@ -22,7 +23,7 @@ import Svg, {
 } from 'react-native-svg';
 import { GlowDisc } from '@/components/ui/GlowDisc';
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedG = Animated.createAnimatedComponent(G);
 
 /**
  * Journey PATH background scene — M3a (static).
@@ -63,10 +64,15 @@ type Star = {
 };
 
 /** Number of independent twinkle phase groups. Each star gets
- *  assigned to one at seed time; all stars in the same group
- *  share a single Reanimated shared value. This keeps the RN
- *  animation cost down to O(groups) instead of O(stars) while
- *  still reading as "each star twinkles at its own pace". */
+ *  assigned to one at seed time; all stars in a group share one
+ *  Reanimated shared value AND one animated <G> wrapper, so the
+ *  per-frame cost is O(groups), not O(stars).
+ *
+ *  An earlier version shared the shared values but still gave every
+ *  star its own animated <Circle>. That was 40 SVG node writes per
+ *  frame, and because react-native-svg repaints the whole <Svg>
+ *  canvas when any child prop changes, it also meant 40 full repaints
+ *  of the mountain scene every frame — the Journey tab's frame drop. */
 const TWINKLE_GROUPS = 8;
 
 function seededStars(count: number): Star[] {
@@ -218,35 +224,45 @@ function useTwinkleGroups() {
   return svs;
 }
 
-/** Animated star — reads the shared value of its assigned group
- *  and interpolates opacity between .15 and its base opacity. */
-function TwinkleStar({
-  s,
+/**
+ * One twinkle group — every star in it shares a single animated <G>.
+ *
+ * Each star keeps its own base opacity as a *static* `fillOpacity`;
+ * the group's `opacity` multiplies over it. So a star's effective
+ * brightness still swings between dim and its own base value, but
+ * the whole group costs one animated node instead of one per star.
+ */
+function TwinkleGroup({
+  stars,
   width,
   height,
   phase,
 }: {
-  s: Star;
+  stars: readonly Star[];
   width: number;
   height: number;
   phase: ReturnType<typeof useSharedValue<number>>;
 }) {
-  const animatedProps = useAnimatedProps(() => {
-    // phase.value oscillates 0..1; map to opacity range.
-    // 0 → dim (0.15 * base), 1 → full (base).
-    const t = phase.value;
-    const dim = 0.15;
-    const opacity = dim + (s.o - dim) * t;
-    return { fillOpacity: opacity };
-  });
+  const animatedProps = useAnimatedProps(() => ({
+    // phase oscillates 0..1 → group opacity 0.2..1. The dim floor is
+    // now proportional rather than absolute, which reads better: faint
+    // stars fade toward nothing instead of bottoming out at the same
+    // grey as the bright ones.
+    opacity: 0.2 + phase.value * 0.8,
+  }));
   return (
-    <AnimatedCircle
-      cx={s.x * width}
-      cy={s.y * height}
-      r={s.r}
-      fill="#ffffff"
-      animatedProps={animatedProps}
-    />
+    <AnimatedG animatedProps={animatedProps}>
+      {stars.map((s, i) => (
+        <Circle
+          key={i}
+          cx={s.x * width}
+          cy={s.y * height}
+          r={s.r}
+          fill="#ffffff"
+          fillOpacity={s.o}
+        />
+      ))}
+    </AnimatedG>
   );
 }
 
@@ -304,6 +320,14 @@ let sceneSeq = 0;
 
 export function PathScene() {
   const stars = useMemo(() => seededStars(40), []);
+  // Bucket once at mount — the render path then walks groups, not stars.
+  const starGroups = useMemo(
+    () =>
+      Array.from({ length: TWINKLE_GROUPS }, (_, g) =>
+        stars.filter((s) => s.g === g)
+      ),
+    [stars]
+  );
   const twinkleGroups = useTwinkleGroups();
   // Fixed viewBox — SVG scales to any container size via
   // width/height 100% + preserveAspectRatio. This is simpler than
@@ -540,29 +564,42 @@ export function PathScene() {
           fill={`url(#${ID.read})`}
         />
 
-        {/* Stars — one animated <Circle> per star, driven by a
-            shared value picked from an 8-group phase pool so the
-            field twinkles at varied paces without needing one
-            worklet per star. On top of the wash so they read bright. */}
-        {stars.map((s, i) => (
-          <TwinkleStar
-            key={i}
-            s={s}
-            width={width}
-            height={height}
-            phase={twinkleGroups[s.g]}
-          />
-        ))}
-
         {/* Constellations — thin white lines connecting fixed
             node points. Nodes are rendered as slightly brighter
-            dots on top so the shape reads as "stars connected". */}
+            dots on top so the shape reads as "stars linked". Static,
+            so they stay on this never-repainting canvas. */}
         {CONSTELLATIONS.map((c, ci) => (
           <ConstellationShape
             key={ci}
             constellation={c}
             width={width}
             height={height}
+          />
+        ))}
+      </Svg>
+
+      {/* ── Star field ─────────────────────────────────────────────
+          Deliberately its OWN <Svg>, overlaid on the one above.
+          react-native-svg repaints an entire canvas whenever any
+          child prop changes, so leaving the twinkling stars inside
+          the scene above meant redrawing three gradient-filled
+          mountain ridges, two radial glows and the readability wash
+          on every animation frame. Isolated here, a twinkle repaints
+          nothing but 40 sub-pixel dots. */}
+      <Svg
+        style={StyleSheet.absoluteFill}
+        width="100%"
+        height="100%"
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="xMidYMax slice"
+      >
+        {starGroups.map((group, g) => (
+          <TwinkleGroup
+            key={g}
+            stars={group}
+            width={width}
+            height={height}
+            phase={twinkleGroups[g]}
           />
         ))}
       </Svg>

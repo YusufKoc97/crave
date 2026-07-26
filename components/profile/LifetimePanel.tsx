@@ -119,6 +119,11 @@ export function LifetimePanel({
           unit={t('profile.stat_streak_unit_short')}
           label={t('profile.stat_streak_short')}
           delay={140}
+          // The streak is the number people actually come back to check,
+          // so it gets the neon treatment while the other two readings
+          // stay white. Only once there IS a streak — glowing a zero
+          // would celebrate nothing.
+          accent={longestStreakDays > 0}
           // No record to flag until there is actually a streak.
           badge={longestStreakDays > 0 ? t('profile.record_badge') : undefined}
           viz={<StreakTicks days={longestStreakDays} />}
@@ -213,6 +218,7 @@ function Reading({
   label,
   delay,
   badge,
+  accent,
   viz,
 }: {
   value: number;
@@ -220,14 +226,22 @@ function Reading({
   label: string;
   delay: number;
   badge?: string;
+  /** Renders the number in neon with a glow — one reading per panel. */
+  accent?: boolean;
   viz: React.ReactNode;
 }) {
   return (
     <View style={styles.reading}>
       {viz}
       <View style={styles.readingValueRow}>
-        <CountUp target={value} delay={delay} style={styles.readingValue} />
-        <Text style={styles.readingUnit}>{unit}</Text>
+        <CountUp
+          target={value}
+          delay={delay}
+          style={[styles.readingValue, accent && styles.readingValueAccent]}
+        />
+        <Text style={[styles.readingUnit, accent && styles.readingUnitAccent]}>
+          {unit}
+        </Text>
       </View>
       <View style={styles.readingLabelRow}>
         <Text style={styles.readingLabel} numberOfLines={1}>
@@ -434,10 +448,24 @@ const styles = StyleSheet.create({
     letterSpacing: -1.1,
     fontVariant: ['tabular-nums'],
   },
+  // textShadow* is one of the few glow primitives RN honours on iOS,
+  // Android and web alike — no Platform.select needed, unlike boxShadow.
+  readingValueAccent: {
+    color: coreNeon,
+    fontSize: 26,
+    textShadowColor: neon(0.55),
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
+  },
   readingUnit: {
     color: neon(0.8),
     fontSize: 11,
     fontWeight: '600',
+  },
+  readingUnitAccent: {
+    color: coreNeon,
+    fontSize: 12,
+    fontWeight: '800',
   },
   readingLabelRow: {
     flexDirection: 'row',

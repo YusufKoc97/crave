@@ -17,7 +17,7 @@
 
 /** Base + surface colours from the design brief. */
 export const dsColors = {
-  bgBase: '#0A1428', // deep navy, near-black
+  bgBase: '#081020', // deep navy, near-black
   cardSurface: '#131F3A', // one shade lighter — resting card bg
   cardSurfaceElevated: '#1A2748', // pressed / hovered state
   borderSubtle: '#1F2E52',

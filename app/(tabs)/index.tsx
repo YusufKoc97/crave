@@ -622,24 +622,30 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderRadius: 9999,
   },
-  // Each disc is the old value shifted up by exactly the delta between
-  // the previous near-black root (#020810) and the shared navy base, so
-  // the glow still rises out of the page instead of reading as a dark
-  // ring against the lighter background.
+  // Each disc rises out of the shared navy base rather than the old
+  // near-black root. Their lift over that base is deliberately smaller
+  // than a straight port would give: at full contrast the three discs
+  // stacked into a bright dome that made this tab read lighter than
+  // Info and Profile — the exact seam the unified background exists
+  // to remove.
+  // The step BETWEEN discs matters as much as their absolute value:
+  // these are hard-edged circles, so any sizeable jump shows up as a
+  // visible ring rather than a falloff. Steps are kept small enough
+  // that the three read as one dome.
   ambientOuter: {
     width: 420,
     height: 420,
-    backgroundColor: '#0E1B36',
+    backgroundColor: '#0A1426',
   },
   ambientMid: {
     width: 310,
     height: 310,
-    backgroundColor: '#11213D',
+    backgroundColor: '#0B172C',
   },
   ambientInner: {
     width: 220,
     height: 220,
-    backgroundColor: '#152A4D',
+    backgroundColor: '#0D1C36',
   },
   ambientHalo: {
     // A 1×1 anchor at the center; the visible atmosphere is entirely

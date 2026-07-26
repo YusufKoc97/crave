@@ -236,9 +236,11 @@ const styles = StyleSheet.create({
     width: PILL_WIDTH,
     borderRadius: 32,
     paddingHorizontal: PILL_HORIZONTAL_PADDING,
-    backgroundColor: '#0D1E35DD',
+    // Sits one step above the shared page navy — enough to read as a
+    // floating surface, not so much that it glows against it.
+    backgroundColor: '#0B192CDD',
     borderWidth: 1,
-    borderColor: '#1E3050',
+    borderColor: '#1A2944',
     ...Platform.select({
       web: {
         backdropFilter: 'blur(20px)',

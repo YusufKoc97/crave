@@ -31,10 +31,10 @@ export function hexAlpha(hex: string, alpha: number): string {
  *  fades into it rather than ending on a hard edge — so all four are
  *  shifted by the same delta the page background moved when the three
  *  main tabs were unified onto one navy. */
-export const CARD_BG_TRACKED_TOP = '#141f36';
-export const CARD_BG_TRACKED_BOT = '#0a1428';
-export const CARD_BG_UNTRACKED_TOP = '#101c33';
-export const CARD_BG_UNTRACKED_BOT = '#0b1528';
+export const CARD_BG_TRACKED_TOP = '#121b2e';
+export const CARD_BG_TRACKED_BOT = '#081020';
+export const CARD_BG_UNTRACKED_TOP = '#0e182b';
+export const CARD_BG_UNTRACKED_BOT = '#091120';
 
 /** Icon inner circle gradient stops. */
 export const ICON_BG_TOP = '#182236';
@@ -47,9 +47,9 @@ export const ICON_BG_BOT = '#0c1322';
  *  `dsColors.bgBase` by value (this file keeps its zero-cross-import
  *  scope guard) so Home, Info and Profile read as one continuous navy
  *  behind the floating tab pill instead of three near-black tones. */
-export const PAGE_BG_INNER = '#101a30';
-export const PAGE_BG_MID = '#0A1428';
-export const PAGE_BG_OUTER = '#070b16';
+export const PAGE_BG_INNER = '#0e1628';
+export const PAGE_BG_MID = '#081020';
+export const PAGE_BG_OUTER = '#05070e';
 
 // ─── Text ───
 
