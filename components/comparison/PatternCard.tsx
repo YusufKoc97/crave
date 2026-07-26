@@ -369,13 +369,25 @@ function ClockViz({
           {t('comparison.pattern.clock_headline')}
         </Text>
         <Text style={styles.clockBody}>
-          {t('comparison.pattern.clock_body', { percent: data.sharePct })
-            .split('%')[0]
-            .replace(/\{\{percent\}\}/g, String(data.sharePct))}
-          <Text style={[styles.clockBodyAccent, { color }]}>
-            {data.sharePct}%
-          </Text>
-          {' of all cravings.'}
+          {(() => {
+            // Split the translated sentence around its "{{percent}}%"
+            // token so the number can be its own accent-coloured
+            // <Text> without hard-coding the English tail. Interpolating
+            // a sentinel keeps the translation in charge of both halves.
+            const MARK = '\u0000';
+            const [before, after] = t('comparison.pattern.clock_body', {
+              percent: MARK,
+            }).split(`${MARK}%`);
+            return (
+              <>
+                {before}
+                <Text style={[styles.clockBodyAccent, { color }]}>
+                  {data.sharePct}%
+                </Text>
+                {after}
+              </>
+            );
+          })()}
         </Text>
       </View>
     </View>
