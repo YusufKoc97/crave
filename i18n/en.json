@@ -100,7 +100,21 @@
     "delete_confirmation_title": "Delete account?",
     "delete_confirmation_message": "This cannot be undone. All your data will be permanently deleted.",
     "delete_confirm": "Delete",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "points_unit": "points",
+    "core_points_to_next": "{{points}} pts to {{rank}}",
+    "core_at_ceiling": "You've reached the final rank",
+    "core_dormant_hint": "Resist your first craving to light the core",
+    "core_dormant_body": "Every craving you resist feeds the core.",
+    "lifetime_section": "Lifetime",
+    "this_week": "This week",
+    "record_badge": "REC",
+    "stat_streak_short": "Streak",
+    "stat_rate_short": "Success",
+    "stat_techniques_short": "Toolkit",
+    "stat_streak_unit_short": "d",
+    "feeding_section": "Feeding the core",
+    "footer": "Crave · v1.0"
   },
   "active": {
     "resist": "I Resisted",

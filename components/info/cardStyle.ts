@@ -26,11 +26,15 @@ export function hexAlpha(hex: string, alpha: number): string {
 
 // ─── Card surfaces ───
 
-/** Base card gradient stops (used with LinearGradient / radial fake). */
-export const CARD_BG_TRACKED_TOP = '#141d2e';
-export const CARD_BG_TRACKED_BOT = '#0a1120';
-export const CARD_BG_UNTRACKED_TOP = '#10192b';
-export const CARD_BG_UNTRACKED_BOT = '#0b1220';
+/** Base card gradient stops (used with LinearGradient / radial fake).
+ *  The bottom stop is meant to meet the page background so a card
+ *  fades into it rather than ending on a hard edge — so all four are
+ *  shifted by the same delta the page background moved when the three
+ *  main tabs were unified onto one navy. */
+export const CARD_BG_TRACKED_TOP = '#141f36';
+export const CARD_BG_TRACKED_BOT = '#0a1428';
+export const CARD_BG_UNTRACKED_TOP = '#101c33';
+export const CARD_BG_UNTRACKED_BOT = '#0b1528';
 
 /** Icon inner circle gradient stops. */
 export const ICON_BG_TOP = '#182236';

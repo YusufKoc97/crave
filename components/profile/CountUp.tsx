@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Text, type TextProps } from 'react-native';
 import { useReducedMotion } from '@/components/toolkit/useReducedMotion';
-import { PROFILE_ANIM } from './profileTheme';
+import { CORE_ANIM } from './coreTheme';
 
 /**
  * Count-up number — same belt-and-braces approach the Comparison
@@ -42,7 +42,7 @@ export function CountUp({
         if (cancelled) return;
         const p = Math.min(
           1,
-          (performance.now() - startAt) / PROFILE_ANIM.countUpMs
+          (performance.now() - startAt) / CORE_ANIM.countUpMs
         );
         const eased = 1 - Math.pow(1 - p, 3);
         setDisplay(Math.round(target * eased));
@@ -56,7 +56,7 @@ export function CountUp({
       () => {
         if (!cancelled) setDisplay(target);
       },
-      delay + PROFILE_ANIM.countUpMs * 3
+      delay + CORE_ANIM.countUpMs * 3
     );
     return () => {
       cancelled = true;
