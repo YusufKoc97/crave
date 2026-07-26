@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -12,7 +13,13 @@ import Animated, {
 import { Plus, X, type LucideIcon } from 'lucide-react-native';
 import { hexAlpha } from '@/constants/designSystem';
 import { DashedBox, RadialFill } from './fills';
-import { goldA, pickerColors, pickerRadius, pickerTiming } from './pickerTheme';
+import {
+  goldA,
+  pickerColors,
+  pickerMaterialize,
+  pickerRadius,
+  pickerTiming,
+} from './pickerTheme';
 
 /**
  * One slot in the LOADOUT panel. Three states, per the handoff:
@@ -55,9 +62,12 @@ export function FilledSocket({
   onPress,
   a11yLabel,
 }: FilledProps) {
-  const enter = useSharedValue(reduced ? 1 : fresh ? 0.55 : 0.7);
-  const fade = useSharedValue(reduced || fresh ? 1 : 0);
+  const enter = useSharedValue(reduced ? 1 : fresh ? 0.94 : 0.7);
+  const fade = useSharedValue(reduced ? 1 : 0);
   const press = useSharedValue(1);
+  const edge = useSharedValue(0);
+  const halo = useSharedValue(0);
+  const haloScale = useSharedValue(0.86);
 
   useEffect(() => {
     if (reduced) {
@@ -66,9 +76,38 @@ export function FilledSocket({
       return;
     }
     if (fresh) {
-      // socketPop — the one moment the sheet is allowed to be loud.
-      enter.value = withSpring(1, { stiffness: 300, damping: 14 });
-      fade.value = 1;
+      // Neon materialize. Timing only — a spring here would overshoot
+      // past 1.0 and put the hop back.
+      const settle = {
+        duration: pickerMaterialize.tile,
+        easing: Easing.out(Easing.cubic),
+      };
+      enter.value = withTiming(1, settle);
+      fade.value = withTiming(1, settle);
+      edge.value = withSequence(
+        withTiming(1, {
+          duration: pickerMaterialize.edgeIn,
+          easing: Easing.out(Easing.quad),
+        }),
+        withTiming(0, {
+          duration: pickerMaterialize.edgeOut,
+          easing: Easing.in(Easing.quad),
+        })
+      );
+      halo.value = withSequence(
+        withTiming(1, {
+          duration: pickerMaterialize.edgeIn,
+          easing: Easing.out(Easing.quad),
+        }),
+        withTiming(0, {
+          duration: pickerMaterialize.halo - pickerMaterialize.edgeIn,
+          easing: Easing.in(Easing.quad),
+        })
+      );
+      haloScale.value = withTiming(1.5, {
+        duration: pickerMaterialize.halo,
+        easing: Easing.out(Easing.cubic),
+      });
       return;
     }
     const delay = index * pickerTiming.socketStagger;
@@ -92,6 +131,11 @@ export function FilledSocket({
   const pressStyle = useAnimatedStyle(() => ({
     transform: [{ scale: press.value }],
   }));
+  const edgeStyle = useAnimatedStyle(() => ({ opacity: edge.value }));
+  const haloStyle = useAnimatedStyle(() => ({
+    opacity: halo.value,
+    transform: [{ scale: haloScale.value }],
+  }));
 
   return (
     <Pressable
@@ -108,57 +152,104 @@ export function FilledSocket({
     >
       <Animated.View style={pressStyle}>
         <Animated.View style={[styles.column, enterStyle]}>
-          <View
-            style={[
-              styles.shadowWrap,
-              {
-                width: size,
-                height: size,
-                shadowColor: hue,
-              },
-            ]}
-          >
+          {/* Host for the materialize overlays. They sit outside the
+              socket's own bounds, so they can't live inside the
+              clipped box — and they're siblings of `shadowWrap`
+              rather than children so they don't feed into its drop
+              shadow while they flare. */}
+          <View style={{ width: size, height: size }}>
             <View
               style={[
-                styles.clip,
+                styles.shadowWrap,
                 {
                   width: size,
                   height: size,
-                  borderColor: hexAlpha(hue, 0.62),
+                  shadowColor: hue,
                 },
               ]}
             >
-              <RadialFill
-                cx={30}
-                cy={20}
-                rx={120}
-                ry={120}
-                stops={[
-                  { offset: 0, color: hue, opacity: 0.42 },
+              <View
+                style={[
+                  styles.clip,
                   {
-                    offset: 72,
-                    color: pickerColors.socketDepth,
-                    opacity: 0.95,
+                    width: size,
+                    height: size,
+                    borderColor: hexAlpha(hue, 0.62),
                   },
-                  { offset: 100, color: pickerColors.socketDepth, opacity: 1 },
                 ]}
-              />
-              {/* Colour bouncing back up off the bottom edge. */}
-              <RadialFill
-                cx={50}
-                cy={120}
-                rx={90}
-                ry={70}
-                stops={[
-                  { offset: 0, color: hue, opacity: 0.3 },
-                  { offset: 70, color: hue, opacity: 0 },
-                ]}
-              />
-              <View style={styles.topHighlight} />
-              <View style={styles.centerGlyph}>
-                {Icon && <Icon size={ICON} color={hue} strokeWidth={2} />}
+              >
+                <RadialFill
+                  cx={30}
+                  cy={20}
+                  rx={120}
+                  ry={120}
+                  stops={[
+                    { offset: 0, color: hue, opacity: 0.42 },
+                    {
+                      offset: 72,
+                      color: pickerColors.socketDepth,
+                      opacity: 0.95,
+                    },
+                    {
+                      offset: 100,
+                      color: pickerColors.socketDepth,
+                      opacity: 1,
+                    },
+                  ]}
+                />
+                {/* Colour bouncing back up off the bottom edge. */}
+                <RadialFill
+                  cx={50}
+                  cy={120}
+                  rx={90}
+                  ry={70}
+                  stops={[
+                    { offset: 0, color: hue, opacity: 0.3 },
+                    { offset: 70, color: hue, opacity: 0 },
+                  ]}
+                />
+                <View style={styles.topHighlight} />
+                <View style={styles.centerGlyph}>
+                  {Icon && <Icon size={ICON} color={hue} strokeWidth={2} />}
+                </View>
               </View>
             </View>
+
+            {fresh && !reduced && (
+              <>
+                {/* Light spilling outward — under the frame. */}
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.neonHalo, haloStyle]}
+                >
+                  <RadialFill
+                    cx={50}
+                    cy={50}
+                    rx={50}
+                    ry={50}
+                    stops={[
+                      { offset: 0, color: hue, opacity: 0.35 },
+                      { offset: 68, color: hue, opacity: 0 },
+                    ]}
+                  />
+                </Animated.View>
+                {/* The frame itself: flares, then dies. Not a border. */}
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.neonEdge,
+                    { borderColor: hexAlpha(hue, 0.9) },
+                    Platform.select({
+                      web: {
+                        boxShadow: `0 0 16px ${hexAlpha(hue, 0.85)}, inset 0 0 10px ${hexAlpha(hue, 0.5)}`,
+                      },
+                      default: { shadowColor: hue },
+                    }),
+                    edgeStyle,
+                  ]}
+                />
+              </>
+            )}
           </View>
 
           {/* Sits outside the clipped box, so it can overhang. */}
@@ -290,6 +381,27 @@ const styles = StyleSheet.create({
     right: 0,
     height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  neonEdge: {
+    position: 'absolute',
+    top: -pickerMaterialize.edgeInset,
+    left: -pickerMaterialize.edgeInset,
+    right: -pickerMaterialize.edgeInset,
+    bottom: -pickerMaterialize.edgeInset,
+    borderRadius: pickerRadius.socket + pickerMaterialize.edgeInset,
+    borderWidth: 1.5,
+    // Native has no inset shadow, so it gets the outer bloom only —
+    // web takes both through `boxShadow` at the call site.
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.85,
+    shadowRadius: 8,
+  },
+  neonHalo: {
+    position: 'absolute',
+    top: -pickerMaterialize.haloInset,
+    left: -pickerMaterialize.haloInset,
+    right: -pickerMaterialize.haloInset,
+    bottom: -pickerMaterialize.haloInset,
   },
   xBadge: {
     position: 'absolute',

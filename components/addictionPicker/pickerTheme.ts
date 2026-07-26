@@ -82,7 +82,6 @@ export const pickerTiming = {
   chipIn: 400,
   chipInStagger: 40,
   socketStagger: 50,
-  socketPop: 550,
   hintPulse: 2600,
   sheen: 7000,
   sheenDelay: 1200,
@@ -90,6 +89,37 @@ export const pickerTiming = {
   glowPulse: 1000,
   ringOut: 600,
   press: 160,
+} as const;
+
+/**
+ * "Neon materialize" — what happens to the socket that was just
+ * equipped. Replaces the old `socketPop` spring, which overshot to
+ * 1.16 and read as the tile physically hopping into the panel.
+ *
+ * Three layers, all pure `withTiming` with `Easing.out`. **No spring
+ * anywhere**: the tile must never pass 1.0, or the hop is back.
+ *
+ * 1. `tile`     — the socket itself resolves in place (opacity 0→1,
+ *                 scale .94→1).
+ * 2. `edgeIn/Out` — a neon frame `edgeInset` outside the tile flares
+ *                 up and dies away. It is not a persistent border.
+ * 3. `halo`     — a radial wash `haloInset` outside, expanding to
+ *                 1.5× as it fades: the light spilling outward.
+ *
+ * The blur half of the tile step (6px→0) is web-only territory and is
+ * dropped on native, which the brief allows — opacity plus scale
+ * carries the same "resolving into focus" read without pulling in a
+ * blur backend.
+ */
+export const pickerMaterialize = {
+  tile: 550,
+  edgeIn: 230,
+  edgeOut: 550,
+  halo: 850,
+  /** How far outside the socket the neon frame sits, in pt. */
+  edgeInset: 3,
+  /** How far outside the socket the halo starts, in pt. */
+  haloInset: 8,
 } as const;
 
 /** Layout constants shared by the screen and the panel. */
