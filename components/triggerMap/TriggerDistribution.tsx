@@ -20,12 +20,9 @@ import {
 } from '@/constants/triggerCatalog';
 import type { TriggerMapTrigger } from '@/lib/triggerMap';
 import { t } from '@/lib/i18n';
-import {
-  triggersAccent,
-  triggersAccentAlpha,
-  triggersColorFor,
-  triggersSurface,
-} from './triggersTheme';
+import { triggersBorder, triggersSurface } from './triggersTheme';
+import { useTriggersAccent } from './triggersAccent';
+import { CardAura, CountUpText, useCardEntrance } from './triggersMotion';
 
 /**
  * Trigger Distribution — Modül 3 redesign.
@@ -33,13 +30,14 @@ import {
  * Horizontal bar chart of trigger frequency:
  *   [dot + label]      [filled bar (barGrow)]      [percent + intensity]
  *
- * • Dot colour derives from the trigger id (via `triggersColorFor`)
- *   so the eye can match the same trigger across insight cards and
- *   heatmap detail sheets.
- * • Top row's percentage renders in the module violet; the rest in
+ * • Dot colour derives from the trigger id (via the accent context's
+ *   `colorFor`) so the eye can match the same trigger across insight
+ *   cards and heatmap detail sheets.
+ * • Top row's percentage renders in the addiction accent; the rest in
  *   soft white — a subtle "leader" signal without shouting.
  * • Bars animate in from left (scaleX) with a staggered delay per
- *   row. Reduced-motion → instant.
+ *   row, and the percentages count up alongside them. Reduced-motion
+ *   → instant.
  *
  * `most_common_intensity` is a server-side mode; the client only
  * renders "Mostly {{level}}".
@@ -47,10 +45,10 @@ import {
 
 type Props = {
   triggers: TriggerMapTrigger[];
-  /** Kept for API compat — module now paints from its own violet. */
-  accentColor?: string;
   addictionId: string;
   periodLabel: string;
+  /** Position in the pane's card stack — drives the entrance stagger. */
+  index?: number;
 };
 
 /**
@@ -72,22 +70,36 @@ function resolveTriggerLabel(id: string, addictionId: string): string {
 
 export function TriggerDistribution({
   triggers,
-  accentColor,
   addictionId,
   periodLabel,
+  index = 0,
 }: Props) {
-  void accentColor;
+  const { accent, alpha, colorFor } = useTriggersAccent();
+  const entrance = useCardEntrance(index);
+
+  const cardStyle = [
+    styles.wrap,
+    {
+      borderColor: triggersBorder(accent),
+      ...Platform.select({
+        web: { boxShadow: `0 8px 26px ${alpha(0.14)}` },
+        default: { shadowColor: accent },
+      }),
+    },
+    entrance,
+  ];
 
   if (triggers.length === 0) {
     return (
-      <View style={styles.wrap}>
+      <Animated.View style={cardStyle}>
+        <CardAura intensity={0.15} size={190} />
         <Text style={styles.title}>
           {t('trigger_map.distribution.title', { period: periodLabel })}
         </Text>
         <Text style={styles.emptyText}>
           {t('trigger_map.distribution.no_triggers')}
         </Text>
-      </View>
+      </Animated.View>
     );
   }
 
@@ -96,14 +108,15 @@ export function TriggerDistribution({
   const topPct = triggers[0]?.percentage ?? 1;
 
   return (
-    <View style={styles.wrap}>
+    <Animated.View style={cardStyle}>
+      <CardAura intensity={0.15} size={190} />
       <Text style={styles.title}>
         {t('trigger_map.distribution.title', { period: periodLabel })}
       </Text>
       {triggers.map((row, i) => {
         const label = resolveTriggerLabel(row.trigger_id, addictionId);
         const relative = topPct > 0 ? row.percentage / topPct : 0;
-        const dotColor = triggersColorFor(row.trigger_id);
+        const dotColor = colorFor(row.trigger_id);
         const isTop = i === 0;
         return (
           <DistributionRow
@@ -115,10 +128,12 @@ export function TriggerDistribution({
             percent={row.percentage}
             intensityKey={row.most_common_intensity}
             isTop={isTop}
+            accent={accent}
+            accentAlpha={alpha}
           />
         );
       })}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -130,6 +145,8 @@ function DistributionRow({
   percent,
   intensityKey,
   isTop,
+  accent,
+  accentAlpha,
 }: {
   index: number;
   label: string;
@@ -138,6 +155,8 @@ function DistributionRow({
   percent: number;
   intensityKey: TriggerMapTrigger['most_common_intensity'];
   isTop: boolean;
+  accent: string;
+  accentAlpha: (a: number) => string;
 }) {
   // Reanimated scaleX for the barGrow effect (transform-only so it
   // stays on the UI thread).
@@ -197,24 +216,19 @@ function DistributionRow({
             styles.barFill,
             barStyle,
             {
-              backgroundColor: isTop
-                ? triggersAccent
-                : triggersAccentAlpha(0.55),
+              backgroundColor: isTop ? accent : accentAlpha(0.55),
             },
           ]}
         />
       </View>
       <View style={styles.rightCol}>
-        <Text
-          style={[
-            styles.percentText,
-            {
-              color: isTop ? triggersAccent : '#E1E7F5',
-            },
-          ]}
-        >
-          {t('trigger_map.distribution.percent', { percent })}
-        </Text>
+        {/* Counts up in step with its own bar growing. */}
+        <CountUpText
+          value={percent}
+          delay={80 + index * 90}
+          format={(n) => t('trigger_map.distribution.percent', { percent: n })}
+          style={[styles.percentText, { color: isTop ? accent : '#E1E7F5' }]}
+        />
         {intensityText ? (
           <View style={styles.intensityRow}>
             <View style={[styles.miniDot, { backgroundColor: dotColor }]} />
@@ -232,15 +246,14 @@ const styles = StyleSheet.create({
   wrap: {
     backgroundColor: triggersSurface.bg,
     borderWidth: 1,
-    borderColor: triggersSurface.border,
     borderRadius: triggersSurface.radius,
     padding: 16,
+    // Clips the CardAura bloom to the rounded corners.
+    overflow: 'hidden',
+    // Accent-dependent colours are applied inline at the call site.
     ...Platform.select({
-      web: {
-        boxShadow: `0 8px 26px ${triggersAccentAlpha(0.14)}`,
-      },
+      web: {},
       default: {
-        shadowColor: triggersAccent,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.18,
         shadowRadius: 16,

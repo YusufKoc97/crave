@@ -20,7 +20,7 @@ import { TriggerDistribution } from './TriggerDistribution';
 import { CellDetailSheet, type CellDetailSheetHandle } from './CellDetailSheet';
 import { InsightSection } from './InsightSection';
 import { TriggersAurora } from './TriggersAurora';
-import { triggersAccent } from './triggersTheme';
+import { TriggersAccentProvider } from './triggersAccent';
 // TEMP-TRIGGER-MOCK-DATA — remove import + fallback below before ship.
 import { mockTriggerMapFor } from './__mockData';
 
@@ -42,12 +42,24 @@ import { mockTriggerMapFor } from './__mockData';
  * region is wrapped in `<FreeTierGate>` — content still renders
  * underneath but is blurred + veiled, with an Upgrade CTA.
  *
- * Triggers-redesign (2026-07-21): the module now owns a dedicated
- * violet accent (`triggersAccent`). Sub-components no longer receive
- * `addiction.color` — the addiction identity is expressed by the
- * detail-screen header + AmbientGlow above; this pane paints its
- * own charts in violet regardless of which addiction is open. A
- * subtle `TriggersAurora` layer sits behind everything so the
+ * Accent (2026-07-26): the module follows `addiction.color`, the same
+ * way the sibling Comparison tab does. The 2026-07-21 redesign had
+ * pinned it to a fixed violet, which meant Smoking's gold detail
+ * screen flipped to violet on this one sub-tab — the addiction's
+ * identity dropped out exactly where the user was looking at their
+ * own data. Sub-components read the accent from
+ * `TriggersAccentProvider` rather than props, because the tree is
+ * deep and most accent values used to live in static style blocks.
+ *
+ * Category colours (stress coral, boredom green, social cyan) stay
+ * fixed — the same feeling has to read the same across addictions.
+ *
+ * Motion: every card fades + rises in on a stagger and every headline
+ * number counts up from zero (see `triggersMotion.tsx`), matching
+ * Comparison. `index` is passed explicitly so the stagger order
+ * follows the visual stack, not mount order.
+ *
+ * A subtle `TriggersAurora` layer sits behind everything so the
  * chart cards read as glass instead of floating on cold navy.
  */
 
@@ -93,6 +105,7 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
   const showSpinner = query.isLoading && !query.data && !usingMock;
 
   const insights = data.insights;
+  const accent = addiction.color;
 
   const content = (
     <View>
@@ -108,7 +121,6 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
         <InsightSection
           insights={insights}
           addictionId={addiction.id}
-          accentColor={triggersAccent}
           onAction={(actionKey) => {
             if (actionKey === 'open_toolkit') {
               onNavigateSubTab?.('toolkit');
@@ -117,15 +129,11 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
         />
       )}
 
-      <PeriodFilter
-        value={period}
-        onChange={setPeriod}
-        accentColor={triggersAccent}
-      />
+      <PeriodFilter value={period} onChange={setPeriod} accentColor={accent} />
 
       {showSpinner && (
         <View style={styles.spinnerWrap}>
-          <ActivityIndicator color={triggersAccent} />
+          <ActivityIndicator color={accent} />
         </View>
       )}
 
@@ -138,7 +146,7 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
       )}
 
       {!showSpinner && !(query.isError && !usingMock) && isZero && (
-        <EmptyState variant="zero" accentColor={triggersAccent} />
+        <EmptyState variant="zero" accentColor={accent} />
       )}
 
       {!showSpinner && (isSparse || isFull) && (
@@ -149,7 +157,7 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
           <HeatmapGrid
             heatmap={data.heatmap}
             intensityMap={data.intensity_map}
-            accentColor={triggersAccent}
+            index={0}
             onCellPress={(day, hour) => {
               const count = data.heatmap[day]?.[hour] ?? 0;
               const avgIntensity = data.intensity_map[day]?.[hour] ?? null;
@@ -171,7 +179,7 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
       )}
 
       {!showSpinner && isSparse && (
-        <EmptyState variant="sparse" accentColor={triggersAccent} />
+        <EmptyState variant="sparse" accentColor={accent} />
       )}
 
       {!showSpinner && isFull && (
@@ -185,15 +193,15 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
               heatmap={data.heatmap}
               triggers={data.triggers}
               addictionId={addiction.id}
-              accentColor={triggersAccent}
+              index={1}
             />
           </View>
           <View style={styles.section}>
             <TriggerDistribution
               triggers={data.triggers}
-              accentColor={triggersAccent}
               addictionId={addiction.id}
               periodLabel={t(`trigger_map.period.${period}`)}
+              index={2}
             />
           </View>
         </>
@@ -214,23 +222,25 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
   void FreeTierGate;
 
   return (
-    <View style={styles.root}>
-      {/* Ambient violet layer — a whisper of colour behind the
-          content so the pane matches Journey/Toolkit atmosphere.
-          Sits BELOW all content by render order. */}
-      <TriggersAurora />
+    <TriggersAccentProvider accent={accent}>
+      <View style={styles.root}>
+        {/* Ambient neutral layer — a whisper of colour behind the
+            content so the pane matches Journey/Toolkit atmosphere.
+            Sits BELOW all content by render order. */}
+        <TriggersAurora />
 
-      <View style={styles.wrap}>{content}</View>
+        <View style={styles.wrap}>{content}</View>
 
-      {/* Bottom sheet lives outside the gate so it can render
-          full-screen without the blur veil above sitting on top
-          of it. Mount-gated to work around a @gorhom/bottom-sheet
-          bug on RN Web that renders in the open position on
-          initial mount even with `index={-1}`. */}
-      {sheetMounted ? (
-        <CellDetailSheet ref={cellSheetRef} accentColor={triggersAccent} />
-      ) : null}
-    </View>
+        {/* Bottom sheet lives outside the gate so it can render
+            full-screen without the blur veil above sitting on top
+            of it. Mount-gated to work around a @gorhom/bottom-sheet
+            bug on RN Web that renders in the open position on
+            initial mount even with `index={-1}`. */}
+        {sheetMounted ? (
+          <CellDetailSheet ref={cellSheetRef} accentColor={accent} />
+        ) : null}
+      </View>
+    </TriggersAccentProvider>
   );
 }
 

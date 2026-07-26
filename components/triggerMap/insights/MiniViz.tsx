@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { triggersAccentAlpha } from '../triggersTheme';
+import { triggersHexAlpha } from '../triggersTheme';
 
 /**
  * Small inline visualisations shown on category insight cards
@@ -110,7 +110,10 @@ function Sparkline({
   const last = pts[pts.length - 1];
   return (
     <>
-      <Path d={areaD} fill={triggersAccentAlpha(0.14)} />
+      {/* Band tinted with the line's own colour rather than the module
+          accent — the accent is now the addiction colour, and a
+          coral "stress" sparkline over a gold band read muddy. */}
+      <Path d={areaD} fill={triggersHexAlpha(color, 0.14)} />
       <Path
         d={d}
         stroke={color}

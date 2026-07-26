@@ -1,11 +1,8 @@
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Sparkles } from 'lucide-react-native';
 import { t } from '@/lib/i18n';
-import {
-  triggersAccent,
-  triggersAccentAlpha,
-  triggersSurface,
-} from './triggersTheme';
+import { triggersSurface } from './triggersTheme';
+import { useTriggersAccent } from './triggersAccent';
 
 /**
  * Free-tier lock overlay for the Trigger Map (Modül 3 redesign).
@@ -13,11 +10,11 @@ import {
  * `children` renders the actual chart underneath. This component
  * layers a locked panel on top:
  *   - Web: real backdrop-filter blur if supported.
- *   - Native: a semi-opaque violet veil + lock card. Not a "true"
+ *   - Native: a semi-opaque dark veil + lock card. Not a "true"
  *     blur (RN doesn't ship one; expo-blur is banned — karar #6A)
  *     but visually enough to signal the paywall boundary.
  *
- * Design brief: violet aurora border, `Sparkles` icon, "Unlock the
+ * Design brief: accent aurora border, `Sparkles` icon, "Unlock the
  * full trigger map" copy, gradient CTA. Kept single-shade (no
  * gradient dep) — the boxShadow + border alpha stack does the
  * "aurora" work.
@@ -37,15 +34,32 @@ type Props = {
 };
 
 export function FreeTierGate({ children, onUpgrade }: Props) {
+  const { accent, alpha } = useTriggersAccent();
   return (
     <View style={styles.wrap}>
       <View style={styles.underlay} pointerEvents="none">
         {children}
       </View>
       <View style={styles.veil} pointerEvents="box-none">
-        <View style={styles.lockCard}>
-          <View style={styles.lockIconWrap}>
-            <Sparkles size={22} color={triggersAccent} strokeWidth={2.2} />
+        <View
+          style={[
+            styles.lockCard,
+            {
+              borderColor: alpha(0.42),
+              ...Platform.select({
+                web: { boxShadow: `0 18px 50px ${alpha(0.28)}` },
+                default: { shadowColor: accent },
+              }),
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.lockIconWrap,
+              { backgroundColor: alpha(0.14), borderColor: alpha(0.42) },
+            ]}
+          >
+            <Sparkles size={22} color={accent} strokeWidth={2.2} />
           </View>
           <Text style={styles.title}>{t('trigger_map.free_gate.title')}</Text>
           <Text style={styles.body}>{t('trigger_map.free_gate.body')}</Text>
@@ -53,7 +67,8 @@ export function FreeTierGate({ children, onUpgrade }: Props) {
             onPress={onUpgrade}
             style={({ pressed }) => [
               styles.cta,
-              pressed && { backgroundColor: triggersAccentAlpha(0.32) },
+              { borderColor: accent, backgroundColor: alpha(0.22) },
+              pressed && { backgroundColor: alpha(0.32) },
             ]}
             accessibilityRole="button"
             accessibilityLabel={t('trigger_map.free_gate.cta')}
@@ -89,7 +104,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
-    // Web uses backdrop-filter; native uses a violet-tinged fill.
+    // Web uses backdrop-filter; native uses a flat dark fill.
     ...Platform.select({
       web: {
         backdropFilter: 'blur(8px)',
@@ -105,14 +120,11 @@ const styles = StyleSheet.create({
     borderRadius: triggersSurface.radius,
     backgroundColor: 'rgba(15, 26, 50, 0.95)',
     borderWidth: 1,
-    borderColor: triggersAccentAlpha(0.42),
     alignItems: 'center',
+    // Accent-dependent colours are applied inline at the call site.
     ...Platform.select({
-      web: {
-        boxShadow: `0 18px 50px ${triggersAccentAlpha(0.28)}`,
-      },
+      web: {},
       default: {
-        shadowColor: triggersAccent,
         shadowOffset: { width: 0, height: 12 },
         shadowOpacity: 0.4,
         shadowRadius: 24,
@@ -124,9 +136,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: triggersAccentAlpha(0.14),
     borderWidth: 1,
-    borderColor: triggersAccentAlpha(0.42),
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
@@ -151,8 +161,6 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: triggersAccent,
-    backgroundColor: triggersAccentAlpha(0.22),
   },
   ctaText: {
     color: '#FFFFFF',

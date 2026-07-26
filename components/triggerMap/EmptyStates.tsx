@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { t } from '@/lib/i18n';
-import { triggersSurface } from './triggersTheme';
+import { triggersBorder, triggersSurface } from './triggersTheme';
 
 /**
  * Faz 8a — progressive-disclosure placeholders for the
@@ -28,7 +28,13 @@ export function EmptyState({ variant, accentColor }: Props) {
       ? 'trigger_map.empty.zero_body'
       : 'trigger_map.empty.sparse_body';
   return (
-    <View style={[styles.wrap, variant === 'zero' && styles.wrapZero]}>
+    <View
+      style={[
+        styles.wrap,
+        { borderColor: triggersBorder(accentColor) },
+        variant === 'zero' && styles.wrapZero,
+      ]}
+    >
       <View
         style={[
           styles.iconWrap,
@@ -64,7 +70,6 @@ const styles = StyleSheet.create({
     borderRadius: triggersSurface.radius,
     backgroundColor: triggersSurface.bg,
     borderWidth: 1,
-    borderColor: triggersSurface.border,
     alignItems: 'center',
     marginBottom: 16,
   },

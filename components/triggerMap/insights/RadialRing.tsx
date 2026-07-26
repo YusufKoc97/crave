@@ -7,7 +7,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { triggersAccent, triggersAccentAlpha } from '../triggersTheme';
+import { useTriggersAccent } from '../triggersAccent';
 
 /**
  * Radial % ring used by the insights hero card.
@@ -31,7 +31,7 @@ type Props = {
   size?: number;
   /** Stroke thickness. Defaults to 6. */
   stroke?: number;
-  /** Ring accent colour. Defaults to Triggers violet. */
+  /** Ring accent colour. Defaults to the addiction's module accent. */
   color?: string;
   /** Child rendered centered inside the ring (usually the big value). */
   children?: React.ReactNode;
@@ -41,9 +41,11 @@ export function RadialRing({
   percent,
   size = 72,
   stroke = 6,
-  color = triggersAccent,
+  color,
   children,
 }: Props) {
+  const { accent, alpha } = useTriggersAccent();
+  const hue = color ?? accent;
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
 
@@ -92,13 +94,13 @@ export function RadialRing({
       >
         {/* Rotate -90° so the arc starts at 12 o'clock. */}
         <G rotation={-90} originX={size / 2} originY={size / 2}>
-          {/* Track — a soft violet base ring so the arc has something
+          {/* Track — a soft accent base ring so the arc has something
               to grow into visually even at 0%. */}
           <Circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke={triggersAccentAlpha(0.18)}
+            stroke={alpha(0.18)}
             strokeWidth={stroke}
             fill="none"
           />
@@ -107,7 +109,7 @@ export function RadialRing({
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke={color}
+            stroke={hue}
             strokeWidth={stroke}
             strokeLinecap="round"
             fill="none"

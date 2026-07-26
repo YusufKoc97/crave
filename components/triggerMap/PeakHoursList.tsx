@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Svg, {
   Circle,
@@ -18,13 +18,19 @@ import {
   COMMON_TRIGGERS,
   triggerLabel,
 } from '@/constants/triggerCatalog';
+import Animated from 'react-native-reanimated';
 import {
-  triggersAccent,
-  triggersAccentAlpha,
-  triggersColorFor,
+  triggersBorder,
   triggersHexAlpha,
   triggersSurface,
 } from './triggersTheme';
+import { useTriggersAccent } from './triggersAccent';
+import {
+  CardAura,
+  CountUpText,
+  useCardEntrance,
+  useCountUp,
+} from './triggersMotion';
 
 /**
  * Peak Hours — Modül 3 redesign.
@@ -51,8 +57,8 @@ type Props = {
   triggers: TriggerMapTrigger[];
   /** Which addiction we're in — needed for trigger label lookups. */
   addictionId: string;
-  /** Kept for API compat — module now paints from its own violet. */
-  accentColor?: string;
+  /** Position in the pane's card stack — drives the entrance stagger. */
+  index?: number;
 };
 
 const CLOCK_SIZE = 220;
@@ -88,9 +94,10 @@ export function PeakHoursList({
   heatmap,
   triggers,
   addictionId,
-  accentColor,
+  index = 0,
 }: Props) {
-  void accentColor;
+  const { accent, alpha } = useTriggersAccent();
+  const entrance = useCardEntrance(index);
 
   // Windows: [peak-r ... peak+r] inclusive on both ends → the
   // histogram bars + count reflect the true 3-hour block. The
@@ -129,7 +136,20 @@ export function PeakHoursList({
   if (peaks.length === 0) return null;
 
   return (
-    <View style={styles.wrap}>
+    <Animated.View
+      style={[
+        styles.wrap,
+        {
+          borderColor: triggersBorder(accent),
+          ...Platform.select({
+            web: { boxShadow: `0 8px 26px ${alpha(0.14)}` },
+            default: { shadowColor: accent },
+          }),
+        },
+        entrance,
+      ]}
+    >
+      <CardAura intensity={0.15} size={200} />
       <Text style={styles.subtitle}>
         {t('trigger_map.peak_hours.subtitle')}
       </Text>
@@ -156,11 +176,14 @@ export function PeakHoursList({
           />
         );
       })}
-    </View>
+    </Animated.View>
   );
 }
 
 // ─────────────────────── Radial 24h clock ───────────────────────
+
+// Monotonic gradient id source — `useId()` emits `:r0:`, invalid SVG.
+let clockGradSeq = 0;
 
 function RadialClock({
   heatmap,
@@ -169,6 +192,12 @@ function RadialClock({
   heatmap: number[][];
   total: number;
 }) {
+  const { accent, alpha: accentAlpha } = useTriggersAccent();
+  // Big centre number sweeps up from 0 like Comparison's Pulse stats.
+  const animatedTotal = useCountUp(total, 200);
+  // Unique gradient id — the glow colour now varies per addiction, so
+  // a shared `clockGlow` id would let one pane's <defs> win on web.
+  const glowId = useRef(`clockGlow${(clockGradSeq += 1)}`).current;
   const cx = CLOCK_SIZE / 2;
   const cy = CLOCK_SIZE / 2;
   const outerR = CLOCK_SIZE / 2 - 4;
@@ -214,15 +243,15 @@ function RadialClock({
   return (
     <Svg width={svgSize} height={svgSize}>
       <Defs>
-        <RadialGradient id="clockGlow" cx="50%" cy="50%" r="50%">
-          <Stop offset="0%" stopColor={triggersAccent} stopOpacity={0.18} />
-          <Stop offset="100%" stopColor={triggersAccent} stopOpacity={0} />
+        <RadialGradient id={glowId} cx="50%" cy="50%" r="50%">
+          <Stop offset="0%" stopColor={accent} stopOpacity={0.18} />
+          <Stop offset="100%" stopColor={accent} stopOpacity={0} />
         </RadialGradient>
       </Defs>
 
       <G x={offset} y={offset}>
         {/* Inner ambient glow. */}
-        <Circle cx={cx} cy={cy} r={arcR + 2} fill="url(#clockGlow)" />
+        <Circle cx={cx} cy={cy} r={arcR + 2} fill={`url(#${glowId})`} />
 
         {/* Base ring — one continuous hairline showing the 24h
             frame. No ticks, no marks, no extra dots. */}
@@ -230,7 +259,7 @@ function RadialClock({
           cx={cx}
           cy={cy}
           r={arcR}
-          stroke={triggersAccentAlpha(0.1)}
+          stroke={accentAlpha(0.1)}
           strokeWidth={1}
           fill="none"
         />
@@ -255,7 +284,7 @@ function RadialClock({
               <Path
                 key={hour}
                 d={d}
-                stroke={triggersAccentAlpha(alpha)}
+                stroke={accentAlpha(alpha)}
                 strokeWidth={stroke}
                 strokeLinecap="butt"
                 fill="none"
@@ -290,12 +319,12 @@ function RadialClock({
           fontWeight="800"
           textAnchor="middle"
         >
-          {String(total)}
+          {String(Math.round(animatedTotal))}
         </SvgText>
         <SvgText
           x={cx}
           y={cy + 16}
-          fill={triggersAccent}
+          fill={accent}
           fontSize={9}
           fontWeight="700"
           letterSpacing="1.4"
@@ -360,26 +389,40 @@ function PeakCard({
   triggerIds: string[];
   addictionId: string;
 }) {
+  const { accent, alpha } = useTriggersAccent();
   const isTop = rank === 1;
   return (
-    <View style={[styles.peakCard, isTop && styles.peakCardTop]}>
+    <View
+      style={[
+        styles.peakCard,
+        isTop && {
+          backgroundColor: alpha(0.09),
+          borderColor: alpha(0.4),
+        },
+      ]}
+    >
       <View style={styles.peakHeadRow}>
         <View
           style={[
             styles.rankBadge,
             isTop
-              ? styles.rankBadgeTop
+              ? {
+                  ...styles.rankBadgeTop,
+                  backgroundColor: accent,
+                  borderColor: accent,
+                  ...Platform.select({
+                    web: { boxShadow: `0 0 14px ${alpha(0.7)}` },
+                    default: { shadowColor: accent },
+                  }),
+                }
               : {
-                  backgroundColor: triggersAccentAlpha(0.12),
-                  borderColor: triggersAccentAlpha(0.35),
+                  backgroundColor: alpha(0.12),
+                  borderColor: alpha(0.35),
                 },
           ]}
         >
           <Text
-            style={[
-              styles.rankText,
-              { color: isTop ? '#FFFFFF' : triggersAccent },
-            ]}
+            style={[styles.rankText, { color: isTop ? '#FFFFFF' : accent }]}
           >
             {rank}
           </Text>
@@ -393,8 +436,14 @@ function PeakCard({
           </Text>
         </View>
         <View style={styles.countCol}>
-          <Text style={styles.countText}>{count}</Text>
-          <Text style={styles.cravingsLabel}>CRAVINGS</Text>
+          <CountUpText
+            value={count}
+            delay={260 + rank * 90}
+            style={styles.countText}
+          />
+          <Text style={[styles.cravingsLabel, { color: alpha(0.75) }]}>
+            CRAVINGS
+          </Text>
         </View>
       </View>
 
@@ -441,6 +490,7 @@ function PeakHistogramStrip({
   windowEnd: number;
   isTop: boolean;
 }) {
+  const { alpha: accentAlpha } = useTriggersAccent();
   const stripWidth = 288;
   const stripHeight = 34;
   const gap = 2;
@@ -485,7 +535,7 @@ function PeakHistogramStrip({
             fill =
               count === 0
                 ? 'rgba(255,255,255,0.08)'
-                : triggersAccentAlpha(Math.min(0.95, alpha + 0.35));
+                : accentAlpha(Math.min(0.95, alpha + 0.35));
           } else {
             barH = OUTSIDE_H;
             fill = 'rgba(255,255,255,0.08)';
@@ -517,7 +567,8 @@ function TriggerTag({
   triggerId: string;
   addictionId: string;
 }) {
-  const color = triggersColorFor(triggerId);
+  const { colorFor } = useTriggersAccent();
+  const color = colorFor(triggerId);
   const label = resolveTriggerLabel(triggerId, addictionId);
   return (
     <View
@@ -549,16 +600,15 @@ const styles = StyleSheet.create({
   wrap: {
     backgroundColor: triggersSurface.bg,
     borderWidth: 1,
-    borderColor: triggersSurface.border,
     borderRadius: triggersSurface.radius,
     paddingVertical: 18,
     paddingHorizontal: 16,
+    // Clips the CardAura bloom to the rounded corners.
+    overflow: 'hidden',
+    // Accent-dependent colours are applied inline at the call site.
     ...Platform.select({
-      web: {
-        boxShadow: `0 8px 26px ${triggersAccentAlpha(0.14)}`,
-      },
+      web: {},
       default: {
-        shadowColor: triggersAccent,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.18,
         shadowRadius: 16,
@@ -587,10 +637,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
   },
-  peakCardTop: {
-    backgroundColor: triggersAccentAlpha(0.09),
-    borderColor: triggersAccentAlpha(0.4),
-  },
   peakHeadRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -605,15 +651,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
   },
+  // Accent colours applied inline — only the shadow geometry lives here.
   rankBadgeTop: {
-    backgroundColor: triggersAccent,
-    borderColor: triggersAccent,
     ...Platform.select({
-      web: {
-        boxShadow: `0 0 14px ${triggersAccentAlpha(0.7)}`,
-      },
+      web: {},
       default: {
-        shadowColor: triggersAccent,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.75,
         shadowRadius: 8,
@@ -654,7 +696,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   cravingsLabel: {
-    color: triggersAccentAlpha(0.75),
     fontSize: 9,
     fontWeight: '700',
     letterSpacing: 1.4,

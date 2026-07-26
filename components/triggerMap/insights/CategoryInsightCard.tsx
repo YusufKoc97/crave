@@ -19,11 +19,10 @@ import type { LucideIcon } from 'lucide-react-native';
 import { t } from '@/lib/i18n';
 import type { TriggerMapInsight } from '@/lib/triggerMap';
 import type { InsightCategory } from '@/shared/insightRules';
-import {
-  triggersColorFor,
-  triggersHexAlpha,
-  triggersSurface,
-} from '../triggersTheme';
+import Animated from 'react-native-reanimated';
+import { triggersHexAlpha, triggersSurface } from '../triggersTheme';
+import { useTriggersAccent } from '../triggersAccent';
+import { CardAura, useCardEntrance } from '../triggersMotion';
 import { buildInsightPresentation } from './heroData';
 import { MiniViz } from './MiniViz';
 
@@ -44,9 +43,11 @@ if (
  * numeric so users can scan the whole stack at a glance without
  * expanding a single card.
  *
- * Colour: derives its accent from `category` (time / trigger /
- * technique / trend) so the eye can group similar insights across
- * the pane instead of drowning in a wall of violet.
+ * Colour: derives its accent from `category` (trigger / technique /
+ * trend) so the eye can group similar insights across the pane
+ * instead of drowning in one flat hue. `time` has no fixed colour —
+ * it resolves to the open addiction's accent, which is what ties the
+ * stack back to the rest of the screen.
  */
 
 const CATEGORY_ICON: Record<InsightCategory, LucideIcon> = {
@@ -62,6 +63,8 @@ type Props = {
   expanded: boolean;
   onToggle: () => void;
   onAction?: (actionKey: string, params?: Record<string, string>) => void;
+  /** Position in the insight stack — drives the entrance stagger. */
+  index?: number;
 };
 
 export function CategoryInsightCard({
@@ -70,9 +73,12 @@ export function CategoryInsightCard({
   expanded,
   onToggle,
   onAction,
+  index = 0,
 }: Props) {
+  const { colorFor } = useTriggersAccent();
+  const entrance = useCardEntrance(index);
   const p = buildInsightPresentation(insight, addictionId);
-  const cardColor = triggersColorFor(insight.category);
+  const cardColor = colorFor(insight.category);
   const IconComp = CATEGORY_ICON[insight.category] ?? Sparkles;
   const message = t(insight.templateKey, p.resolvedInterpolation);
   const detailText = insight.detailKey
@@ -90,14 +96,18 @@ export function CategoryInsightCard({
   };
 
   return (
-    <View
+    <Animated.View
       style={[
         styles.card,
         {
           borderColor: triggersHexAlpha(cardColor, 0.22),
         },
+        entrance,
       ]}
     >
+      {/* Aura carries the CARD's colour, not the module accent — a
+          coral "stress" card with a gold bloom looked like a bug. */}
+      <CardAura color={cardColor} intensity={0.13} size={170} />
       {/* 3px vertical color stripe pinned to the left edge. */}
       <View style={[styles.stripe, { backgroundColor: cardColor }]} />
 
@@ -194,7 +204,7 @@ export function CategoryInsightCard({
           ) : null}
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -213,9 +223,12 @@ const styles = StyleSheet.create({
     width: 3,
     alignSelf: 'stretch',
   },
+  // Positioned so it paints above the absolute CardAura on web,
+  // where absolute siblings otherwise cover in-flow content.
   body: {
     flex: 1,
     padding: 14,
+    position: 'relative',
   },
   headRow: {
     flexDirection: 'row',

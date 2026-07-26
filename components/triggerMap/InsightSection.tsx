@@ -21,28 +21,20 @@ import { CategoryInsightCard } from './insights/CategoryInsightCard';
  * Accordion: one card open at a time. State lives here so the
  * cards themselves stay stateless.
  *
- * NOTE (redesign): `accentColor` prop kept in signature for
- * backwards compatibility with the existing call-site, but no
- * longer forwarded — the Triggers module owns its own accent
- * (see triggersTheme) so category cards can carry their own
- * hue without a parent override.
+ * The module accent reaches the cards through
+ * `TriggersAccentProvider` (mounted by `TriggersPane`), not through
+ * props — the tree is too deep for drilling and most accent values
+ * live in style blocks. `index` IS drilled, because the entrance
+ * stagger has to know each card's position in this stack.
  */
 
 type Props = {
   insights: TriggerMapInsight[];
   addictionId: string;
-  /** Deprecated in redesign — kept to avoid a call-site churn. */
-  accentColor?: string;
   onAction?: (actionKey: string, params?: Record<string, string>) => void;
 };
 
-export function InsightSection({
-  insights,
-  addictionId,
-  accentColor,
-  onAction,
-}: Props) {
-  void accentColor;
+export function InsightSection({ insights, addictionId, onAction }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   if (insights.length === 0) {
@@ -66,8 +58,9 @@ export function InsightSection({
         addictionId={addictionId}
         expanded={expandedId === hero.rule_id}
         onToggle={() => toggle(hero.rule_id)}
+        index={0}
       />
-      {rest.map((ins) => (
+      {rest.map((ins, i) => (
         <CategoryInsightCard
           key={ins.rule_id}
           insight={ins}
@@ -75,6 +68,7 @@ export function InsightSection({
           expanded={expandedId === ins.rule_id}
           onToggle={() => toggle(ins.rule_id)}
           onAction={onAction}
+          index={i + 1}
         />
       ))}
     </View>

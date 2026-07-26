@@ -18,12 +18,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { DAY_KEYS, DAYS_IN_WEEK, HOURS_IN_DAY } from '@/constants/heatmap';
 import { t } from '@/lib/i18n';
-import {
-  triggersAccent,
-  triggersAccentAlpha,
-  triggersHeatmapFill,
-  triggersSurface,
-} from './triggersTheme';
+import { triggersBorder, triggersSurface } from './triggersTheme';
+import { useTriggersAccent } from './triggersAccent';
+import { CardAura, useCardEntrance } from './triggersMotion';
 
 /**
  * Weekly craving heatmap — Modül 3 redesign.
@@ -34,9 +31,11 @@ import {
  * every day row instead of a horizontal band the user has to trace
  * across seven columns.
  *
- * Ramp: `triggersHeatmapFill` (violet scale). Hot cells (≥5) get
- * a soft violet halo to match the brief's "glow" cue. Cells with
- * avg intensity ≥ 4 draw an extra white dot in the top-right.
+ * Ramp: `heatmapFill` from the accent context — the scale is built
+ * from the open addiction's colour, so Smoking's grid is gold and
+ * Alcohol's teal. Hot cells (≥5) get a soft accent halo to match the
+ * brief's "glow" cue. Cells with avg intensity ≥ 4 draw an extra
+ * white dot in the top-right.
  *
  * Grid fades in on mount (Reanimated single opacity + translate)
  * — matches the brief's cellPop feeling without 168 shared
@@ -48,9 +47,9 @@ import {
 type Props = {
   heatmap: number[][];
   intensityMap: (number | null)[][];
-  /** Kept for API compat — module now paints from its own violet. */
-  accentColor?: string;
   onCellPress: (day: number, hour: number) => void;
+  /** Position in the pane's card stack — drives the entrance stagger. */
+  index?: number;
 };
 
 const CELL_GAP = 2;
@@ -68,10 +67,11 @@ const CARD_PADDING = 14;
 export function HeatmapGrid({
   heatmap,
   intensityMap,
-  accentColor,
   onCellPress,
+  index = 0,
 }: Props) {
-  void accentColor;
+  const { accent, alpha, heatmapFill } = useTriggersAccent();
+  const entrance = useCardEntrance(index);
   // Measure the card's inner width once mounted, then derive a
   // cell size that always fits — no more right-edge overflow on
   // narrow phones or when the pane is embedded in a tighter
@@ -127,7 +127,21 @@ export function HeatmapGrid({
   const hourTicks = useMemo(() => [0, 6, 12, 18, 23] as const, []);
 
   return (
-    <View style={styles.wrap} onLayout={handleLayout}>
+    <Animated.View
+      style={[
+        styles.wrap,
+        {
+          borderColor: triggersBorder(accent),
+          ...Platform.select({
+            web: { boxShadow: `0 8px 26px ${alpha(0.14)}` },
+            default: { shadowColor: accent },
+          }),
+        },
+        entrance,
+      ]}
+      onLayout={handleLayout}
+    >
+      <CardAura intensity={0.15} size={190} />
       {containerWidth === 0 ? (
         // Reserve height until we know the width so the pane
         // doesn't jump when the grid measures itself.
@@ -184,7 +198,7 @@ export function HeatmapGrid({
               {/* Cells + intensity markers + hot-cell halo. */}
               <G>
                 {cells.map((cell) => {
-                  const fill = triggersHeatmapFill(cell.count);
+                  const fill = heatmapFill(cell.count);
                   const isHot = cell.count >= HOT_CELL_COUNT;
                   return (
                     <G key={`${cell.day}-${cell.hour}`}>
@@ -196,7 +210,7 @@ export function HeatmapGrid({
                           height={cellSize + 2.8}
                           rx={2.5}
                           ry={2.5}
-                          fill={triggersAccentAlpha(0.22)}
+                          fill={alpha(0.22)}
                         />
                       ) : null}
                       <Rect
@@ -265,14 +279,14 @@ export function HeatmapGrid({
               key={count}
               style={[
                 styles.legendSwatch,
-                { backgroundColor: triggersHeatmapFill(count) },
+                { backgroundColor: heatmapFill(count) },
               ]}
             />
           ))}
         </View>
         <Text style={styles.legendLabel}>More</Text>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -325,16 +339,15 @@ const styles = StyleSheet.create({
   wrap: {
     backgroundColor: triggersSurface.bg,
     borderWidth: 1,
-    borderColor: triggersSurface.border,
     borderRadius: triggersSurface.radius,
     padding: 14,
     alignItems: 'center',
+    // Clips the CardAura bloom to the rounded corners.
+    overflow: 'hidden',
+    // Accent-dependent colours are applied inline at the call site.
     ...Platform.select({
-      web: {
-        boxShadow: `0 8px 26px ${triggersAccentAlpha(0.14)}`,
-      },
+      web: {},
       default: {
-        shadowColor: triggersAccent,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.18,
         shadowRadius: 16,
