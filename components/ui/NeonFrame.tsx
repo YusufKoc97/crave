@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { AccessibilityInfo, StyleSheet, View } from 'react-native';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import Animated, {
   cancelAnimation,
   useSharedValue,
@@ -9,38 +8,49 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
-/** SVG gradient ids must be unique per document — on web every <Svg>
- *  shares one id namespace, so a hardcoded id would make all four
- *  edges resolve to whichever <Defs> mounted last. A module-level
- *  counter is used instead of useId() because React's id format
- *  (":r0:") is not a valid SVG identifier. */
+/** Gradient ids come from a module-level counter, not `useId()`:
+ *  React emits ":r0:", which is not a valid SVG identifier, and
+ *  hardcoded ids collide in react-native-svg's shared registry once a
+ *  second instance mounts. Same rule as `addictionPicker/fills.tsx`. */
 let gradSeq = 0;
 
 type EdgeName = 'top' | 'bottom' | 'left' | 'right';
 
-/** Gradient vector per edge, in fractional (objectBoundingBox) units.
- *  Each runs from the screen border inward, so the bright stop always
- *  sits against the bezel and fades toward the content. */
+/** Gradient vector per edge, in the fixed 0–100 user space below. Each
+ *  runs from the screen border inward, so the bright stop always sits
+ *  against the bezel and fades toward the content. */
 const EDGE_VECTORS: Record<
   EdgeName,
-  { x1: string; y1: string; x2: string; y2: string }
+  { x1: number; y1: number; x2: number; y2: number }
 > = {
-  top: { x1: '0', y1: '0', x2: '0', y2: '1' },
-  bottom: { x1: '0', y1: '1', x2: '0', y2: '0' },
-  left: { x1: '0', y1: '0', x2: '1', y2: '0' },
-  right: { x1: '1', y1: '0', x2: '0', y2: '0' },
+  top: { x1: 0, y1: 0, x2: 0, y2: 100 },
+  bottom: { x1: 0, y1: 100, x2: 0, y2: 0 },
+  left: { x1: 0, y1: 0, x2: 100, y2: 0 },
+  right: { x1: 100, y1: 0, x2: 0, y2: 0 },
 };
 
 /**
  * One edge of the frame: a strip of the given depth holding a single
- * rect filled with an accent→transparent gradient.
+ * accent→transparent gradient.
  *
- * Sized with width/height "100%" against a 1×1 viewBox and
- * `preserveAspectRatio="none"`, which means the component never has
- * to measure the window. The gradient coordinates are fractional, so
- * they stretch with the strip on any screen size or orientation
- * without a re-layout pass.
+ * Three sizing/compat rules are load-bearing here:
+ *
+ * - `gradientUnits="userSpaceOnUse"` with numeric coordinates. The
+ *   fractional `objectBoundingBox` form is unreliable on native — the
+ *   same lesson recorded in the header of `addictionPicker/fills.tsx`.
+ *   An earlier revision of this file used it and rendered correctly on
+ *   web, which would have made it an iOS-only failure.
+ * - Explicit `width="100%" height="100%"`. With only an absolute-fill
+ *   style, react-native-svg infers the element's height from the
+ *   viewBox aspect ratio, so a square 100×100 box forces a square
+ *   element: these strips collapsed to 361×361 and 72×72 instead of
+ *   361×108 and 72×738. Every other gradient surface in the app
+ *   (AmbientGlow, GlowDisc, GradientSurface) sets both for this
+ *   reason.
+ * - `preserveAspectRatio="none"` so the square user space stretches to
+ *   fill a very non-square strip.
  */
 function Edge({
   edge,
@@ -53,7 +63,7 @@ function Edge({
   depth: number;
   peakAlpha: number;
 }) {
-  const [gradId] = useState(() => `neonFrame${gradSeq++}`);
+  const [gradId] = useState(() => `neonFrame${(gradSeq += 1)}`);
   const v = EDGE_VECTORS[edge];
 
   const box =
@@ -68,27 +78,35 @@ function Edge({
   return (
     <View style={[styles.edge, box]} pointerEvents="none">
       <Svg
+        pointerEvents="none"
         width="100%"
         height="100%"
-        viewBox="0 0 1 1"
+        viewBox="0 0 100 100"
         preserveAspectRatio="none"
       >
         <Defs>
-          <LinearGradient id={gradId} x1={v.x1} y1={v.y1} x2={v.x2} y2={v.y2}>
-            <Stop offset="0" stopColor={color} stopOpacity={peakAlpha} />
+          <LinearGradient
+            id={gradId}
+            x1={v.x1}
+            y1={v.y1}
+            x2={v.x2}
+            y2={v.y2}
+            gradientUnits="userSpaceOnUse"
+          >
+            <Stop offset="0%" stopColor={color} stopOpacity={peakAlpha} />
             {/* Mid stop pulls the falloff toward the border. A plain
                 two-stop ramp spreads the tint too evenly and reads as
                 a wash over the content rather than light coming off
                 the bezel. */}
             <Stop
-              offset="0.45"
+              offset="45%"
               stopColor={color}
               stopOpacity={peakAlpha * 0.2}
             />
-            <Stop offset="1" stopColor={color} stopOpacity={0} />
+            <Stop offset="100%" stopColor={color} stopOpacity={0} />
           </LinearGradient>
         </Defs>
-        <Rect x="0" y="0" width="1" height="1" fill={`url(#${gradId})`} />
+        <Rect x="0" y="0" width="100" height="100" fill={`url(#${gradId})`} />
       </Svg>
     </View>
   );

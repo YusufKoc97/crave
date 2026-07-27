@@ -1,12 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  AppState,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  Platform,
-} from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import Animated, {
   useSharedValue,
@@ -564,17 +557,6 @@ export default function ActiveSession() {
           edges inward. Sits above the ambient glows but below every
           control — it is decoration and must never eat a tap. */}
       <NeonFrame color={accentColor} />
-      {Platform.OS === 'web' && (
-        <View
-          pointerEvents="none"
-          style={[
-            styles.topGlow,
-            {
-              backgroundImage: `radial-gradient(ellipse at top, ${accentColor}1c 0%, transparent 60%)`,
-            },
-          ]}
-        />
-      )}
 
       <View style={styles.topBar}>
         <Pressable
@@ -836,13 +818,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: dsColors.bgBase,
-  },
-  topGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 280,
   },
   topBar: {
     paddingTop: 56,
