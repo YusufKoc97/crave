@@ -104,6 +104,12 @@ function ArcProgress({
         cy={TIMER_SIZE / 2}
         r={R}
         stroke={accentColor}
+        // Pulled off full saturation. The arc is the one element that
+        // legitimately wears the raw addiction color, but at 1.0 a
+        // 10px band of #F5C518 was the brightest thing in the app by
+        // some margin. 0.78 still reads as "the accent" against the
+        // #0F1A2C track without lighting up the whole screen.
+        strokeOpacity={0.78}
         strokeWidth={STROKE_WIDTH}
         fill="transparent"
         strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
@@ -540,7 +546,7 @@ export default function ActiveSession() {
         <AmbientGlow
           color={dsColors.accentBlue}
           size={560}
-          intensity="medium"
+          intensity="low"
           position={{ x: 195, y: 340 }}
         />
         <AmbientGlow
@@ -556,7 +562,7 @@ export default function ActiveSession() {
           style={[
             styles.topGlow,
             {
-              backgroundImage: `radial-gradient(ellipse at top, ${accentColor}47 0%, transparent 60%)`,
+              backgroundImage: `radial-gradient(ellipse at top, ${accentColor}1c 0%, transparent 60%)`,
             },
           ]}
         />
@@ -598,7 +604,7 @@ export default function ActiveSession() {
             style={[
               styles.celebrateHalo,
               {
-                borderColor: hexWithAlpha(accentColor, 0.85),
+                borderColor: hexWithAlpha(accentColor, 0.5),
                 shadowColor: accentColor,
               },
               haloStyle,
@@ -610,10 +616,10 @@ export default function ActiveSession() {
             style={[
               styles.spinnerRing,
               {
-                borderTopColor: hexWithAlpha(accentColor, 0.95),
-                borderRightColor: hexWithAlpha(accentColor, 0.55),
-                borderBottomColor: hexWithAlpha(accentColor, 0.18),
-                borderLeftColor: hexWithAlpha(accentColor, 0.04),
+                borderTopColor: hexWithAlpha(accentColor, 0.5),
+                borderRightColor: hexWithAlpha(accentColor, 0.26),
+                borderBottomColor: hexWithAlpha(accentColor, 0.09),
+                borderLeftColor: 'transparent',
               },
               spinnerStyle,
             ]}
@@ -718,22 +724,25 @@ export default function ActiveSession() {
               style={({ pressed }) => [
                 styles.resistBtn,
                 {
-                  backgroundColor: accentColor,
-                  borderColor: accentColor,
-                  opacity: pressed ? 0.85 : 1,
-                  // Accent-tinted halo — same energy as before, now
-                  // wrapping a filled surface instead of an outline.
-                  shadowColor: accentColor,
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.5,
-                  shadowRadius: 18,
-                  elevation: 6,
-                  boxShadow: `0 0 20px ${hexWithAlpha(accentColor, 0.4)}`,
+                  // Tinted surface rather than a full-bleed accent fill.
+                  // A saturated #F5C518 slab plus a 20px halo was the one
+                  // element on this screen that read as a different app —
+                  // nothing else in the product paints a control in raw
+                  // accent. This mirrors the language the Info tab's
+                  // "+ Track" pill and the toolkit button already use:
+                  // low-alpha fill, mid-alpha border, accent label. It
+                  // still outranks the plain transparent "gave in" button
+                  // below it, so the hierarchy survives the toning down.
+                  backgroundColor: hexWithAlpha(accentColor, 0.14),
+                  borderColor: hexWithAlpha(accentColor, 0.45),
+                  opacity: pressed ? 0.7 : 1,
                 },
               ]}
               onPress={onResistPress}
             >
-              <Text style={styles.resistText}>{t('active.resist')}</Text>
+              <Text style={[styles.resistText, { color: accentColor }]}>
+                {t('active.resist')}
+              </Text>
             </Pressable>
             <Pressable style={styles.gaveInBtn} onPress={onFailPress}>
               <Text style={styles.gaveInText}>{t('active.failed')}</Text>
@@ -912,7 +921,7 @@ const styles = StyleSheet.create({
     borderRadius: (TIMER_SIZE + 36) / 2,
     borderWidth: 2,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
+    shadowOpacity: 0.45,
     shadowRadius: 18,
     elevation: 12,
   },
@@ -929,21 +938,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timerText: {
-    color: dsColors.textPrimary,
-    fontSize: 72,
+    // 72pt with a blue glow was the original spec, but the rest of the
+    // app tops out at the Profile hero's 46pt and never glows a number
+    // in a colour the surrounding ring doesn't use. At 72 the clock
+    // stopped reading as part of the same product, and the blue halo
+    // actively fought the addiction-accent arc drawn around it.
+    color: '#eaf2ff',
+    fontSize: 54,
     fontWeight: '700',
-    letterSpacing: 2,
+    letterSpacing: -1,
     fontVariant: ['tabular-nums'],
-    // Blue text-shadow glow — brief spec (0 0 20pt rgba(77,171,255,0.4)).
-    textShadowColor: hexAlpha(dsColors.accentBlue, 0.4),
-    textShadowRadius: 20,
-    textShadowOffset: { width: 0, height: 0 },
   },
   pointsText: {
-    marginTop: 8,
-    fontSize: 20,
-    fontWeight: '600',
-    letterSpacing: 1,
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.6,
     fontVariant: ['tabular-nums'],
   },
   bonusFloat: {
@@ -984,9 +994,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   resistBtn: {
-    // Primary CTA — filled with the addiction accent, white label.
-    // The accent bg + accent glow are injected inline at the call
-    // site so each session feels color-locked.
+    // Primary CTA — accent-tinted surface with an accent label. The
+    // tint and the label color are injected inline at the call site
+    // so each session stays color-locked to its addiction.
     height: 56,
     borderRadius: 14,
     borderWidth: 1.5,
@@ -994,9 +1004,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   resistText: {
-    color: dsColors.textPrimary,
     fontSize: 17,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
   gaveInBtn: {
