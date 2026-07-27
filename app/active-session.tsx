@@ -43,6 +43,7 @@ import { ToolkitPickerModal } from '@/components/ToolkitPickerModal';
 import { TechniqueRunnerModal } from '@/components/TechniqueRunnerModal';
 import { PresenceIndicator } from '@/components/PresenceIndicator';
 import { AmbientGlow } from '@/components/ui/AmbientGlow';
+import { NeonFrame } from '@/components/ui/NeonFrame';
 import { dsColors, hexAlpha } from '@/constants/designSystem';
 import { invalidateTriggerMaps } from '@/lib/queryClient';
 import type { Technique } from '@/constants/toolkitCatalog';
@@ -556,6 +557,13 @@ export default function ActiveSession() {
           position={{ x: 195, y: 520 }}
         />
       </View>
+      {/* Critical-moment frame. A craving is the one screen in the app
+          where something is happening TO the user right now, so the
+          border itself carries the alert instead of a banner: a slow
+          neon breath in the addiction's own color, drawn from all four
+          edges inward. Sits above the ambient glows but below every
+          control — it is decoration and must never eat a tap. */}
+      <NeonFrame color={accentColor} />
       {Platform.OS === 'web' && (
         <View
           pointerEvents="none"
