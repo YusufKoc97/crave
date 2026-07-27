@@ -215,14 +215,11 @@ export default function HomeScreen() {
     // the catalog picker directly from the orb hid that affordance
     // and left first-time users unsure of what the "+" was for.
     if (addictions.length === 0) return;
-    // Exactly one — no picker to disambiguate; jump straight into
-    // the craving flow for that addiction. Skipping the fan-out
-    // is the whole point of the shortcut: an animation whose only
-    // job is "pick one of one" would just feel like friction.
-    if (addictions.length === 1) {
-      goToCravingStart(addictions[0]);
-      return;
-    }
+    // The fan-out plays even with a single tracked addiction. It was
+    // once skipped there as "friction" — an animation whose only job is
+    // to pick one of one. In practice it read as the orb throwing the
+    // user into a session they never chose: the tap that starts a
+    // craving timer should always pass through a deliberate selection.
     if (phase === 'idle') enterSelecting();
     else exitSelecting();
   };
