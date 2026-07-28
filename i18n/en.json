@@ -356,40 +356,40 @@
   },
   "ranks": {
     "traveler": {
-      "name": "Traveler",
-      "description": "Your journey begins"
+      "name": "Base",
+      "description": "The climb begins"
     },
     "first_step": {
       "name": "First Step",
-      "description": "You showed you can resist"
+      "description": "You proved you can resist"
     },
     "steady": {
       "name": "Steady",
-      "description": "Not a one-time thing — a habit forming"
+      "description": "Finding your rhythm"
     },
     "persistent": {
-      "name": "Persistent",
-      "description": "You didn't back down when it got hard"
+      "name": "Ridge",
+      "description": "Higher now — stay sharp"
     },
     "disciplined": {
-      "name": "Disciplined",
-      "description": "Discipline is showing"
+      "name": "Foothold",
+      "description": "Standing firm"
     },
     "aware": {
-      "name": "Aware",
-      "description": "You know your patterns now"
+      "name": "Vantage",
+      "description": "You see your triggers coming"
     },
     "master": {
-      "name": "Master",
-      "description": "Master of your own responses"
+      "name": "Peak",
+      "description": "You've beaten the pull"
     },
     "expert": {
-      "name": "Expert",
-      "description": "You lead by example"
+      "name": "Horizon",
+      "description": "Life beyond the mountain"
     },
     "free": {
       "name": "Free",
-      "description": "Freedom from the pull"
+      "description": "The mountain is behind you"
     }
   },
   "celebration": {

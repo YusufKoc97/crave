@@ -28,8 +28,8 @@ import {
  *   Hero card layout is now score-ring-left / rank-right:
  *   ┌─────────────────────────────────────────────┐
  *   │  ╭───╮   YOUR RANK                          │
- *   │  │40 │   Traveler                           │
- *   │  ╰───╯   Your journey begins                │
+ *   │  │40 │   Base                               │
+ *   │  ╰───╯   The climb begins                   │
  *   │                                             │
  *   │  ▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░       │
  *   │           60 more to First Step             │
