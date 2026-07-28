@@ -133,7 +133,12 @@ export default function ActiveSession() {
     resumeStartedAt?: string;
   }>();
 
-  const accentColor = params.color ?? colors.blue;
+  // `??` only catches null/undefined, and a route param that arrives
+  // empty is a string — so a blank `color` used to flow straight into
+  // hexWithAlpha and come back as rgba(NaN, NaN, NaN, …). Static RN
+  // styles shrug that off, but Reanimated throws on an invalid color,
+  // which crashed this screen outright on device.
+  const accentColor = params.color?.trim() ? params.color : colors.blue;
   const maxMinutes = Number(params.maxMinutes ?? 9);
   const sensitivity = Math.max(
     1,
@@ -811,6 +816,13 @@ function hexWithAlpha(hex: string, alpha: number) {
   const r = parseInt(h.slice(0, 2), 16);
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
+  // Anything that isn't a parseable 6-digit hex lands here as NaN.
+  // Returning "rgba(NaN, …)" is worse than useless: Reanimated raises
+  // on it and takes the whole screen down, so fall back to the design
+  // system's blue rather than emit a string no consumer can use.
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
+    return hexWithAlpha(colors.blue, alpha);
+  }
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 

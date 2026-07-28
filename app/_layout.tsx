@@ -1,3 +1,11 @@
+// Installs a global `crypto.getRandomValues`, which React Native does
+// not ship. Must be imported before anything that reaches for it —
+// `uuid`'s v4 throws outright without it, which crashed the
+// active-session screen on device while working fine on web, where the
+// browser provides crypto natively. Side-effect import, so it stays at
+// the very top and takes no binding.
+import 'react-native-get-random-values';
+
 import { useEffect, useRef } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
