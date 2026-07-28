@@ -404,7 +404,15 @@ export default function ActiveSession() {
 
   const onIntensityPick = (intensity: number | null) => {
     setIntensityOpen(false);
-    pendingIntensity.current = intensity;
+    // The dial reports 1–10, but the column is still guarded by
+    // `CHECK (intensity BETWEEN 1 AND 5)` (migration 003), and the
+    // trigger-map Edge Function maps 1–5 onto its five labels. Until
+    // both are widened, halve on write: a 6–10 value would be
+    // rejected outright by Postgres and lose the whole resolve.
+    // Delete this line and pass `intensity` straight through once
+    // the constraint and `labelForIntensity` accept 1–10.
+    pendingIntensity.current =
+      intensity === null ? null : Math.ceil(intensity / 2);
     // Resist path chains straight into the trigger picker.
     setTriggerModalOpen(true);
   };

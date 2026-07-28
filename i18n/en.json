@@ -145,9 +145,13 @@
     "intensity_question": "How intense was this craving?",
     "intensity_subtitle": "Optional — helps you see patterns later.",
     "intensity_skip": "Skip",
+    "intensity_confirm": "Save intensity",
+    "intensity_min": "1 · Mild",
+    "intensity_max": "10 · Unbearable",
     "intensity": {
       "mild": "Mild",
       "moderate": "Moderate",
+      "noticeable": "Noticeable",
       "strong": "Strong",
       "very_strong": "Very strong",
       "unbearable": "Unbearable"
