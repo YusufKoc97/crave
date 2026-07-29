@@ -70,7 +70,6 @@ export default function ProfileScreen() {
 
   const overall = overallRankFromTotalPoints(totalPoints);
   const handle = username || user?.email?.split('@')[0] || 'you';
-  const glyph = handle[0]?.toUpperCase() ?? '?';
 
   const onSignOut = async () => {
     await signOut();
@@ -109,7 +108,6 @@ export default function ProfileScreen() {
       >
         <CoreHero
           handle={handle}
-          glyph={glyph}
           rankName={overall.current.name}
           nextRankName={overall.next?.name ?? null}
           totalPoints={totalPoints}

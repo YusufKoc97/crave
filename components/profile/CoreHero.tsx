@@ -22,6 +22,7 @@ import Animated, {
 import type { Addiction } from '@/constants/addictions';
 import { useReducedMotion } from '@/components/toolkit/useReducedMotion';
 import { t } from '@/lib/i18n';
+import { RankEmblem } from '@/components/ranks/RankEmblem';
 import { CountUp } from './CountUp';
 import { CORE_ANIM, coreNeon, coreText, hexAlpha, neon } from './coreTheme';
 import {
@@ -91,8 +92,6 @@ const CORE_PATH = [
 
 type Props = {
   handle: string;
-  /** Initial shown inside the emblem frame until the sigils are drawn. */
-  glyph: string;
   rankName: string;
   nextRankName: string | null;
   totalPoints: number;
@@ -107,7 +106,6 @@ type Props = {
 
 export function CoreHero({
   handle,
-  glyph,
   rankName,
   nextRankName,
   totalPoints,
@@ -183,7 +181,7 @@ export function CoreHero({
           />
         ))}
 
-        <CoreBlob glyph={glyph} dormant={dormant} alive={alive} />
+        <CoreBlob rankOrder={rankOrder} dormant={dormant} alive={alive} />
         {alive ? <Spark /> : null}
       </View>
 
@@ -521,11 +519,12 @@ function Orb({
 
 /** The breathing blob + emblem slot. */
 function CoreBlob({
-  glyph,
+  rankOrder,
   dormant,
   alive,
 }: {
-  glyph: string;
+  /** 1-based ladder position — the emblem takes a 0-based tier. */
+  rankOrder: number;
   dormant: boolean;
   alive: boolean;
 }) {
@@ -580,26 +579,14 @@ function CoreBlob({
         />
       </Svg>
 
-      {/* Rank emblem slot — a fixed 64×64 box. The hexagon frame and
-          initial are placeholders; when the nine sigils are drawn,
-          only the contents of this box change. */}
+      {/* Rank emblem slot — a fixed 64×64 box. The placeholder
+          hexagon and initial are gone now that the nine emblems
+          exist; the box itself, its size and its glow are unchanged.
+          Rendered at 56 rather than 64 because the emblem is 1.16×
+          as tall as it is wide (the ornaments overflow the frame on
+          purpose), so 56 keeps the whole artifact inside the slot. */}
       <View style={styles.emblem} accessible={false}>
-        <Svg
-          width={64}
-          height={64}
-          viewBox="0 0 64 64"
-          style={StyleSheet.absoluteFill}
-        >
-          <Path
-            d="M32 4 L56 18 L56 46 L32 60 L8 46 L8 18 Z"
-            fill="none"
-            stroke={neon(dormant ? 0.16 : 0.3)}
-            strokeWidth={1}
-          />
-        </Svg>
-        <Text style={[styles.emblemGlyph, dormant && { color: neon(0.5) }]}>
-          {glyph}
-        </Text>
+        <RankEmblem tier={rankOrder - 1} size={56} />
       </View>
     </Animated.View>
   );
