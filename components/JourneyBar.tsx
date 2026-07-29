@@ -12,6 +12,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import { RankEmblem } from '@/components/ranks/RankEmblem';
 import { RANK_LADDER } from '@/constants/rankLadder';
 import type { JourneyView } from '@/context/AddictionScoresContext';
 import { t } from '@/lib/i18n';
@@ -238,12 +239,15 @@ export function JourneyBar({ view, accentColor }: Props) {
             </View>
           </View>
 
-          {/* Right — rank + blurb */}
+          {/* Right — emblem + rank + blurb */}
           <View style={styles.rankCol}>
             <Text style={styles.rankKicker}>{t('journey.your_rank')}</Text>
-            <Text style={styles.rankName} numberOfLines={1}>
-              {currentRank.name}
-            </Text>
+            <View style={styles.rankHead}>
+              <RankEmblem tier={currentRank.order - 1} size={46} />
+              <Text style={styles.rankName} numberOfLines={1}>
+                {currentRank.name}
+              </Text>
+            </View>
             <Text style={styles.rankBlurb} numberOfLines={2}>
               {currentRank.description}
             </Text>
@@ -378,6 +382,14 @@ const pathStyles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
+  rowEmblem: {
+    width: 34,
+    // The emblem is 1.16× as tall as it is wide; giving the wrapper
+    // the same ratio keeps the row's baseline from jumping.
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   rankName: {
     fontSize: 16,
     fontWeight: '700',
@@ -471,6 +483,7 @@ function PathSpine({
         return (
           <PathRow
             key={rank.id}
+            tier={rank.order - 1}
             rankName={rank.name}
             rankValue={rank.thresholdScore}
             score={score}
@@ -491,6 +504,8 @@ function PathSpine({
 }
 
 type PathRowProps = {
+  /** 0-based ladder index for the emblem. */
+  tier: number;
   rankName: string;
   rankValue: number;
   score: number;
@@ -506,6 +521,7 @@ type PathRowProps = {
 };
 
 function PathRow({
+  tier,
   rankName,
   rankValue,
   score,
@@ -649,6 +665,19 @@ function PathRow({
       {/* Text */}
       <View style={pathStyles.textCol}>
         <View style={pathStyles.textTop}>
+          {/* 34 is the handoff's list-row size, below the `fine`
+              threshold — the ornaments are dropped and only the
+              frame + sculpture read, which is what a row wants.
+              Locked ranks are dimmed rather than hidden so the
+              ladder still previews what is coming. */}
+          <View
+            style={[
+              pathStyles.rowEmblem,
+              !(isCurrent || isReached) && { opacity: 0.4 },
+            ]}
+          >
+            <RankEmblem tier={tier} size={34} />
+          </View>
           <Text
             style={[pathStyles.rankName, { color: nameColor }]}
             numberOfLines={1}
@@ -751,6 +780,12 @@ const styles = StyleSheet.create({
   },
   rankCol: {
     flex: 1,
+    minWidth: 0,
+  },
+  rankHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     minWidth: 0,
   },
   rankKicker: {

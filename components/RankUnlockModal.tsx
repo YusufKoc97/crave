@@ -8,6 +8,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { RankEmblem } from '@/components/ranks/RankEmblem';
 import { toRank } from '@/constants/rankLadder';
 import { RANK_LADDER } from '@/shared/ranks';
 import { hapticCelebrate } from '@/lib/haptics';
@@ -110,19 +111,11 @@ export function RankUnlockModal({ queue, accentColor, onDone }: Props) {
           <View style={styles.badgeArea}>
             {/* Behind the badge: soft particle burst */}
             <ParticleBurst accentColor={accentColor} />
-            <View
-              style={[
-                styles.badge,
-                {
-                  borderColor: accentColor,
-                  backgroundColor: hexAlpha(accentColor, 0.18),
-                  shadowColor: accentColor,
-                },
-              ]}
-            >
-              <Text style={[styles.badgeText, { color: accentColor }]}>
-                {rank.name.slice(0, 2).toUpperCase()}
-              </Text>
+            {/* The emblem IS the celebration — this used to be the
+                rank's first two letters in a ring, which told the
+                user nothing about what they had just earned. */}
+            <View style={[styles.badge, { shadowColor: accentColor }]}>
+              <RankEmblem tier={rank.order - 1} size={112} />
             </View>
           </View>
 
@@ -260,21 +253,15 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   badge: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 2,
+    // No border or fill any more: the emblem brings its own frame,
+    // and a ring around it read as two competing frames. The glow
+    // stays so the burst behind it still has something to sit on.
     alignItems: 'center',
     justifyContent: 'center',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.7,
     shadowRadius: 20,
     elevation: 8,
-  },
-  badgeText: {
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: 1,
   },
   kicker: {
     marginTop: 4,

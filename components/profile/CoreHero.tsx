@@ -68,6 +68,10 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedLine = Animated.createAnimatedComponent(Line);
 
 const CORE_BOX = 104;
+/** Rank emblem inside the core. Sized so the frame's facets read at
+ *  a glance — the handoff's 64 was tuned for a slot that used to
+ *  hold a single letter. */
+const EMBLEM_SIZE = 86;
 const CORE_HALF = CORE_BOX / 2;
 const CENTER = HERO_SIZE / 2;
 
@@ -579,14 +583,13 @@ function CoreBlob({
         />
       </Svg>
 
-      {/* Rank emblem slot — a fixed 64×64 box. The placeholder
-          hexagon and initial are gone now that the nine emblems
-          exist; the box itself, its size and its glow are unchanged.
-          Rendered at 56 rather than 64 because the emblem is 1.16×
-          as tall as it is wide (the ornaments overflow the frame on
-          purpose), so 56 keeps the whole artifact inside the slot. */}
+      {/* Rank emblem. The old 64×64 slot held a placeholder hexagon
+          and an initial; at that size the real emblem read as a
+          smudge rather than a rank, so the box now follows the
+          emblem's own 1:1.16 aspect and is large enough for the
+          frame's facets and the sculpture to survive. */}
       <View style={styles.emblem} accessible={false}>
-        <RankEmblem tier={rankOrder - 1} size={56} />
+        <RankEmblem tier={rankOrder - 1} size={EMBLEM_SIZE} />
       </View>
     </Animated.View>
   );
@@ -697,15 +700,13 @@ const styles = StyleSheet.create({
   },
   emblem: {
     position: 'absolute',
-    width: 64,
-    height: 64,
+    width: EMBLEM_SIZE,
+    // The emblem's ornaments overflow its frame by design, so the
+    // box has to carry the same 1:1.16 ratio or the crown teeth and
+    // the bottom spike get clipped.
+    height: Math.round(EMBLEM_SIZE * 1.16),
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  emblemGlyph: {
-    color: coreText.title,
-    fontSize: 32,
-    fontWeight: '800',
   },
   spark: {
     position: 'absolute',
