@@ -22,6 +22,7 @@ import {
   hexAlpha,
 } from '@/constants/designSystem';
 import { t } from '@/lib/i18n';
+import { useTriggerMap } from '@/lib/triggerMap';
 import type { Outcome } from '@/shared/scoring';
 
 /**
@@ -32,13 +33,30 @@ import type { Outcome } from '@/shared/scoring';
  * (Modül 3's data feed is the whole point of this reversal —
  * every resolved session must carry ≥1 trigger).
  *
- * Cancel keeps the timer alive with no side effects. Only the
- * Save button hits the network — active-session's onTriggerCommit
- * takes it from there.
+ * Craving-capture redesign: the flat two-group chip grid is now
+ * three regions. The user's own most frequent triggers of the last
+ * 30 days come first as rows with frequency bars — most cravings
+ * repeat, so the answer is usually already on screen — and the two
+ * chip groups sit underneath for everything else. A live summary of
+ * picks sits above the save button.
  *
- * Layout mirrors the (now-deleted) `/craving-start` chip grid so
- * users who already learned that flow see the same shapes.
+ * A 3-tag cap replaces the previous unlimited selection. At the cap
+ * unselected options drop to .34 and stop responding: no error copy,
+ * no toast, the UI simply stops offering.
+ *
+ * The handoff's "+ Something else" free-text chip is deliberately
+ * NOT here. `onCommit` carries trigger ids only and the resolve
+ * payload has no field for prose, so shipping the control would
+ * mean silently discarding whatever the user typed. It needs a
+ * column and an Edge Function change first.
+ *
+ * Cancel keeps the outcome the previous screen already recorded;
+ * only Save hits the network, via onTriggerCommit.
  */
+
+const MAX_TAGS = 3;
+/** How many of the user's own top triggers to surface. */
+const TOP_N = 3;
 
 type Props = {
   visible: boolean;
@@ -65,32 +83,50 @@ export function TriggerCaptureModal({
     () => triggersFor(addictionId),
     [addictionId]
   );
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<string[]>([]);
 
-  const canSave = selected.size > 0;
+  // Server-side 30-day counts, already sorted count-desc by the
+  // trigger-map Edge Function. Same query the Info tab runs, so it
+  // is usually warm in the query cache by the time a craving ends.
+  const { data: mapData } = useTriggerMap(addictionId, '30d');
+  const topTriggers = useMemo(() => {
+    const rows = mapData?.triggers ?? [];
+    return rows.filter((r) => r.count > 0).slice(0, TOP_N);
+  }, [mapData]);
+  const topMax = topTriggers[0]?.count ?? 0;
+
+  const atCap = selected.length >= MAX_TAGS;
+  const canSave = selected.length > 0;
 
   // Reset when the modal opens for a fresh outcome — the previous
   // pick set shouldn't leak into the next craving.
   const [lastVisible, setLastVisible] = useState(false);
   if (visible !== lastVisible) {
     setLastVisible(visible);
-    if (visible) setSelected(new Set());
+    if (visible) setSelected([]);
   }
 
   const toggle = (id: string) => {
     setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= MAX_TAGS) return prev;
+      return [...prev, id];
     });
   };
 
-  const titleKey =
-    outcome === 'resisted'
-      ? 'trigger_capture.resist_title'
-      : 'trigger_capture.fail_title';
-  const bodyKey =
+  const remove = (id: string) =>
+    setSelected((prev) => prev.filter((x) => x !== id));
+
+  const saveLabel = canSave
+    ? selected.length === 1
+      ? t('trigger_capture.save_one')
+      : t('trigger_capture.save_many', { count: String(selected.length) })
+    : t('trigger_capture.save');
+
+  // Outcome still tunes one line — the redesign fixes the header
+  // copy, so the celebrate/neutral distinction moved down to the
+  // hint above the chip groups rather than being dropped.
+  const hintKey =
     outcome === 'resisted'
       ? 'trigger_capture.resist_body'
       : 'trigger_capture.fail_body';
@@ -104,37 +140,86 @@ export function TriggerCaptureModal({
     >
       <View style={styles.overlay}>
         <View style={styles.sheet}>
+          {/* ── Header ─────────────────────────────────────────── */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>{t(titleKey)}</Text>
-            <Pressable
-              onPress={onCancel}
-              hitSlop={10}
-              style={styles.closeBtn}
-              accessibilityRole="button"
-              accessibilityLabel={t('trigger_capture.cancel')}
-            >
-              <Ionicons name="close" size={20} color={dsColors.textSecondary} />
-            </Pressable>
+            <View style={styles.stepRow}>
+              <Text style={styles.stepLabel}>
+                {t('trigger_capture.step_label')}
+              </Text>
+              <View style={styles.stepBars}>
+                <View style={styles.stepBarDone} />
+                <View
+                  style={[styles.stepBar, { backgroundColor: accentColor }]}
+                />
+              </View>
+              <View style={styles.stepSpacer} />
+              <Pressable
+                onPress={onCancel}
+                hitSlop={10}
+                style={styles.closeBtn}
+                accessibilityRole="button"
+                accessibilityLabel={t('trigger_capture.cancel')}
+              >
+                <Ionicons
+                  name="close"
+                  size={16}
+                  color={dsColors.textSecondary}
+                />
+              </Pressable>
+            </View>
+            <Text style={styles.headerTitle}>{t('trigger_capture.title')}</Text>
+            <Text style={styles.headerSubtitle}>
+              {t('trigger_capture.subtitle')}
+            </Text>
           </View>
 
+          {/* ── Body ───────────────────────────────────────────── */}
           <ScrollView
             style={styles.body}
             contentContainerStyle={styles.bodyContent}
             showsVerticalScrollIndicator={false}
           >
+            {topTriggers.length > 0 && (
+              <>
+                <SectionLabel
+                  text={t('trigger_capture.usually_you')}
+                  color={accentColor}
+                  dot
+                  trailing={t('trigger_capture.window_30d')}
+                />
+                <View style={styles.rows}>
+                  {topTriggers.map((row) => {
+                    const isSelected = selected.includes(row.trigger_id);
+                    const dimmed = atCap && !isSelected;
+                    return (
+                      <FrequencyRow
+                        key={row.trigger_id}
+                        label={labelForId(row.trigger_id, addictionId)}
+                        count={row.count}
+                        ratio={topMax > 0 ? row.count / topMax : 0}
+                        isSelected={isSelected}
+                        dimmed={dimmed}
+                        accentColor={accentColor}
+                        onToggle={() => toggle(row.trigger_id)}
+                      />
+                    );
+                  })}
+                </View>
+              </>
+            )}
+
             <Text style={styles.hint}>
-              {t(bodyKey, { name: addictionName })}
+              {t(hintKey, { name: addictionName })}
             </Text>
 
-            <Text style={styles.subsectionLabel}>
-              {t('trigger_capture.common_section')}
-            </Text>
+            <SectionLabel text={t('trigger_capture.how_you_felt')} />
             <View style={styles.chipRow}>
               {COMMON_TRIGGERS.map((trigger) => (
                 <TriggerChip
                   key={trigger.id}
                   trigger={trigger}
-                  isSelected={selected.has(trigger.id)}
+                  isSelected={selected.includes(trigger.id)}
+                  dimmed={atCap && !selected.includes(trigger.id)}
                   accentColor={accentColor}
                   onToggle={() => toggle(trigger.id)}
                 />
@@ -143,17 +228,14 @@ export function TriggerCaptureModal({
 
             {specificTriggers.length > 0 && (
               <>
-                <Text style={styles.subsectionLabel}>
-                  {t('trigger_capture.specific_section', {
-                    name: addictionName,
-                  })}
-                </Text>
+                <SectionLabel text={t('trigger_capture.the_moment')} />
                 <View style={styles.chipRow}>
                   {specificTriggers.map((trigger) => (
                     <TriggerChip
                       key={trigger.id}
                       trigger={trigger}
-                      isSelected={selected.has(trigger.id)}
+                      isSelected={selected.includes(trigger.id)}
+                      dimmed={atCap && !selected.includes(trigger.id)}
                       accentColor={accentColor}
                       onToggle={() => toggle(trigger.id)}
                     />
@@ -163,16 +245,50 @@ export function TriggerCaptureModal({
             )}
           </ScrollView>
 
+          {/* ── Footer ─────────────────────────────────────────── */}
           <View style={styles.footer}>
+            <View style={styles.summary}>
+              {selected.length === 0 ? (
+                <Text style={styles.summaryEmpty}>
+                  {t('trigger_capture.empty_summary')}
+                </Text>
+              ) : (
+                selected.map((id) => (
+                  <Pressable
+                    key={id}
+                    onPress={() => remove(id)}
+                    style={[
+                      styles.pill,
+                      {
+                        backgroundColor: hexAlpha(accentColor, 0.14),
+                        borderColor: hexAlpha(accentColor, 0.45),
+                      },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={labelForId(id, addictionId)}
+                  >
+                    <Text style={[styles.pillText, { color: accentColor }]}>
+                      {labelForId(id, addictionId)}
+                    </Text>
+                    <Ionicons
+                      name="close"
+                      size={12}
+                      color={hexAlpha(accentColor, 0.75)}
+                    />
+                  </Pressable>
+                ))
+              )}
+            </View>
+
             <Pressable
               disabled={!canSave}
-              onPress={() => canSave && onCommit(Array.from(selected))}
+              onPress={() => canSave && onCommit(selected)}
               style={[
                 styles.saveBtn,
                 canSave
                   ? {
-                      backgroundColor: accentColor,
-                      borderColor: accentColor,
+                      backgroundColor: hexAlpha(accentColor, 0.14),
+                      borderColor: hexAlpha(accentColor, 0.45),
                     }
                   : styles.saveBtnDisabled,
               ]}
@@ -182,17 +298,12 @@ export function TriggerCaptureModal({
               <Text
                 style={[
                   styles.saveText,
-                  canSave ? styles.saveTextEnabled : styles.saveTextDisabled,
+                  canSave ? { color: accentColor } : styles.saveTextDisabled,
                 ]}
               >
-                {t('trigger_capture.save')}
+                {saveLabel}
               </Text>
             </Pressable>
-            {!canSave && (
-              <Text style={styles.minHint}>
-                {t('trigger_capture.min_one_trigger')}
-              </Text>
-            )}
           </View>
         </View>
       </View>
@@ -200,31 +311,146 @@ export function TriggerCaptureModal({
   );
 }
 
-function TriggerChip({
-  trigger,
+/** Resolve a bare trigger id back to its display label. The map
+ *  endpoint returns ids only, so both catalogs are searched. */
+function labelForId(id: string, addictionId: string): string {
+  const found =
+    COMMON_TRIGGERS.find((x) => x.id === id) ??
+    triggersFor(addictionId).find((x) => x.id === id);
+  // Unknown ids can reach here: the catalog is client-only with no
+  // DB constraint behind it, so an id retired from the catalog can
+  // still come back from the 30-day query.
+  return found ? triggerLabel(found) : id;
+}
+
+function SectionLabel({
+  text,
+  color,
+  dot,
+  trailing,
+}: {
+  text: string;
+  color?: string;
+  dot?: boolean;
+  trailing?: string;
+}) {
+  return (
+    <View style={styles.sectionRow}>
+      {dot && (
+        <View
+          style={[
+            styles.sectionDot,
+            { backgroundColor: color ?? dsColors.textSecondary },
+          ]}
+        />
+      )}
+      <Text
+        style={[styles.sectionLabel, color ? { color } : null]}
+        numberOfLines={1}
+      >
+        {text}
+      </Text>
+      <View style={styles.sectionRule} />
+      {trailing ? <Text style={styles.sectionTrailing}>{trailing}</Text> : null}
+    </View>
+  );
+}
+
+function FrequencyRow({
+  label,
+  count,
+  ratio,
   isSelected,
+  dimmed,
   accentColor,
   onToggle,
 }: {
-  trigger: Trigger;
+  label: string;
+  count: number;
+  ratio: number;
   isSelected: boolean;
+  dimmed: boolean;
   accentColor: string;
   onToggle: () => void;
 }) {
   return (
     <Pressable
       onPress={onToggle}
+      disabled={dimmed}
+      style={[
+        styles.row,
+        isSelected
+          ? {
+              backgroundColor: hexAlpha(accentColor, 0.14),
+              borderColor: hexAlpha(accentColor, 0.45),
+            }
+          : styles.rowIdle,
+        dimmed && styles.dimmed,
+      ]}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: isSelected, disabled: dimmed }}
+    >
+      <Text
+        style={[
+          styles.rowLabel,
+          isSelected ? { color: accentColor } : styles.rowLabelIdle,
+        ]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+      <View style={styles.freqTrack}>
+        <View
+          style={[
+            styles.freqFill,
+            {
+              width: `${Math.max(6, Math.min(1, ratio) * 100)}%`,
+              backgroundColor: isSelected ? accentColor : dsColors.borderAccent,
+            },
+          ]}
+        />
+      </View>
+      <Text
+        style={[
+          styles.freqCount,
+          { color: isSelected ? accentColor : dsColors.textTertiary },
+        ]}
+      >
+        {count}×
+      </Text>
+    </Pressable>
+  );
+}
+
+function TriggerChip({
+  trigger,
+  isSelected,
+  dimmed,
+  accentColor,
+  onToggle,
+}: {
+  trigger: Trigger;
+  isSelected: boolean;
+  dimmed: boolean;
+  accentColor: string;
+  onToggle: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onToggle}
+      disabled={dimmed}
       style={[
         styles.chip,
         isSelected
           ? {
-              borderColor: accentColor,
+              borderColor: hexAlpha(accentColor, 0.45),
               backgroundColor: hexAlpha(accentColor, 0.14),
             }
           : styles.chipIdle,
+        dimmed && styles.dimmed,
       ]}
       accessibilityRole="checkbox"
-      accessibilityState={{ checked: isSelected }}
+      accessibilityState={{ checked: isSelected, disabled: dimmed }}
     >
       <Text
         style={[
@@ -252,63 +478,159 @@ const styles = StyleSheet.create({
     minHeight: '55%',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: dsSpacing.xl,
-    paddingTop: dsSpacing.xxl,
-    paddingBottom: dsSpacing.lg,
+    paddingTop: 18,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: dsColors.borderSubtle,
   },
-  headerTitle: {
-    color: dsColors.textPrimary,
-    fontSize: dsFont.size.heading,
-    fontWeight: dsFont.weight.semibold,
-    letterSpacing: dsFont.letterSpacing.tight,
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: dsSpacing.sm,
+  },
+  stepLabel: {
+    color: dsColors.textTertiary,
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1.4,
+  },
+  stepBars: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  stepBar: {
+    width: 16,
+    height: 3,
+    borderRadius: 2,
+  },
+  stepBarDone: {
+    width: 16,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: dsColors.borderAccent,
+  },
+  stepSpacer: {
     flex: 1,
   },
   closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: dsRadius.button,
+    width: 34,
+    height: 34,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: dsColors.cardSurface,
     borderWidth: 1,
     borderColor: dsColors.borderSubtle,
   },
+  headerTitle: {
+    marginTop: 10,
+    color: dsColors.textPrimary,
+    fontSize: 18,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  headerSubtitle: {
+    marginTop: 3,
+    color: dsColors.textTertiary,
+    fontSize: 12.5,
+  },
   body: {
     flex: 1,
   },
   bodyContent: {
-    padding: dsSpacing.xl,
-    paddingBottom: dsSpacing.x3l,
+    paddingHorizontal: dsSpacing.xl,
+    paddingTop: dsSpacing.lg,
+    paddingBottom: dsSpacing.sm,
   },
   hint: {
     color: dsColors.textSecondary,
     fontSize: dsFont.size.body,
     lineHeight: 21,
-    marginBottom: dsSpacing.xxl,
+    marginTop: dsSpacing.lg,
   },
-  subsectionLabel: {
-    color: dsColors.textSecondary,
-    fontSize: dsFont.size.tiny,
-    fontWeight: dsFont.weight.semibold,
-    letterSpacing: dsFont.letterSpacing.caps,
-    textTransform: 'uppercase',
-    marginTop: dsSpacing.md,
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: dsSpacing.sm,
+    marginTop: dsSpacing.lg,
     marginBottom: dsSpacing.md,
+  },
+  sectionDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+  },
+  sectionLabel: {
+    color: dsColors.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+  },
+  sectionRule: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#16233C',
+  },
+  sectionTrailing: {
+    color: dsColors.textTertiary,
+    fontSize: 10.5,
+  },
+  rows: {
+    gap: 6,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: dsSpacing.md,
+    paddingVertical: 11,
+    paddingHorizontal: 13,
+    borderRadius: 13,
+    borderWidth: 1,
+  },
+  rowIdle: {
+    backgroundColor: dsColors.cardSurface,
+    borderColor: dsColors.borderSubtle,
+  },
+  rowLabel: {
+    flex: 1,
+    fontSize: 13.5,
+    fontWeight: '600',
+  },
+  rowLabelIdle: {
+    color: dsColors.textSecondary,
+  },
+  freqTrack: {
+    width: 64,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#16233C',
+    overflow: 'hidden',
+  },
+  freqFill: {
+    height: 5,
+    borderRadius: 3,
+  },
+  freqCount: {
+    width: 26,
+    textAlign: 'right',
+    fontSize: 11,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  // Cap reached: the option stays legible but visibly out of play.
+  dimmed: {
+    opacity: 0.34,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: dsSpacing.sm,
-    marginBottom: dsSpacing.md,
+    gap: 7,
   },
   chip: {
-    paddingHorizontal: dsSpacing.lg,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderRadius: 9999,
     borderWidth: 1,
   },
@@ -317,21 +639,47 @@ const styles = StyleSheet.create({
     backgroundColor: dsColors.cardSurface,
   },
   chipText: {
-    fontSize: dsFont.size.label,
-    fontWeight: dsFont.weight.semibold,
-    letterSpacing: dsFont.letterSpacing.tight,
+    fontSize: 12.5,
+    fontWeight: '600',
   },
   chipTextIdle: {
     color: dsColors.textSecondary,
   },
   footer: {
-    padding: dsSpacing.xl,
-    paddingBottom: dsSpacing.x3l,
+    paddingHorizontal: dsSpacing.xl,
+    paddingTop: 12,
+    paddingBottom: 30,
     borderTopWidth: 1,
     borderTopColor: dsColors.borderSubtle,
   },
+  summary: {
+    minHeight: 32,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+  },
+  summaryEmpty: {
+    color: dsColors.textTertiary,
+    fontSize: 12.5,
+  },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingVertical: 6,
+    borderRadius: 9999,
+    borderWidth: 1,
+  },
+  pillText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+  },
   saveBtn: {
-    height: 56,
+    marginTop: 12,
+    height: 54,
     borderRadius: dsRadius.button,
     borderWidth: 1.5,
     alignItems: 'center',
@@ -342,20 +690,10 @@ const styles = StyleSheet.create({
     borderColor: dsColors.borderSubtle,
   },
   saveText: {
-    fontSize: dsFont.size.heading,
-    fontWeight: dsFont.weight.semibold,
-    letterSpacing: dsFont.letterSpacing.tight,
-  },
-  saveTextEnabled: {
-    color: dsColors.textPrimary,
+    fontSize: 17,
+    fontWeight: '600',
   },
   saveTextDisabled: {
     color: dsColors.textTertiary,
-  },
-  minHint: {
-    marginTop: dsSpacing.md,
-    color: dsColors.textTertiary,
-    fontSize: dsFont.size.label,
-    textAlign: 'center',
   },
 });
