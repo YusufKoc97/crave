@@ -269,7 +269,11 @@ const pathStyles = StyleSheet.create({
   dot: {
     position: 'absolute',
     left: -30,
-    top: 12,
+    // Centred on the 40×46 row emblem: rowPaddingTop(8) + emblem
+    // half-height(23) − dot half-height(8). The old 12 was tuned for
+    // text-only rows and left every dot sitting visibly off-axis
+    // once the emblems arrived.
+    top: 23,
     width: 16,
     height: 16,
     borderRadius: 8,
@@ -290,14 +294,13 @@ const pathStyles = StyleSheet.create({
   connector: {
     position: 'absolute',
     left: -23,
-    // Start just under this row's dot (dot top=12, dot height=16
-    // → 12 + 16 = 28). Extend into the next row until we meet
-    // the top of the next dot (row starts at 0, next dot top=12).
-    // That means we need bottom = -12 so the segment visually
-    // touches the next dot without a gap. Container's overflow
-    // hidden clips anything past the outer rounded edge.
-    top: 28,
-    bottom: -12,
+    // Start just under this row's dot (dot top=23, dot height=16
+    // → 23 + 16 = 39). Extend into the next row until we meet the
+    // top of the next dot (next dot top=23 → bottom = -23) so the
+    // segment touches it without a gap. Container's overflow hidden
+    // clips anything past the outer rounded edge.
+    top: 39,
+    bottom: -23,
     width: 3,
     borderRadius: 2,
     overflow: 'hidden',

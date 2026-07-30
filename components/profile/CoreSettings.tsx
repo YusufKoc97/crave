@@ -1,5 +1,14 @@
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
 import {
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import {
+  Check,
   ChevronRight,
   Languages,
   LogOut,
@@ -78,27 +87,138 @@ export function SettingsRow({
   );
 }
 
-export function PremiumRow({ onPress }: { onPress: () => void }) {
+/**
+ * Working skeleton for the settings rows. `Alert.alert` is a silent
+ * no-op on web, which is why "none of the buttons did anything" —
+ * every row now opens a real in-app sheet in the app's own surface
+ * language. The sheets are deliberately skeletons: the paywall and
+ * the language switch get their real designs later, but the plumbing
+ * (open, close, select) already works.
+ */
+export function PremiumRow() {
+  const [open, setOpen] = useState(false);
   return (
-    <SettingsRow
-      icon={<Sparkles size={18} color={neon(0.95)} strokeWidth={2} />}
-      label={t('profile.upgrade_premium')}
-      labelColor={neon(0.95)}
-      wash
-      onPress={onPress}
-      showDivider
-    />
+    <>
+      <SettingsRow
+        icon={<Sparkles size={18} color={neon(0.95)} strokeWidth={2} />}
+        label={t('profile.upgrade_premium')}
+        labelColor={neon(0.95)}
+        wash
+        onPress={() => setOpen(true)}
+        showDivider
+      />
+      {open && (
+        <SettingsSheet
+          title={t('profile.premium_sheet_title')}
+          onClose={() => setOpen(false)}
+        >
+          <View style={styles.soonChip}>
+            <Text style={styles.soonChipText}>{t('profile.coming_soon')}</Text>
+          </View>
+          {[
+            t('profile.premium_feature_insights'),
+            t('profile.premium_feature_addictions'),
+            t('profile.premium_feature_themes'),
+          ].map((feature) => (
+            <View key={feature} style={styles.featureRow}>
+              <Sparkles size={14} color={neon(0.85)} strokeWidth={2} />
+              <Text style={styles.featureText}>{feature}</Text>
+            </View>
+          ))}
+        </SettingsSheet>
+      )}
+    </>
   );
 }
 
 export function LanguageRow() {
+  const [open, setOpen] = useState(false);
   return (
-    <SettingsRow
-      icon={<Languages size={18} color={coreText.secondary} strokeWidth={2} />}
-      label={t('profile.language')}
-      trailing={t('profile.language_value')}
-      showDivider
-    />
+    <>
+      <SettingsRow
+        icon={
+          <Languages size={18} color={coreText.secondary} strokeWidth={2} />
+        }
+        label={t('profile.language')}
+        trailing={t('profile.language_value')}
+        onPress={() => setOpen(true)}
+        showDivider
+      />
+      {open && (
+        <SettingsSheet
+          title={t('profile.language')}
+          onClose={() => setOpen(false)}
+        >
+          <Pressable
+            style={styles.optionRow}
+            onPress={() => setOpen(false)}
+            accessibilityRole="button"
+          >
+            <Text style={styles.optionText}>{t('profile.language_value')}</Text>
+            <Check size={16} color={neon(0.9)} strokeWidth={2.4} />
+          </Pressable>
+          {/* Turkish is listed but inert — the i18n layer only ships
+              English today. Showing it dimmed promises the direction
+              without pretending the switch works. */}
+          <View style={[styles.optionRow, styles.optionDisabled]}>
+            <Text style={styles.optionText}>
+              {t('profile.language_turkish')}
+            </Text>
+            <View style={styles.soonChipSmall}>
+              <Text style={styles.soonChipText}>
+                {t('profile.coming_soon')}
+              </Text>
+            </View>
+          </View>
+        </SettingsSheet>
+      )}
+    </>
+  );
+}
+
+/** Shared skeleton sheet — backdrop + centred card, same surface
+ *  language as DeleteDialog but generic. Rendered in a Modal so it
+ *  escapes SettingsGroup's overflow-hidden rounded container. */
+function SettingsSheet({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Modal
+      visible
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <Pressable
+        style={styles.backdrop}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel={t('profile.close')}
+      />
+      <View style={styles.dialogWrap} pointerEvents="box-none">
+        <Animated.View entering={ZoomIn.duration(240)} style={styles.dialog}>
+          <Text style={styles.dialogTitle}>{title}</Text>
+          {children}
+          <Pressable
+            onPress={onClose}
+            style={({ pressed }) => [
+              styles.sheetCloseBtn,
+              pressed && styles.rowPressed,
+            ]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.sheetCloseText}>{t('profile.close')}</Text>
+          </Pressable>
+        </Animated.View>
+      </View>
+    </Modal>
   );
 }
 
@@ -303,5 +423,79 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14.5,
     fontWeight: '800',
+  },
+
+  // ── Skeleton sheets (Premium / Language) ──
+  soonChip: {
+    alignSelf: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: neon(0.12),
+    borderWidth: 1,
+    borderColor: neon(0.3),
+    marginBottom: 14,
+  },
+  soonChipSmall: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: neon(0.1),
+    borderWidth: 1,
+    borderColor: neon(0.25),
+  },
+  soonChipText: {
+    color: neon(0.9),
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+    alignSelf: 'stretch',
+  },
+  featureText: {
+    color: coreText.strong,
+    fontSize: 13.5,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    alignSelf: 'stretch',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: coreDivider,
+  },
+  optionDisabled: {
+    opacity: 0.5,
+    borderBottomWidth: 0,
+  },
+  optionText: {
+    color: coreText.strong,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  sheetCloseBtn: {
+    marginTop: 18,
+    alignSelf: 'stretch',
+    height: 44,
+    borderRadius: coreRadius.iconSquare,
+    borderWidth: 1,
+    borderColor: neon(0.35),
+    backgroundColor: neon(0.1),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetCloseText: {
+    color: neon(0.95),
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

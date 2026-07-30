@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSessions } from '@/context/SessionsContext';
 import { useAuth } from '@/context/AuthContext';
@@ -156,9 +156,7 @@ export default function ProfileScreen() {
 
         <Text style={styles.sectionLabel}>{t('profile.settings_section')}</Text>
         <SettingsGroup>
-          <PremiumRow
-            onPress={() => Alert.alert(t('profile.upgrade_premium'))}
-          />
+          <PremiumRow />
           <LanguageRow />
           <SignOutRow onPress={onSignOut} />
         </SettingsGroup>
