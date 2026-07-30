@@ -26,6 +26,7 @@ import { maxMinutesFor } from '@/constants/addictions';
 import { dsColors } from '@/constants/designSystem';
 import { useAddictions } from '@/context/AddictionsContext';
 import { NeonRing } from '@/components/NeonRing';
+import { lucideIconFor } from '@/components/info/iconMap';
 import { t } from '@/lib/i18n';
 
 // Web-only `animation` shorthand — RN's StyleSheet has no equivalent, but
@@ -475,6 +476,7 @@ function AddictionIcon({
   const angle = (index / total) * Math.PI * 2 - Math.PI / 2;
   const x = Math.cos(angle) * ICON_R;
   const y = Math.sin(angle) * ICON_R;
+  const Glyph = lucideIconFor(addiction.id);
 
   // RN Web fires onPress on release even after a long-press, which would
   // immediately exit wiggle mode again. We use a ref to suppress the next
@@ -573,7 +575,10 @@ function AddictionIcon({
         style={styles.iconBtnOuter}
       >
         <View style={styles.iconBtn}>
-          <Text style={styles.iconEmoji}>{addiction.emoji}</Text>
+          {/* Designed glyph set — the same map the Addictions tab
+              draws its cards with. The platform emoji clashed with
+              the drawn icons everywhere else in the app. */}
+          <Glyph size={24} color={addiction.color} strokeWidth={2} />
           <Text
             style={[
               styles.iconLabel,
@@ -749,11 +754,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 8,
     paddingHorizontal: 4,
-  },
-  iconEmoji: {
-    fontSize: 22,
-    lineHeight: 26,
-    textAlign: 'center',
   },
   iconLabel: {
     marginTop: 4,

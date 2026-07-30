@@ -1708,3 +1708,11 @@ export function RankEmblem({ tier, size }: Props) {
 export function rankEmblemName(tier: number) {
   return TIERS[Math.max(0, Math.min(TIERS.length - 1, Math.round(tier)))].n;
 }
+
+/** The tier's signature colour (the material's gem tone). Rank names
+ *  rendered outside the emblem use this so a rank always wears ONE
+ *  colour everywhere — it used to inherit each addiction's accent,
+ *  which made the same rank read as nine different things. */
+export function rankEmblemColor(tier: number) {
+  return TIERS[Math.max(0, Math.min(TIERS.length - 1, Math.round(tier)))].gem;
+}

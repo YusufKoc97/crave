@@ -113,8 +113,7 @@
     "stat_rate_short": "Success",
     "stat_techniques_short": "Toolkit",
     "stat_streak_unit_short": "d",
-    "feeding_section": "Feeding the core",
-    "footer": "Crave · v1.0"
+    "feeding_section": "Feeding the core"
   },
   "active": {
     "resist": "I Resisted",

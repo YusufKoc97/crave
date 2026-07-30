@@ -1,10 +1,9 @@
 import { useEffect } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Svg, {
   Circle,
   Defs,
   G,
-  Line,
   Path,
   RadialGradient,
   Stop,
@@ -19,37 +18,28 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import type { Addiction } from '@/constants/addictions';
 import { useReducedMotion } from '@/components/toolkit/useReducedMotion';
 import { t } from '@/lib/i18n';
 import { RankEmblem } from '@/components/ranks/RankEmblem';
 import { CountUp } from './CountUp';
-import { CORE_ANIM, coreNeon, coreText, hexAlpha, neon } from './coreTheme';
-import {
-  HERO_SIZE,
-  RING_C,
-  RING_R,
-  RING_SEG_LEN,
-  filamentAngle,
-  polar,
-  ringSegments,
-} from './coreMath';
+import { CORE_ANIM, coreNeon, coreText, neon } from './coreTheme';
+import { HERO_SIZE, RING_C, RING_R } from './coreMath';
 
 /**
  * "The Core" — the Profile hero.
  *
- * A 290×290 stage with four layers, back to front:
+ * A 290×290 stage with three layers, back to front:
  *
  *   1. Ambient halo — a slow radial bloom so the hero sits in light
  *      instead of on a flat panel.
- *   2. Rank ring — nine arcs, one per step of the shared rank ladder.
- *      Earned arcs are dim neon, the *current* rank is a thicker,
- *      brighter arc, and locked steps are barely-there white.
- *   3. Filaments — one line + orb per tracked addiction, drawn in the
- *      addiction's own hue, fanning 250° around the top. These are the
- *      things "feeding" the core.
- *   4. The core itself — an organic blob that breathes, carrying the
- *      rank emblem slot and orbited by a single spark.
+ *   2. Progress ring — a faint circular track around the emblem plus
+ *      one neon arc whose sweep is the share of the current rank band
+ *      already covered. (It replaced both the old nine-segment order
+ *      ring and the horizontal bar under the points readout, and the
+ *      per-addiction filaments/orbs were cut — the emblem is the
+ *      hero now.)
+ *   3. The core itself — an organic blob that breathes, carrying the
+ *      rank emblem and orbited by a single spark.
  *
  * Two shape notes, both RN limitations the web reference doesn't have:
  *
@@ -65,13 +55,13 @@ import {
  */
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-const AnimatedLine = Animated.createAnimatedComponent(Line);
 
 const CORE_BOX = 104;
 /** Rank emblem inside the core. Sized so the frame's facets read at
  *  a glance — the handoff's 64 was tuned for a slot that used to
- *  hold a single letter. */
-const EMBLEM_SIZE = 86;
+ *  hold a single letter. 112 fills the ring (inner diameter ~152)
+ *  without the ornaments touching it. */
+const EMBLEM_SIZE = 112;
 const CORE_HALF = CORE_BOX / 2;
 const CENTER = HERO_SIZE / 2;
 
@@ -104,8 +94,6 @@ type Props = {
   progress: number;
   /** 1-based position of the current rank in the 9-step ladder. */
   rankOrder: number;
-  /** Tracked addictions, already sorted — one filament each. */
-  addictions: readonly Addiction[];
 };
 
 export function CoreHero({
@@ -116,7 +104,6 @@ export function CoreHero({
   pointsToNext,
   progress,
   rankOrder,
-  addictions,
 }: Props) {
   const reduced = useReducedMotion();
   // Zero points is a *beginning*, not a failure: the core dims rather
@@ -154,36 +141,13 @@ export function CoreHero({
             </RadialGradient>
           </Defs>
 
-          <RankRing rankOrder={rankOrder} dormant={dormant} reduced={reduced} />
-
-          {addictions.map((a, i) => (
-            <Filament
-              key={a.id}
-              hue={a.color}
-              angle={filamentAngle(i, addictions.length)}
-              index={i}
-              dormant={dormant}
-              reduced={reduced}
-            />
-          ))}
+          <RankRing progress={progress} dormant={dormant} reduced={reduced} />
 
           {/* Blob glow. Kept just wide enough to clear the 104px body —
               any larger and the falloff reads as a second sphere
               competing with the core instead of light around it. */}
           <Circle cx={CENTER} cy={CENTER} r={74} fill="url(#coreGlow)" />
         </Svg>
-
-        {/* Orbs ride above the SVG so their soft shadow can use the
-            platform-native shadow stack. */}
-        {addictions.map((a, i) => (
-          <Orb
-            key={a.id}
-            hue={a.color}
-            angle={filamentAngle(i, addictions.length)}
-            index={i}
-            alive={alive}
-          />
-        ))}
 
         <CoreBlob rankOrder={rankOrder} dormant={dormant} alive={alive} />
         {alive ? <Spark /> : null}
@@ -203,8 +167,6 @@ export function CoreHero({
         />
         <Text style={styles.pointsUnit}>{t('profile.points_unit')}</Text>
       </View>
-
-      <ProgressBar progress={progress} reduced={reduced} />
 
       <Text style={styles.subLine}>
         {dormant
@@ -270,254 +232,82 @@ function Halo({ alive }: { alive: boolean }) {
 
 /** Nine arcs, one per rank step. */
 function RankRing({
-  rankOrder,
+  progress,
   dormant,
   reduced,
 }: {
-  rankOrder: number;
+  /** 0..1 through the current rank band. */
+  progress: number;
   dormant: boolean;
   reduced: boolean;
 }) {
+  // This ring used to encode rank ORDER as nine dashed segments while
+  // a horizontal bar under the points readout carried band progress.
+  // The bar is gone — the ring absorbed its job, so the score now
+  // fills the circle around the emblem itself: a plain faint track
+  // plus one neon arc whose sweep is the share of the current band
+  // already covered.
+  const sweep = useSharedValue(reduced ? progress : 0);
+
+  useEffect(() => {
+    if (reduced) {
+      sweep.value = progress;
+      return;
+    }
+    sweep.value = withDelay(
+      CORE_ANIM.barDelayMs,
+      withTiming(progress, {
+        duration: CORE_ANIM.barFillMs,
+        easing: Easing.out(Easing.cubic),
+      })
+    );
+  }, [progress, reduced, sweep]);
+
+  const fillProps = useAnimatedProps(() => {
+    const p = Math.max(0, Math.min(1, sweep.value));
+    return { strokeDasharray: [RING_C * p, RING_C * (1 - p) + 2] };
+  });
+
   return (
     // A `transform` string rather than `rotation`/`origin`: the latter
     // pair makes react-native-svg emit a kebab-case `transform-origin`
     // attribute, which React rejects as an invalid DOM property on web.
     <G transform={`rotate(-90 ${CENTER} ${CENTER})`}>
-      {ringSegments().map((seg) => {
-        const step = seg.index + 1;
-        const isCurrent = !dormant && step === rankOrder;
-        const isEarned = !dormant && step < rankOrder;
-        return (
-          <RingSegment
-            key={seg.index}
-            index={seg.index}
-            dashOffset={seg.dashOffset}
-            reduced={reduced}
-            stroke={
-              isCurrent
-                ? coreNeon
-                : isEarned
-                  ? neon(0.55)
-                  : 'rgba(255,255,255,0.07)'
-            }
-            strokeWidth={isCurrent ? 7 : 5}
-            // `drop-shadow` on the current arc is a web-only filter, so
-            // native gets the same read from a second, wider, faded arc
-            // painted underneath — see the caller below.
-            glow={isCurrent}
-          />
-        );
-      })}
-    </G>
-  );
-}
-
-function RingSegment({
-  index,
-  dashOffset,
-  stroke,
-  strokeWidth,
-  glow,
-  reduced,
-}: {
-  index: number;
-  dashOffset: number;
-  stroke: string;
-  strokeWidth: number;
-  glow: boolean;
-  reduced: boolean;
-}) {
-  // Draw-on works by growing the visible dash from 0 to its full arc
-  // length while the offset (which places the segment) stays put.
-  const len = useSharedValue(reduced ? RING_SEG_LEN : 0);
-
-  useEffect(() => {
-    if (reduced) {
-      len.value = RING_SEG_LEN;
-      return;
-    }
-    len.value = withDelay(
-      index * CORE_ANIM.segStaggerMs,
-      withTiming(RING_SEG_LEN, {
-        duration: CORE_ANIM.segDrawMs,
-        easing: Easing.bezier(0.3, 1, 0.5, 1),
-      })
-    );
-  }, [index, len, reduced]);
-
-  const animatedProps = useAnimatedProps(() => ({
-    strokeDasharray: [len.value, RING_C - len.value],
-  }));
-
-  return (
-    <>
-      {glow ? (
-        <AnimatedCircle
-          cx={CENTER}
-          cy={CENTER}
-          r={RING_R}
-          stroke={neon(0.22)}
-          strokeWidth={strokeWidth + 8}
-          strokeLinecap="round"
-          fill="none"
-          strokeDashoffset={dashOffset}
-          animatedProps={animatedProps}
-        />
-      ) : null}
-      <AnimatedCircle
+      <Circle
         cx={CENTER}
         cy={CENTER}
         r={RING_R}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
+        stroke="rgba(255,255,255,0.07)"
+        strokeWidth={5}
         fill="none"
-        strokeDashoffset={dashOffset}
-        animatedProps={animatedProps}
       />
-    </>
-  );
-}
-
-/** One addiction's line running from the core out toward its orb. */
-function Filament({
-  hue,
-  angle,
-  index,
-  dormant,
-  reduced,
-}: {
-  hue: string;
-  angle: number;
-  index: number;
-  dormant: boolean;
-  reduced: boolean;
-}) {
-  const inner = polar(angle, CORE_HALF - 6);
-  const outer = polar(angle, RING_R - 18);
-  const full = Math.hypot(outer.x - inner.x, outer.y - inner.y);
-
-  const drawn = useSharedValue(reduced ? full : 0);
-  const glow = useSharedValue(dormant ? 0.3 : 0.75);
-
-  useEffect(() => {
-    if (reduced) {
-      drawn.value = full;
-      return;
-    }
-    drawn.value = withDelay(
-      CORE_ANIM.lineDelayMs + index * CORE_ANIM.lineStaggerMs,
-      withTiming(full, { duration: CORE_ANIM.lineDrawMs })
-    );
-  }, [drawn, full, index, reduced]);
-
-  useEffect(() => {
-    if (reduced || dormant) {
-      glow.value = dormant ? 0.3 : 0.75;
-      return;
-    }
-    // 5–8s per filament so several of them never breathe in lockstep.
-    const period = 5000 + index * 900;
-    glow.value = withDelay(
-      CORE_ANIM.lineDelayMs,
-      withRepeat(
-        withSequence(
-          withTiming(0.85, { duration: period / 2 }),
-          withTiming(0.35, { duration: period / 2 })
-        ),
-        -1,
-        false
-      )
-    );
-  }, [dormant, glow, index, reduced]);
-
-  const animatedProps = useAnimatedProps(() => ({
-    strokeDasharray: [drawn.value, full],
-    strokeOpacity: glow.value,
-  }));
-
-  return (
-    <AnimatedLine
-      x1={inner.x}
-      y1={inner.y}
-      x2={outer.x}
-      y2={outer.y}
-      stroke={hue}
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      animatedProps={animatedProps}
-    />
-  );
-}
-
-/** The addiction bead sitting just outside the rank ring. */
-function Orb({
-  hue,
-  angle,
-  index,
-  alive,
-}: {
-  hue: string;
-  angle: number;
-  index: number;
-  alive: boolean;
-}) {
-  const p = polar(angle, RING_R + 30);
-  const drift = useSharedValue(0);
-
-  useEffect(() => {
-    if (!alive) {
-      drift.value = 0;
-      return;
-    }
-    const period = 6000 + index * 750;
-    drift.value = withRepeat(
-      withSequence(
-        withTiming(1, {
-          duration: period / 2,
-          easing: Easing.inOut(Easing.sin),
-        }),
-        withTiming(0, {
-          duration: period / 2,
-          easing: Easing.inOut(Easing.sin),
-        })
-      ),
-      -1,
-      false
-    );
-  }, [alive, drift, index]);
-
-  // The wrapper owns the -12/-12 centering offset via `left`/`top`, so
-  // the animated transform is free to carry only the drift. Mixing the
-  // two on one transform is how the reference prototype's orbs jumped.
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateY: -3 + drift.value * 6 }],
-  }));
-
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={[styles.orb, { left: p.x - 12, top: p.y - 12 }, style]}
-    >
-      <View
-        style={[
-          styles.orbBody,
-          {
-            backgroundColor: hexAlpha(hue, 0.22),
-            borderColor: hexAlpha(hue, 0.5),
-            ...Platform.select({
-              web: { boxShadow: `0 0 12px ${hexAlpha(hue, 0.45)}` },
-              default: {
-                shadowColor: hue,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.6,
-                shadowRadius: 6,
-              },
-            }),
-          },
-        ]}
-      />
-    </Animated.View>
+      {!dormant && (
+        <>
+          {/* `drop-shadow` is a web-only filter, so the glow is a
+              second, wider, faded arc painted underneath. */}
+          <AnimatedCircle
+            cx={CENTER}
+            cy={CENTER}
+            r={RING_R}
+            stroke={neon(0.22)}
+            strokeWidth={13}
+            strokeLinecap="round"
+            fill="none"
+            animatedProps={fillProps}
+          />
+          <AnimatedCircle
+            cx={CENTER}
+            cy={CENTER}
+            r={RING_R}
+            stroke={coreNeon}
+            strokeWidth={5}
+            strokeLinecap="round"
+            fill="none"
+            animatedProps={fillProps}
+          />
+        </>
+      )}
+    </G>
   );
 }
 
@@ -621,41 +411,6 @@ function Spark() {
   return <Animated.View pointerEvents="none" style={[styles.spark, style]} />;
 }
 
-/** Rank-band progress under the points readout. */
-function ProgressBar({
-  progress,
-  reduced,
-}: {
-  progress: number;
-  reduced: boolean;
-}) {
-  const w = useSharedValue(reduced ? progress : 0);
-
-  useEffect(() => {
-    if (reduced) {
-      w.value = progress;
-      return;
-    }
-    w.value = withDelay(
-      CORE_ANIM.barDelayMs,
-      withTiming(progress, {
-        duration: CORE_ANIM.barFillMs,
-        easing: Easing.out(Easing.cubic),
-      })
-    );
-  }, [progress, reduced, w]);
-
-  const style = useAnimatedStyle(() => ({
-    width: `${Math.max(0, Math.min(1, w.value)) * 100}%`,
-  }));
-
-  return (
-    <View style={styles.barTrack}>
-      <Animated.View style={[styles.barFill, style]} />
-    </View>
-  );
-}
-
 // ───────────────────────────── Styles ─────────────────────────────
 
 const styles = StyleSheet.create({
@@ -677,19 +432,6 @@ const styles = StyleSheet.create({
     height: 420,
     left: CENTER - 210,
     top: CENTER - 210,
-  },
-  orb: {
-    position: 'absolute',
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  orbBody: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1,
   },
   core: {
     position: 'absolute',
@@ -757,28 +499,6 @@ const styles = StyleSheet.create({
     color: coreText.secondary,
     fontSize: 12.5,
     fontWeight: '600',
-  },
-  barTrack: {
-    width: 200,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    marginTop: 12,
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: 3,
-    backgroundColor: coreNeon,
-    ...Platform.select({
-      web: { boxShadow: `0 0 8px ${hexAlpha(coreNeon, 0.6)}` },
-      default: {
-        shadowColor: coreNeon,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.7,
-        shadowRadius: 5,
-      },
-    }),
   },
   subLine: {
     color: coreText.tertiary,

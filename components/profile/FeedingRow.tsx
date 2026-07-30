@@ -10,6 +10,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ChevronRight } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
+import { lucideIconFor } from '@/components/info/iconMap';
+import { rankEmblemColor } from '@/components/ranks/RankEmblem';
 import { useReducedMotion } from '@/components/toolkit/useReducedMotion';
 import {
   CORE_ANIM,
@@ -35,6 +37,8 @@ let gradSeq = 0;
 type Props = {
   addiction: Addiction;
   rankName: string;
+  /** 1-based ladder position — drives the rank name's fixed colour. */
+  rankOrder: number;
   score: number;
   /** Highest score across the list — the bar's 100% reference. */
   maxScore: number;
@@ -46,6 +50,7 @@ type Props = {
 export function FeedingRow({
   addiction,
   rankName,
+  rankOrder,
   score,
   maxScore,
   index,
@@ -84,7 +89,7 @@ export function FeedingRow({
         accessibilityRole="button"
         accessibilityLabel={`${addiction.name} — ${rankName}, ${score}`}
       >
-        <IconSquare hue={hue} emoji={addiction.emoji} />
+        <IconSquare hue={hue} addictionId={addiction.id} />
 
         <View style={styles.body}>
           <Text style={styles.name} numberOfLines={1}>
@@ -114,7 +119,12 @@ export function FeedingRow({
 
         <View style={styles.meta}>
           <Text style={styles.metaText} numberOfLines={1}>
-            <Text style={{ color: hue }}>{rankName}</Text>
+            {/* Rank colour comes from the RANK, not the addiction —
+                "Base" used to render in four different accents down
+                this list, which read as four different things. */}
+            <Text style={{ color: rankEmblemColor(rankOrder - 1) }}>
+              {rankName}
+            </Text>
             <Text style={styles.metaDot}> · </Text>
             {score.toLocaleString('en-US')}
           </Text>
@@ -128,10 +138,19 @@ export function FeedingRow({
 }
 
 /** 34px tile carrying the addiction's own hue as a soft radial bloom. */
-function IconSquare({ hue, emoji }: { hue: string; emoji: string }) {
+function IconSquare({
+  hue,
+  addictionId,
+}: {
+  hue: string;
+  addictionId: string;
+}) {
   // `useId()` emits `:r0:`, which is not a legal SVG id and silently
   // breaks `url(#…)` on web — hence the module-level counter.
   const id = `feedGrad${(gradSeq += 1)}`;
+  // The designed glyph set, not the platform emoji — same map the
+  // Addictions tab draws its cards with.
+  const Icon = lucideIconFor(addictionId);
   return (
     <View style={[styles.iconSquare, { borderColor: hexAlpha(hue, 0.34) }]}>
       <Svg style={StyleSheet.absoluteFill} viewBox="0 0 100 100">
@@ -143,7 +162,7 @@ function IconSquare({ hue, emoji }: { hue: string; emoji: string }) {
         </Defs>
         <Circle cx="50" cy="50" r="70" fill={`url(#${id})`} />
       </Svg>
-      <Text style={styles.iconEmoji}>{emoji}</Text>
+      <Icon size={17} color={hue} strokeWidth={2.2} />
     </View>
   );
 }
@@ -166,9 +185,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-  },
-  iconEmoji: {
-    fontSize: 16,
   },
   body: {
     flex: 1,

@@ -14,14 +14,15 @@ import {
 } from 'lucide-react-native';
 
 /**
- * Info-tab local addiction → Lucide icon mapping.
+ * Addiction → Lucide icon mapping — the app's designed glyph set.
  *
- * Scope guard (karar #2): the rest of the app (home orb, toolkit,
- * trigger map, active session) still renders `addiction.emoji`.
- * This map exists ONLY for the Info tab redesign. Adding a new
- * addiction to the catalog and forgetting to add an entry here
- * falls through to a generic `Circle` — the card still renders,
- * just without a themed glyph.
+ * Originally scoped to the Info tab (karar #2), later promoted to
+ * the whole app by explicit decision: wherever an addiction shows a
+ * glyph (home orb fan, Feeding the Core rows, Info cards), it is
+ * THIS icon, never the platform emoji — iOS emojis clashed with the
+ * drawn language everywhere else. Adding a new addiction to the
+ * catalog and forgetting an entry here falls through to a default
+ * icon — the surface still renders, just without a themed glyph.
  */
 
 const ICONS: Record<string, ComponentType<LucideProps>> = {

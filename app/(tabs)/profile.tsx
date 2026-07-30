@@ -114,7 +114,6 @@ export default function ProfileScreen() {
           pointsToNext={overall.pointsToNext}
           progress={overall.progress}
           rankOrder={overall.current.order}
-          addictions={sortedTracked}
         />
 
         <Text style={styles.sectionLabel}>{t('profile.lifetime_section')}</Text>
@@ -143,6 +142,7 @@ export default function ProfileScreen() {
                   key={a.id}
                   addiction={a}
                   rankName={viewFor(a.id).currentRank.name}
+                  rankOrder={viewFor(a.id).currentRank.order}
                   score={viewFor(a.id).score}
                   maxScore={maxScore}
                   index={i}
@@ -167,8 +167,6 @@ export default function ProfileScreen() {
         <SettingsGroup>
           <DeleteRow onPress={() => setConfirmingDelete(true)} />
         </SettingsGroup>
-
-        <Text style={styles.footer}>{t('profile.footer')}</Text>
       </ScrollView>
 
       {confirmingDelete ? (
@@ -234,13 +232,5 @@ const styles = StyleSheet.create({
   },
   groupGap: {
     height: 12,
-  },
-  footer: {
-    color: coreText.tertiary,
-    fontSize: 11.5,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 28,
-    opacity: 0.5,
   },
 });
