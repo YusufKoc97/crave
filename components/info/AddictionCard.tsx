@@ -61,6 +61,10 @@ type Props = {
   /** Copy shown in the status line — usually the rank name for
    *  tracked cards. Untracked cards render fixed "Not tracked". */
   statusMain: string;
+  /** Colour for `statusMain`. Rank names pass the rank's own fixed
+   *  colour; without it the line falls back to the addiction hue,
+   *  which made the same rank read differently on every card. */
+  statusMainColor?: string;
   onPress: () => void;
   /** Only used by untracked cards. Ignored when `tracked`. */
   onStartTracking?: () => void;
@@ -72,6 +76,7 @@ export function AddictionCard({
   progress,
   score,
   statusMain,
+  statusMainColor,
   onPress,
   onStartTracking,
 }: Props) {
@@ -166,7 +171,9 @@ export function AddictionCard({
           <Text style={styles.statusLine} numberOfLines={1}>
             <Text
               style={{
-                color: tracked ? hue : TEXT_STATUS_UNTRACKED,
+                color: tracked
+                  ? (statusMainColor ?? hue)
+                  : TEXT_STATUS_UNTRACKED,
                 fontWeight: '600',
               }}
             >

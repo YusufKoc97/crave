@@ -1081,9 +1081,13 @@ type Props = {
   /** Rendered width in px. Height is 1.16× so the ornaments, which
    *  deliberately overflow the frame, are not clipped. */
   size: number;
+  /** Multiplier on the built-in radial halo. 1 = the artwork's own
+   *  subtle glow; hero surfaces pass ~1.5–1.8 so the emblem sits in
+   *  light instead of reading as a sticker on the background. */
+  haloBoost?: number;
 };
 
-export function RankEmblem({ tier, size }: Props) {
+export function RankEmblem({ tier, size, haloBoost = 1 }: Props) {
   const t = Math.max(0, Math.min(TIERS.length - 1, Math.round(tier)));
   const C = TIERS[t];
   const id = `q${t}s${Math.round(size)}`;
@@ -1436,7 +1440,11 @@ export function RankEmblem({ tier, size }: Props) {
           ))}
         </LinearGradient>
         <RadialGradient id={`${id}h`}>
-          <Stop offset="0.3" stopColor={C.a} stopOpacity={0.26 + t * 0.05} />
+          <Stop
+            offset="0.3"
+            stopColor={C.a}
+            stopOpacity={Math.min(1, (0.26 + t * 0.05) * haloBoost)}
+          />
           <Stop offset="1" stopColor={C.a} stopOpacity={0} />
         </RadialGradient>
 

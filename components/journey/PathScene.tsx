@@ -401,22 +401,26 @@ export function PathScene() {
             <Stop offset="0%" stopColor="rgb(150,120,200)" stopOpacity={0.4} />
             <Stop offset="100%" stopColor="rgb(150,120,200)" stopOpacity={0} />
           </RadialGradient>
-          {/* Horizon aurora — thin white radial hugging the bottom */}
+          {/* Horizon aurora — soft light pooled at the bottom. Peak
+              opacity 0.2, not the old 0.55: at 0.55 the pool clipped
+              against the card's bottom edge and read as a flat grey
+              platform with zero tonal transition. Taller ry so the
+              falloff breathes instead of banding. */}
           <RadialGradient
             id={ID.horizon}
             cx={width * 0.5}
             cy={height}
             rx={width * 0.85}
-            ry={height * 0.12}
+            ry={height * 0.22}
             fx={width * 0.5}
             fy={height}
             gradientUnits="userSpaceOnUse"
           >
-            <Stop offset="0%" stopColor="rgb(236,243,253)" stopOpacity={0.55} />
+            <Stop offset="0%" stopColor="rgb(236,243,253)" stopOpacity={0.2} />
             <Stop
-              offset="60%"
+              offset="55%"
               stopColor="rgb(236,243,253)"
-              stopOpacity={0.12}
+              stopOpacity={0.07}
             />
             <Stop offset="100%" stopColor="rgb(236,243,253)" stopOpacity={0} />
           </RadialGradient>
@@ -544,12 +548,12 @@ export function PathScene() {
           strokeWidth={0.8}
         />
 
-        {/* Horizon aurora — thin bright hug at the very bottom */}
+        {/* Horizon aurora — feathered pool at the very bottom */}
         <Rect
           x="0"
-          y={height * 0.86}
+          y={height * 0.78}
           width={width}
-          height={height * 0.14}
+          height={height * 0.22}
           fill={`url(#${ID.horizon})`}
         />
 

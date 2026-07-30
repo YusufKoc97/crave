@@ -12,7 +12,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { RankEmblem } from '@/components/ranks/RankEmblem';
+import { RankEmblem, rankEmblemColor } from '@/components/ranks/RankEmblem';
 import { RANK_LADDER } from '@/constants/rankLadder';
 import type { JourneyView } from '@/context/AddictionScoresContext';
 import { t } from '@/lib/i18n';
@@ -64,9 +64,6 @@ const RING_RADIUS = 34;
 const RING_STROKE = 6;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS; // ~213.6
 
-// Width of the sweeping progress-bar glint (matches styles.sheen).
-const SHEEN_W = 40;
-
 // Faint accent particles sprinkled inside the hero card — static,
 // low-alpha; positioned so they cluster near the lower-right glow.
 const HERO_PARTICLES = [
@@ -91,19 +88,6 @@ export function JourneyBar({ view, accentColor }: Props) {
 
   const remaining = nextRank ? Math.max(0, nextRank.thresholdScore - score) : 0;
 
-  // Bar fill (0..progress) — ease-in on mount.
-  const barAnim = useSharedValue(0);
-  useEffect(() => {
-    barAnim.value = 0;
-    barAnim.value = withTiming(progress, {
-      duration: 800,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [barAnim, progress]);
-  const barFillStyle = useAnimatedStyle(() => ({
-    width: `${Math.round(barAnim.value * 100)}%`,
-  }));
-
   // Ring arc (0..progress) — same easing; drives strokeDashoffset
   // via width transform we can't use, so we use a shared value +
   // useAnimatedProps for the SVG Circle.
@@ -121,39 +105,6 @@ export function JourneyBar({ view, accentColor }: Props) {
   // technique with the new progress value.
   const ringDashOffset =
     RING_CIRCUMFERENCE * (1 - Math.max(0, Math.min(1, progress)));
-
-  // Sheen — 40pt-wide white glint sweeping across the bar every 3.4s.
-  // Hidden until the bar has actually filled to some value; a bar at
-  // 0% has nothing worth glinting off.
-  //
-  // We drive a normalized 0..1 progress and translate in *pixels*
-  // across the measured bar width. An earlier version translated a
-  // percentage, but RN resolves percentage translateX against the
-  // node's OWN width (the 40pt sheen), not the bar — so the glint
-  // parked off the left edge instead of sweeping. Measuring the bar
-  // via onLayout lets the glint travel the real track width on both
-  // web and native.
-  const barWidth = useSharedValue(0);
-  const sheenAnim = useSharedValue(0);
-  useEffect(() => {
-    if (progress <= 0.02) return; // near-zero → no sheen
-    sheenAnim.value = 0;
-    sheenAnim.value = withRepeat(
-      withTiming(1, {
-        duration: 3400,
-        easing: Easing.inOut(Easing.sin),
-      }),
-      -1,
-      false
-    );
-    return () => cancelAnimation(sheenAnim);
-  }, [sheenAnim, progress]);
-  const sheenStyle = useAnimatedStyle(() => {
-    // Sweep from just off the left edge (−SHEEN_W) to just past the
-    // right edge (barWidth), so the glint fully crosses the track.
-    const x = -SHEEN_W + sheenAnim.value * (barWidth.value + SHEEN_W);
-    return { transform: [{ translateX: x }] };
-  });
 
   return (
     <View style={styles.root}>
@@ -239,12 +190,24 @@ export function JourneyBar({ view, accentColor }: Props) {
             </View>
           </View>
 
-          {/* Right — emblem + rank + blurb */}
+          {/* Right — emblem + rank + blurb. The emblem leads and the
+              name is its caption, in the rank's own colour — same
+              rule as everywhere else a rank name appears. */}
           <View style={styles.rankCol}>
             <Text style={styles.rankKicker}>{t('journey.your_rank')}</Text>
             <View style={styles.rankHead}>
-              <RankEmblem tier={currentRank.order - 1} size={46} />
-              <Text style={styles.rankName} numberOfLines={1}>
+              <RankEmblem
+                tier={currentRank.order - 1}
+                size={68}
+                haloBoost={1.5}
+              />
+              <Text
+                style={[
+                  styles.rankName,
+                  { color: rankEmblemColor(currentRank.order - 1) },
+                ]}
+                numberOfLines={1}
+              >
                 {currentRank.name}
               </Text>
             </View>
@@ -254,30 +217,9 @@ export function JourneyBar({ view, accentColor }: Props) {
           </View>
         </View>
 
-        {/* Full-width bar */}
-        <View
-          style={styles.barTrack}
-          onLayout={(e) => {
-            barWidth.value = e.nativeEvent.layout.width;
-          }}
-        >
-          <Animated.View
-            style={[
-              styles.barFill,
-              barFillStyle,
-              {
-                backgroundColor: accentColor,
-                shadowColor: accentColor,
-              },
-            ]}
-          />
-          {/* Sheen — a soft white glint sliding across the bar */}
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.sheen, sheenStyle]}
-          />
-        </View>
-
+        {/* The full-width bar that used to sit here is gone: the score
+            ring on the left and the ladder below already tell the
+            same progress story — three meters was two too many. */}
         <Text style={styles.nextHint}>
           {nextRank
             ? t('journey.next_rank_progress', {
@@ -377,16 +319,19 @@ const pathStyles = StyleSheet.create({
     minWidth: 0,
   },
   textTop: {
+    // Left-packed: emblem, then name right beside it, hugging the
+    // spine — space-between used to strand the name mid-card, which
+    // read as centred. Only the threshold value stays on the right.
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
+    justifyContent: 'flex-start',
+    gap: 10,
   },
   rowEmblem: {
-    width: 34,
+    width: 40,
     // The emblem is 1.16× as tall as it is wide; giving the wrapper
     // the same ratio keeps the row's baseline from jumping.
-    height: 40,
+    height: 46,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -397,6 +342,7 @@ const pathStyles = StyleSheet.create({
     flexShrink: 1,
   },
   rankValue: {
+    marginLeft: 'auto',
     fontSize: 14,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
@@ -576,13 +522,10 @@ function PathRow({
       ? '#c7d2e2'
       : '#4d5f7d';
 
-  const nameColor = isCurrent
-    ? '#ffffff'
-    : isNext
-      ? '#dbe4f0'
-      : isReached
-        ? '#c7d2e2'
-        : '#8595ad';
+  // Every rank name in the app wears its rank's own colour; state
+  // only modulates how lit it is, never the hue.
+  const nameColor = rankEmblemColor(tier);
+  const nameOpacity = isCurrent || isReached ? 1 : isNext ? 0.85 : 0.55;
 
   const statusLabel = isCurrent
     ? t('journey.current')
@@ -676,10 +619,13 @@ function PathRow({
               !(isCurrent || isReached) && { opacity: 0.4 },
             ]}
           >
-            <RankEmblem tier={tier} size={34} />
+            <RankEmblem tier={tier} size={40} />
           </View>
           <Text
-            style={[pathStyles.rankName, { color: nameColor }]}
+            style={[
+              pathStyles.rankName,
+              { color: nameColor, opacity: nameOpacity },
+            ]}
             numberOfLines={1}
           >
             {rankName}
@@ -797,50 +743,18 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   rankName: {
-    color: '#f4f7fc',
-    fontSize: 32,
+    // Colour is injected per-rank at the call site; 22 instead of 32
+    // because the emblem is the headline and the name its caption.
+    fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.3,
-    lineHeight: 34,
-    marginBottom: 4,
+    lineHeight: 26,
+    flexShrink: 1,
   },
   rankBlurb: {
     color: '#8397b6',
     fontSize: 13,
     lineHeight: 18,
-  },
-  barTrack: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: 4,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.55,
-    shadowRadius: 6,
-  },
-  sheen: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    width: 40,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-    // Soft edges so it reads as a glint, not a bar.
-    ...Platform.select({
-      web: {
-        backgroundImage:
-          'linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)',
-        backgroundColor: 'transparent',
-      } as never,
-      default: {
-        opacity: 0.6,
-      },
-    }),
   },
   nextHint: {
     marginTop: 12,

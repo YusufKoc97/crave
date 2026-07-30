@@ -8,7 +8,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { RankEmblem } from '@/components/ranks/RankEmblem';
+import { RankEmblem, rankEmblemColor } from '@/components/ranks/RankEmblem';
 import { toRank } from '@/constants/rankLadder';
 import { RANK_LADDER } from '@/shared/ranks';
 import { hapticCelebrate } from '@/lib/haptics';
@@ -120,7 +120,14 @@ export function RankUnlockModal({ queue, accentColor, onDone }: Props) {
           </View>
 
           <Text style={styles.kicker}>{t('celebration.kicker')}</Text>
-          <Text style={[styles.rankName, { color: accentColor }]}>
+          {/* Rank names wear the rank's own colour everywhere — the
+              addiction accent stays on the burst and the glow. */}
+          <Text
+            style={[
+              styles.rankName,
+              { color: rankEmblemColor(rank.order - 1) },
+            ]}
+          >
             {rank.name}
           </Text>
           <Text style={styles.rankDescription}>{rank.description}</Text>

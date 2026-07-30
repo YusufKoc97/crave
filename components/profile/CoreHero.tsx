@@ -1,13 +1,6 @@
 import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, {
-  Circle,
-  Defs,
-  G,
-  Path,
-  RadialGradient,
-  Stop,
-} from 'react-native-svg';
+import Svg, { Circle, Defs, G, RadialGradient, Stop } from 'react-native-svg';
 import Animated, {
   Easing,
   useAnimatedProps,
@@ -20,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useReducedMotion } from '@/components/toolkit/useReducedMotion';
 import { t } from '@/lib/i18n';
-import { RankEmblem } from '@/components/ranks/RankEmblem';
+import { RankEmblem, rankEmblemColor } from '@/components/ranks/RankEmblem';
 import { CountUp } from './CountUp';
 import { CORE_ANIM, coreNeon, coreText, neon } from './coreTheme';
 import { HERO_SIZE, RING_C, RING_R } from './coreMath';
@@ -38,51 +31,22 @@ import { HERO_SIZE, RING_C, RING_R } from './coreMath';
  *      ring and the horizontal bar under the points readout, and the
  *      per-addiction filaments/orbs were cut — the emblem is the
  *      hero now.)
- *   3. The core itself — an organic blob that breathes, carrying the
- *      rank emblem and orbited by a single spark.
- *
- * Two shape notes, both RN limitations the web reference doesn't have:
- *
- *   - The blob's asymmetric `border-radius` (`32% 68% … / 42% 36% …`)
- *     has no RN equivalent, so it is rebuilt as four elliptical SVG
- *     arcs with exactly the radii CSS would have resolved. The
- *     percentages in the handoff happen to sum to 100% per side, so
- *     no CSS overlap-scaling had to be replicated.
- *   - The blob's outer glow can't be a `boxShadow` (a View shadow
- *     would trace a rectangle, not the blob), so it is a separate SVG
- *     radial disc painted behind it. Works identically on both
- *     platforms, which `filter: drop-shadow` would not.
+ *   3. The core itself — the rank emblem, breathing gently and
+ *      orbited by a single spark. (The organic blue blob that used
+ *      to sit behind it was cut by explicit request: it read as a
+ *      shapeless mass and stole the emblem's stage.)
  */
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const CORE_BOX = 104;
-/** Rank emblem inside the core. Sized so the frame's facets read at
- *  a glance — the handoff's 64 was tuned for a slot that used to
- *  hold a single letter. 112 fills the ring (inner diameter ~152)
- *  without the ornaments touching it. */
-const EMBLEM_SIZE = 112;
+/** Rank emblem inside the ring. Sized so the emblem is the first
+ *  thing the eye lands on — at 128 the frame nearly fills the ring
+ *  (inner diameter ~152) and only the overflow ornaments approach
+ *  it, which reads as intentional framing rather than a collision. */
+const EMBLEM_SIZE = 128;
 const CORE_HALF = CORE_BOX / 2;
 const CENTER = HERO_SIZE / 2;
-
-/**
- * The organic core outline, in a 104×104 box.
- *
- * Derived from `border-radius: 32% 68% 62% 38% / 42% 36% 64% 58%`:
- * each corner becomes one elliptical arc whose rx is the horizontal
- * percentage of the width and ry the vertical percentage of the
- * height. Adjacent radii sum to exactly 104 on every side, so the
- * straight segments between arcs have zero length and the outline is
- * a pure four-arc blob.
- */
-const CORE_PATH = [
-  'M33.3,0',
-  'A70.7,37.4 0 0 1 104,37.4',
-  'A64.5,66.6 0 0 1 39.5,104',
-  'A39.5,60.3 0 0 1 0,43.7',
-  'A33.3,43.7 0 0 1 33.3,0',
-  'Z',
-].join(' ');
 
 type Props = {
   handle: string;
@@ -121,32 +85,7 @@ export function CoreHero({
           height={HERO_SIZE}
           style={StyleSheet.absoluteFill}
         >
-          <Defs>
-            {/* `coreFill` deliberately lives in CoreBlob's own <Svg>:
-                react-native-svg scopes <Defs> per root on native, so a
-                gradient declared here would resolve on web and render
-                black on device. */}
-            <RadialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-              <Stop
-                offset="0%"
-                stopColor={coreNeon}
-                stopOpacity={dormant ? 0.12 : 0.34}
-              />
-              <Stop
-                offset="60%"
-                stopColor={coreNeon}
-                stopOpacity={dormant ? 0.04 : 0.12}
-              />
-              <Stop offset="100%" stopColor={coreNeon} stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-
           <RankRing progress={progress} dormant={dormant} reduced={reduced} />
-
-          {/* Blob glow. Kept just wide enough to clear the 104px body —
-              any larger and the falloff reads as a second sphere
-              competing with the core instead of light around it. */}
-          <Circle cx={CENTER} cy={CENTER} r={74} fill="url(#coreGlow)" />
         </Svg>
 
         <CoreBlob rankOrder={rankOrder} dormant={dormant} alive={alive} />
@@ -155,7 +94,14 @@ export function CoreHero({
 
       {/* ── Identity block ─────────────────────────────────────── */}
       <Text style={styles.handle}>@{handle}</Text>
-      <Text style={styles.rankName}>{rankName}</Text>
+      {/* The rank name wears the rank's own colour everywhere in the
+          app — and it stays subordinate to the emblem, which is the
+          thing that should catch the eye first. */}
+      <Text
+        style={[styles.rankName, { color: rankEmblemColor(rankOrder - 1) }]}
+      >
+        {rankName}
+      </Text>
       <Text style={styles.rankLabel}>{t('profile.overall_rank_label')}</Text>
 
       <View style={styles.pointsRow}>
@@ -230,7 +176,7 @@ function Halo({ alive }: { alive: boolean }) {
   );
 }
 
-/** Nine arcs, one per rank step. */
+/** Circular progress bar around the emblem. */
 function RankRing({
   progress,
   dormant,
@@ -346,40 +292,22 @@ function CoreBlob({
   }, [alive, k]);
 
   const style = useAnimatedStyle(() => ({
-    transform: [{ scale: k.value }],
-    // 0.72 ↔ 1 tracked off the same driver so the swell and the
-    // brightening are guaranteed to stay in phase.
-    opacity: 0.72 + ((k.value - 1) / 0.07) * 0.28,
+    // Gentler than the old blob's 1.07 swell — a 128px metal artifact
+    // that visibly inflates reads as a glitch, not a breath.
+    transform: [{ scale: 1 + (k.value - 1) * 0.45 }],
+    // Brightness rides the same driver so swell and glow stay in
+    // phase; dormant (zero points) just sits dimmer and still.
+    opacity: (dormant ? 0.62 : 0.85) + ((k.value - 1) / 0.07) * 0.15,
   }));
 
+  // The organic blue blob that used to sit behind the emblem is gone
+  // (explicit request — it read as a shapeless mass and stole the
+  // emblem's stage). The emblem now IS the core; its built-in halo is
+  // boosted so it sits in light rather than floating like a sticker.
   return (
     <Animated.View pointerEvents="none" style={[styles.core, style]}>
-      <Svg width={CORE_BOX} height={CORE_BOX} viewBox="0 0 104 104">
-        <Defs>
-          <RadialGradient id="coreFill" cx="34%" cy="28%" r="78%">
-            <Stop
-              offset="0%"
-              stopColor={coreNeon}
-              stopOpacity={dormant ? 0.22 : 0.6}
-            />
-            <Stop offset="72%" stopColor="#0b1426" stopOpacity={1} />
-          </RadialGradient>
-        </Defs>
-        <Path
-          d={CORE_PATH}
-          fill="url(#coreFill)"
-          stroke={neon(dormant ? 0.24 : 0.55)}
-          strokeWidth={1}
-        />
-      </Svg>
-
-      {/* Rank emblem. The old 64×64 slot held a placeholder hexagon
-          and an initial; at that size the real emblem read as a
-          smudge rather than a rank, so the box now follows the
-          emblem's own 1:1.16 aspect and is large enough for the
-          frame's facets and the sculpture to survive. */}
       <View style={styles.emblem} accessible={false}>
-        <RankEmblem tier={rankOrder - 1} size={EMBLEM_SIZE} />
+        <RankEmblem tier={rankOrder - 1} size={EMBLEM_SIZE} haloBoost={1.7} />
       </View>
     </Animated.View>
   );
@@ -435,17 +363,16 @@ const styles = StyleSheet.create({
   },
   core: {
     position: 'absolute',
-    width: CORE_BOX,
-    height: CORE_BOX,
+    width: EMBLEM_SIZE,
+    height: Math.round(EMBLEM_SIZE * 1.16),
     alignItems: 'center',
     justifyContent: 'center',
   },
   emblem: {
-    position: 'absolute',
-    width: EMBLEM_SIZE,
     // The emblem's ornaments overflow its frame by design, so the
     // box has to carry the same 1:1.16 ratio or the crown teeth and
     // the bottom spike get clipped.
+    width: EMBLEM_SIZE,
     height: Math.round(EMBLEM_SIZE * 1.16),
     alignItems: 'center',
     justifyContent: 'center',
@@ -468,10 +395,11 @@ const styles = StyleSheet.create({
     marginTop: -26,
   },
   rankName: {
-    color: coreText.title,
-    fontSize: 34,
+    // Colour is injected per-rank at the call site. 24 instead of the
+    // old 34: the emblem is the headline now, the name is its caption.
+    fontSize: 24,
     fontWeight: '800',
-    letterSpacing: -1,
+    letterSpacing: -0.5,
     marginTop: 6,
   },
   rankLabel: {

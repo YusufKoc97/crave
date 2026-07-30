@@ -9,6 +9,7 @@ import {
 import { useAddictions } from '@/context/AddictionsContext';
 import { useAddictionScores } from '@/context/AddictionScoresContext';
 import { AddictionCard } from '@/components/info/AddictionCard';
+import { rankEmblemColor } from '@/components/ranks/RankEmblem';
 import {
   CARD_GAP,
   CHIP_BG,
@@ -104,6 +105,7 @@ export default function InfoScreen() {
                   progress={view.progress}
                   score={view.score}
                   statusMain={view.currentRank.name}
+                  statusMainColor={rankEmblemColor(view.currentRank.order - 1)}
                   onPress={() => goToLanding(a.id)}
                 />
               </View>
