@@ -20,9 +20,13 @@ import { DEV_SKIP_AUTH } from '@/lib/devBypass';
 type IoniconName = keyof typeof Ionicons.glyphMap;
 
 const TAB_ICONS: Record<string, { idle: IoniconName; active: IoniconName }> = {
+  // Revised set (design mock): person / plain circle / layers. The
+  // circle echoes the RESIST orb the home tab is, and layers stand
+  // for the addictions stack — the house and compass metaphors never
+  // matched what the tabs actually show.
   profile: { idle: 'person-outline', active: 'person' },
-  index: { idle: 'home-outline', active: 'home' },
-  info: { idle: 'compass-outline', active: 'compass' },
+  index: { idle: 'ellipse-outline', active: 'ellipse' },
+  info: { idle: 'layers-outline', active: 'layers' },
 };
 
 const TAB_ORDER = ['profile', 'index', 'info'];

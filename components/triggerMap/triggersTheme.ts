@@ -39,10 +39,11 @@ export const TRIGGERS_ACCENT_FALLBACK = '#8f7bf0';
  */
 export const triggersCategoryColors = {
   // insight rule categories (shared/insightRules → InsightCategory)
-  // NOTE: `time` is intentionally absent — it resolves to the
-  // addiction accent via `triggersColorFor`.
+  // NOTE: `time` AND `technique` are intentionally absent — they
+  // resolve to the addiction accent via `triggersColorFor`. The
+  // technique card used to pin a fixed cyan, which left it the one
+  // card on the insights screen that ignored the addiction's colour.
   trigger: '#e0607a', // stress-tinged coral
-  technique: '#5bb6d9', // technique / social cyan
   trend: '#7dc98a', // boredom / progress green
 
   // trigger-id → colour (Distribution + tags on peak cards)

@@ -314,6 +314,26 @@ const pathStyles = StyleSheet.create({
     borderRadius: 2,
     transformOrigin: 'bottom',
   },
+  // The leading edge of a partial fill, brightest at the very tip —
+  // white over the accent reads as "lit", whatever the accent is.
+  connectorTipSoft: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  connectorTipBright: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 8,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+  },
   textCol: {
     flex: 1,
     minWidth: 0,
@@ -418,12 +438,16 @@ function PathSpine({
         const isReached = score >= rank.thresholdScore && !isCurrent;
         const isNext = nextRank?.id === rank.id;
 
-        // Fill for the connector R → rankBelow:
+        // Fill for the connector R → rankBelow. ORDER MATTERS: the
+        // partial-progress case must be checked before the generic
+        // "rank below reached" case — for the next rank, the rank
+        // below is the CURRENT one and is by definition reached, so
+        // the old order let that branch win and the segment above
+        // the current rank rendered 100% full at any score.
         let fill: number;
         if (!rankBelow) fill = 0;
-        else if (rankBelow.thresholdScore <= score && !isCurrent) fill = 1;
         else if (rankBelow.id === currentRankId && isNext) fill = pct;
-        else if (score >= rank.thresholdScore) fill = 1;
+        else if (rankBelow.thresholdScore <= score) fill = 1;
         else fill = 0;
 
         return (
@@ -551,7 +575,16 @@ function PathRow({
         style={[
           pathStyles.dot,
           isCurrent || isReached
-            ? { backgroundColor: accentColor, borderColor: accentColor }
+            ? {
+                backgroundColor: accentColor,
+                borderColor: accentColor,
+                // Covered ground glows — matches the neon connector.
+                shadowColor: accentColor,
+                shadowOpacity: 0.7,
+                shadowRadius: 6,
+                shadowOffset: { width: 0, height: 0 },
+                elevation: 4,
+              }
             : isNext
               ? {
                   backgroundColor: '#0a1120',
@@ -596,12 +629,22 @@ function PathRow({
                 height: `${connectorFill * 100}%`,
                 backgroundColor: accentColor,
                 shadowColor: accentColor,
-                shadowOpacity: 0.5,
-                shadowRadius: 8,
+                shadowOpacity: 0.85,
+                shadowRadius: 11,
                 shadowOffset: { width: 0, height: 0 },
               },
             ]}
-          />
+          >
+            {/* Bright leading edge on a partial fill — two stacked
+                lighter caps so the covered distance fades into the
+                track instead of stopping on a hard line. */}
+            {connectorFill > 0 && connectorFill < 1 && (
+              <>
+                <View style={pathStyles.connectorTipSoft} />
+                <View style={pathStyles.connectorTipBright} />
+              </>
+            )}
+          </Animated.View>
         </View>
       )}
 
