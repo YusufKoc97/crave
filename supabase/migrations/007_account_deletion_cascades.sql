@@ -1,5 +1,16 @@
 -- 007_account_deletion_cascades.sql
 --
+-- STATUS: verified against production (project scdedlhpbcddoqphauxo)
+-- after this file was written. Every FK into auth.users was already
+-- ON DELETE CASCADE — profiles, craving_sessions and user_addictions
+-- included — so the re-assert blocks in §3 turned out to be
+-- insurance that wasn't needed. The legacy tables in §1 were already
+-- absent (Faz 1 cleanup had, in fact, been run). §2's momentum_log
+-- was confirmed live and dead-code (zero readers) and was dropped
+-- directly. This file is kept as the audit trail of what was checked
+-- and is still safe to re-run (fully idempotent) if the schema ever
+-- regresses.
+--
 -- Guarantees that deleting an auth.users row erases everything the
 -- user owns, so the delete-account Edge Function's final step
 -- (auth.admin.deleteUser) cannot fail on a foreign-key violation.

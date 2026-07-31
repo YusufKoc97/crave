@@ -8,17 +8,19 @@
  * WHY THE EXPLICIT TABLE DELETES:
  *
  * Every FK we can actually read declares ON DELETE CASCADE, so in
- * principle deleting the auth user is enough. But migrations 001 and
- * 002 — the ones that created `profiles`, `user_addictions`,
- * `craving_sessions` and `momentum_log` — are NOT in version control.
- * Their constraints are whatever was applied to the project by hand,
- * and nothing in this repo can confirm they cascade.
+ * principle deleting the auth user is enough. Migrations 001 and 002
+ * — the ones that created `profiles`, `user_addictions` and
+ * `craving_sessions` — are NOT in version control, so their
+ * constraints couldn't be confirmed from the repo. Queried directly
+ * against production instead: every FK into `auth.users` is already
+ * ON DELETE CASCADE (verified via pg_constraint). This purge is kept
+ * anyway as the belt to that suspenders — the guarantee comes from
+ * checking the live DB, not from trusting an unreadable migration.
  *
- * If even one of them doesn't, `deleteUser` fails on a FK violation
- * and the user is told their account is gone while it is entirely
- * intact. So we clear the tables ourselves, children first, and only
- * then remove the auth row. Redundant when the cascades are right;
- * the difference between working and silently lying when they aren't.
+ * If a future schema change ever regresses one of these to NO ACTION,
+ * `deleteUser` fails on a FK violation and the user would be told
+ * their account is gone while it is entirely intact. So we clear the
+ * tables ourselves, children first, and only then remove the auth row.
  *
  * `craving_session_triggers` has no user_id — it hangs off
  * craving_sessions(session_id) — so it is deleted by session id
@@ -37,17 +39,14 @@
  *
  * WHY ROW PURGES ARE NON-FATAL:
  *
- * `momentum_log` is declared in the schema but has zero readers, and
- * migrations 001/002 (which created it and `profiles`) aren't in
- * version control — so it may not even exist in the live DB. If it
- * doesn't, PostgREST answers PGRST205 and a fatal-on-any-error purge
- * would 500 EVERY deletion at that step forever, with nothing in the
- * repo to reveal why. So a failed row purge is collected as a warning
- * and we press on: the auth-row delete is the SOLE arbiter of success.
- * If the cascades are right, the leftover rows die with the auth row;
- * if they aren't, the FK violation surfaces on the fatal auth step
- * with a real Postgres code instead of being masked by a table nobody
- * remembers.
+ * A row-delete failing on some table (renamed, dropped, RLS surprise)
+ * must not turn into every future deletion 500ing at that one step
+ * forever with nothing to reveal why. So a failed row purge is
+ * collected as a warning and we press on: the auth-row delete is the
+ * SOLE arbiter of success. If the cascades are right, the leftover
+ * rows die with the auth row; if they aren't, the FK violation
+ * surfaces on the fatal auth step with a real Postgres code instead
+ * of being masked three steps earlier.
  *
  * Deploy: `supabase functions deploy delete-account`
  */
@@ -87,7 +86,6 @@ function jsonResponse(body: unknown, status = 200): Response {
  */
 const USER_KEYED_TABLES = [
   'technique_uses',
-  'momentum_log',
   'user_unlocked_ranks',
   'user_addiction_scores',
   'rate_limits',

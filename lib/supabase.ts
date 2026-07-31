@@ -19,10 +19,6 @@ const supabaseAnonKey =
  * Missing any of those slots collapses the inferred row types to `never`,
  * which is why the codebase used to be peppered with TS2769 / TS2339 noise.
  *
- * Insert-only tables (momentum_log) keep an empty `Update` object —
- * postgrest-js requires the slot, but the table is RLS-locked against
- * UPDATE on the server.
- *
  * Relationships are empty for all tables here — we don't do any embed
  * queries after the Faz 1 cleanup removed the community feed.
  */
@@ -233,20 +229,6 @@ export type Database = {
         Update: {
           count?: number;
         };
-        Relationships: [];
-      };
-      momentum_log: {
-        Row: {
-          id: string;
-          user_id: string;
-          value: number;
-          created_at: string;
-        };
-        Insert: {
-          user_id: string;
-          value: number;
-        };
-        Update: Record<string, never>;
         Relationships: [];
       };
     };
