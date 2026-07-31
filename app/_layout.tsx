@@ -71,11 +71,30 @@ function ActiveSessionRestorer() {
           if (!error) {
             await clearPendingFinish();
             await clearActiveSessionId();
+          } else {
+            // Classify before deciding to retry. A 4xx means the
+            // payload is structurally unacceptable (bad trigger id,
+            // duration over the cap, timestamps out of range) and will
+            // be rejected identically on every future launch — so
+            // keeping it just guarantees a wasted invoke forever and
+            // pins the user's session in limbo. Drop it. Only a
+            // network error or a 5xx is worth another attempt.
+            const status = (error as { context?: { status?: number } })?.context
+              ?.status;
+            if (typeof status === 'number' && status >= 400 && status < 500) {
+              console.warn(
+                `[pending-finish] dropping permanently-rejected blob (${status})`
+              );
+              await clearPendingFinish();
+              await clearActiveSessionId();
+            }
           }
-          // Still failing (offline) — leave both blobs on disk for
-          // the next launch. Don't try to also restore the timer
-          // for the same session; the resolve is what the user
-          // intended.
+          // Whether the replay succeeded, was dropped, or is being
+          // retried later, the user's intent was to FINISH this
+          // craving. Never fall through to the snapshot restore below
+          // — that used to bounce them straight back into the same
+          // timer they had just resolved.
+          return;
         }
       }
 

@@ -6,6 +6,9 @@ import {
   failurePenalty,
   FAILURE_PENALTY_MAX,
   localDayKey,
+  MAX_DAILY_POINTS_PER_ADDICTION,
+  MAX_SCORED_MINUTES,
+  MAX_SESSION_MINUTES,
   nextMomentum,
   nextStreak,
   weeklyResistCounts,
@@ -276,5 +279,65 @@ describe('weeklyResistCounts', () => {
     expect(weeklyResistCounts({ sessions, nowMs })).toEqual([
       0, 0, 0, 0, 0, 0, 0,
     ]);
+  });
+});
+
+/**
+ * Abuse ceilings (2026-07-31 rate-limit audit).
+ *
+ * Before these, a single resolve at the accepted maximum (1440 min,
+ * sensitivity 10) awarded 15,800 points against a top rank of 75,000 —
+ * five calls cleared the whole ladder. The clamp is the load-bearing
+ * fix; the hourly rate limit alone does not bound score.
+ */
+describe('award ceiling', () => {
+  it('clamps the scored duration at MAX_SCORED_MINUTES', () => {
+    const atCap = calculateResistPoints({
+      outcome: 'resisted',
+      durationSeconds: MAX_SCORED_MINUTES * 60,
+      sensitivity: 10,
+    });
+    const wayOver = calculateResistPoints({
+      outcome: 'resisted',
+      durationSeconds: MAX_SESSION_MINUTES * 60, // 24h, the hard reject
+      sensitivity: 10,
+    });
+    expect(wayOver).toBe(atCap);
+  });
+
+  it('caps a single award well below the top rank', () => {
+    const worstCase = calculateResistPoints({
+      outcome: 'resisted',
+      durationSeconds: MAX_SESSION_MINUTES * 60,
+      sensitivity: 10,
+    });
+    // Top rank is 75_000. One call must not be able to make a dent
+    // measured in whole ranks.
+    expect(worstCase).toBeLessThanOrEqual(3000);
+  });
+
+  it('leaves ordinary sessions completely untouched', () => {
+    // A realistic craving: 12 minutes at sensitivity 5, nowhere near
+    // the clamp. base = 12*5 = 60; cycleLength = 25 min so no cycle
+    // bonus. Regression guard — the ceiling must never change the
+    // number an honest user sees.
+    expect(
+      calculateResistPoints({
+        outcome: 'resisted',
+        durationSeconds: 12 * 60,
+        sensitivity: 5,
+      })
+    ).toBe(60);
+  });
+
+  it('keeps the daily cap above realistic heavy use', () => {
+    const heavyDay =
+      10 *
+      calculateResistPoints({
+        outcome: 'resisted',
+        durationSeconds: 12 * 60,
+        sensitivity: 5,
+      });
+    expect(heavyDay).toBeLessThan(MAX_DAILY_POINTS_PER_ADDICTION);
   });
 });

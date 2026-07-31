@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSessions } from '@/context/SessionsContext';
@@ -65,6 +65,14 @@ export default function ProfileScreen() {
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   // Blocks a second sign-out/delete while one is mid-flight — the rows
   // and the confirm dialog have no built-in debounce.
+  //
+  // Two mechanisms on purpose: the ref is the actual guard (set
+  // synchronously, so a double-tap inside one frame cannot get past
+  // it), the state exists only to drive the disabled styling. Reading
+  // `busy` state alone was a render behind the tap and therefore not a
+  // guard at all — delete-account is the most expensive endpoint in
+  // the system and has no server-side idempotency to fall back on.
+  const inFlight = useRef(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -87,7 +95,8 @@ export default function ProfileScreen() {
   const handle = username || user?.email?.split('@')[0] || 'you';
 
   const onSignOut = async () => {
-    if (busy) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setConfirmingSignOut(false);
     try {
@@ -106,12 +115,14 @@ export default function ProfileScreen() {
     } catch {
       toast.error(t('profile.sign_out_failed'));
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
 
   const onDeleteAccount = async () => {
-    if (busy) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setConfirmingDelete(false);
     try {
@@ -148,6 +159,7 @@ export default function ProfileScreen() {
     } catch {
       toast.error(t('profile.delete_failed'));
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   };
@@ -245,6 +257,7 @@ export default function ProfileScreen() {
 
       {confirmingSignOut ? (
         <SignOutDialog
+          busy={busy}
           onCancel={() => setConfirmingSignOut(false)}
           onConfirm={() => {
             void onSignOut();
@@ -254,6 +267,7 @@ export default function ProfileScreen() {
 
       {confirmingDelete ? (
         <DeleteDialog
+          busy={busy}
           onCancel={() => setConfirmingDelete(false)}
           onConfirm={() => {
             void onDeleteAccount();

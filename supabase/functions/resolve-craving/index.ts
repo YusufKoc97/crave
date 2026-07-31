@@ -41,6 +41,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
   applyOutcome,
   localDayKey,
+  MAX_DAILY_POINTS_PER_ADDICTION,
   MAX_SESSION_MINUTES,
   nextMomentum,
   nextStreak,
@@ -65,6 +66,20 @@ const jsonHeaders: Record<string, string> = {
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** Hard cap on tags per session. The client allows 3
+ *  (components/TriggerCaptureModal.tsx MAX_TAGS); 8 leaves headroom
+ *  for a future redesign without leaving the column unbounded. */
+const MAX_TRIGGERS_PER_SESSION = 8;
+
+/** Seconds until the current UTC hour bucket rolls over — the honest
+ *  Retry-After for a rate-limited caller. */
+function secondsToNextHour(now: Date): number {
+  return 3600 - (now.getUTCMinutes() * 60 + now.getUTCSeconds());
 }
 
 function utcHourBucket(now: Date): string {
@@ -124,6 +139,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (typeof body.session_id !== 'string') {
     return jsonResponse({ error: 'session_id_required' }, 400);
   }
+  // Must be a real UUID. Without this, a malformed id makes the
+  // `.eq('id', …)` idempotency probe below raise Postgres 22P02 — and
+  // that error is destructured away, so execution used to fall through
+  // a rate-limit write and two reads before dying on the INSERT. Fail
+  // fast instead of paying for the round-trips.
+  if (!UUID_RE.test(body.session_id)) {
+    return jsonResponse({ error: 'invalid_session_id' }, 400);
+  }
   const sessionId = body.session_id;
 
   if (
@@ -174,11 +197,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!Array.isArray(body.trigger_ids) || body.trigger_ids.length === 0) {
     return jsonResponse({ error: 'trigger_required' }, 400);
   }
+  // Bound the array before doing any work with it. Unbounded, a single
+  // request could write arbitrarily many rows and then inflate every
+  // Info-tab aggregate that reads them back.
+  if (body.trigger_ids.length > MAX_TRIGGERS_PER_SESSION) {
+    return jsonResponse({ error: 'too_many_triggers' }, 400);
+  }
+  // Shape-check each id to match the DB CHECK added in migration 009,
+  // so a bad tag is a clean 400 here rather than a 500 from the
+  // constraint after the session row is already committed.
   const triggerIds = (body.trigger_ids as unknown[]).filter(
-    (id): id is string => typeof id === 'string' && id.length > 0
+    (id): id is string => typeof id === 'string' && /^[a-z0-9_]{1,40}$/.test(id)
   );
   if (triggerIds.length === 0) {
     return jsonResponse({ error: 'trigger_required' }, 400);
+  }
+
+  // Clock sanity, deliberately loose. A pending-finish blob replayed
+  // after days offline (app/_layout.tsx) is legitimate, so we do NOT
+  // require the timestamps to be near "now" — only that they aren't in
+  // the future or absurdly old. Tightening this further would convert
+  // recoverable offline sessions into permanent 400 retry loops.
+  const nowMs = Date.now();
+  if (endedAtMs > nowMs + 5 * 60_000) {
+    return jsonResponse({ error: 'ended_at_in_future' }, 400);
+  }
+  if (startedAtMs < nowMs - 30 * 86_400_000) {
+    return jsonResponse({ error: 'started_at_too_old' }, 400);
   }
 
   const durationMs = endedAtMs - startedAtMs;
@@ -233,28 +278,42 @@ Deno.serve(async (req: Request): Promise<Response> => {
     });
   }
 
-  // ─── Log-only rate limit ───
-  const bucket = utcHourBucket(new Date());
-  const { data: rlRow } = await svc
-    .from('rate_limits')
-    .select('count')
-    .eq('user_id', userId)
-    .eq('endpoint', 'resolve-craving')
-    .eq('hour_bucket', bucket)
-    .maybeSingle();
-  const rlCount = (rlRow?.count ?? 0) + 1;
-  await svc.from('rate_limits').upsert(
-    {
-      user_id: userId,
-      endpoint: 'resolve-craving',
-      hour_bucket: bucket,
-      count: rlCount,
-    },
-    { onConflict: 'user_id,endpoint,hour_bucket' }
-  );
-  if (rlCount > RATE_LIMIT_MAX_PER_HOUR) {
+  // ─── Rate limit (ENFORCED) ───
+  //
+  // Sits AFTER the idempotency early-return on purpose: that path is
+  // the offline-recovery replay, and counting replays against quota
+  // would penalise exactly the honest user with flaky connectivity.
+  // Only fresh awards consume budget.
+  //
+  // bump_rate_limit (migration 009) does the increment in ONE
+  // statement and returns the new value. The previous read-then-upsert
+  // was last-write-wins, so N concurrent calls all read k and all
+  // wrote k+1 — a 429 layered on top of that would have been
+  // bypassable by simply firing requests in parallel.
+  const now = new Date();
+  const bucket = utcHourBucket(now);
+  const { data: rlCount, error: rlErr } = await svc.rpc('bump_rate_limit', {
+    p_user: userId,
+    p_endpoint: 'resolve-craving',
+    p_bucket: bucket,
+    p_amount: 1,
+  });
+  if (rlErr) {
+    // Fail CLOSED. An unavailable limiter must not silently become an
+    // unlimited endpoint — that is the exact failure this replaces.
+    console.error('[resolve-craving] rate limit check failed', rlErr);
+    return jsonResponse({ error: 'rate_limit_unavailable' }, 503);
+  }
+  if ((rlCount ?? 0) > RATE_LIMIT_MAX_PER_HOUR) {
     console.warn(
-      `[resolve-craving] rate limit exceeded: user=${userId} bucket=${bucket} count=${rlCount}`
+      `[resolve-craving] rate limited: user=${userId} bucket=${bucket} count=${rlCount}`
+    );
+    return jsonResponse(
+      {
+        error: 'rate_limited',
+        retry_after_seconds: secondsToNextHour(now),
+      },
+      429
     );
   }
 
@@ -267,12 +326,49 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .maybeSingle();
   const currentScore = existingScoreRow?.score ?? 0;
 
-  const { newScore, delta } = applyOutcome({
+  const rawOutcome = applyOutcome({
     currentScore,
     outcome,
     durationSeconds,
     sensitivity,
   });
+
+  // ─── Daily gain ceiling, per (user, addiction) ───
+  //
+  // The hourly call limit alone does NOT bound score: even clamped to
+  // MAX_SCORED_MINUTES, 20 calls/hour still awards far more than the
+  // ladder is designed to absorb. This caps what a calendar day can
+  // add, so the top rank takes weeks of real use rather than one
+  // scripted burst.
+  //
+  // Reuses the same atomic counter, keyed by day instead of hour, and
+  // only ever consumes budget for positive deltas — a failure penalty
+  // must never be blocked by a spending cap.
+  let delta = rawOutcome.delta;
+  if (delta > 0) {
+    const dayKey = localDayKey(endedAtMs);
+    const { data: spent, error: capErr } = await svc.rpc('bump_rate_limit', {
+      p_user: userId,
+      p_endpoint: `points:${addictionId}`,
+      p_bucket: dayKey,
+      p_amount: delta,
+    });
+    if (capErr) {
+      console.error('[resolve-craving] daily cap check failed', capErr);
+      return jsonResponse({ error: 'rate_limit_unavailable' }, 503);
+    }
+    const overshoot = (spent ?? 0) - MAX_DAILY_POINTS_PER_ADDICTION;
+    if (overshoot > 0) {
+      // Clip rather than reject: the session still resolves and still
+      // counts as a resist, it just stops paying out. Rejecting here
+      // would lose a genuine resist over an accounting limit.
+      delta = Math.max(0, delta - overshoot);
+      console.warn(
+        `[resolve-craving] daily cap hit: user=${userId} addiction=${addictionId} day=${dayKey}`
+      );
+    }
+  }
+  const newScore = Math.max(0, currentScore + delta);
 
   const persistIntensity = outcome === 'resisted' ? intensity : null;
 

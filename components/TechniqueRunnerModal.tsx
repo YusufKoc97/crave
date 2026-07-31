@@ -108,7 +108,14 @@ export function TechniqueRunnerModal({
     return () => {
       cancelled = true;
     };
-  }, [technique, user, context, sessionId, addictionId]);
+    // Keyed on user?.id, NOT the user object. supabase-js hands out a
+    // fresh session object on every hourly token refresh; depending on
+    // it re-ran this effect mid-technique, INSERTed a second
+    // technique_uses row and overwrote useIdRef, stranding the first
+    // row at completed=false forever — which silently corrupted the
+    // "techniques used" statistic (lib/userStats.ts).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [technique, user?.id, context, sessionId, addictionId]);
 
   // AppState foreground → in-place restart of the guiding screen.
   // Karar #6: modal stays open, technique starts from phase 0.

@@ -44,6 +44,20 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 
+/**
+ * Per-query row ceiling. This endpoint aggregates a user's whole
+ * history in isolate memory, and `period='all'` applies no time
+ * cutoff — so the query cost grew without bound with the row count.
+ * 5,000 resolved sessions is far more than a real user accumulates
+ * (the hourly resolve limit is 20), so honest analytics are unaffected
+ * while a scripted history can no longer force an expensive scan.
+ */
+const MAX_ROWS = 5000;
+
+/** Cap on distinct triggers returned. peak_hours was already sliced
+ *  to 3; leaving `triggers` unbounded was the asymmetry. */
+const MAX_TRIGGERS_OUT = 50;
+
 const jsonHeaders: Record<string, string> = {
   'content-type': 'application/json',
   'access-control-allow-origin': '*',
@@ -162,7 +176,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .select('id, started_at, outcome, intensity')
     .eq('user_id', userId)
     .eq('addiction_id', addictionId)
-    .eq('status', 'resolved');
+    .eq('status', 'resolved')
+    // Bound the isolate's memory. period='all' has no time cutoff, so
+    // without this a long-lived (or inflated) history is materialised
+    // in full on every Info-tab open.
+    .limit(MAX_ROWS);
 
   const cutoffMs = periodCutoffMs(period);
   if (cutoffMs !== null) {
@@ -309,7 +327,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
         most_common_intensity: mostCommonIntensity,
       };
     })
-    .sort((a, b) => b.count - a.count);
+    .sort((a, b) => b.count - a.count)
+    // Sorted by count first, so the cap keeps the meaningful head and
+    // drops the long tail — which is what the UI renders anyway.
+    .slice(0, MAX_TRIGGERS_OUT);
 
   // Sanity: pack the sessionCell map into the response only if
   // the client asks for a specific cell — currently unused, so we
@@ -329,7 +350,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     .eq('user_id', userId)
     .eq('addiction_id', addictionId)
     .in('status', ['resolved', 'active']) // active kept so lastSeen isn't stale
-    .gte('started_at', new Date(insightsCutoffMs).toISOString());
+    .gte('started_at', new Date(insightsCutoffMs).toISOString())
+    .limit(MAX_ROWS);
 
   if (insightSessionsErr) {
     console.error(

@@ -79,6 +79,10 @@ export function useTriggerMap(addictionId: string, period: PeriodKey) {
     // belt-and-braces against a cache that outlives one screen.)
     queryKey: ['trigger-map', user?.id ?? 'anon', addictionId, period],
     queryFn: () => fetchTriggerMap(addictionId, period),
+    // trigger-map-data is JWT-only, and the app-wide auth gate is
+    // currently disabled, so without this a signed-out user browsing
+    // the Info tab fires guaranteed-401 invokes (twice, with retry:1).
+    enabled: !!user,
     // Info tab often opens without a live network — don't spin
     // forever if the Edge Function isn't reachable.
     retry: 1,

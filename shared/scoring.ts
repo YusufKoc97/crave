@@ -33,7 +33,34 @@ export const FAILURE_PENALTY_MAX = 200;
 /** Reject sessions the client claims lasted longer than 24 hours. */
 export const MAX_SESSION_MINUTES = 24 * 60;
 
-/** Rate limit: log-only in Faz 3; enforced in a later phase. */
+/**
+ * Longest duration that still earns points.
+ *
+ * The timer has no upper bound (app/active-session.tsx), so leaving it
+ * running overnight is normal-user reachable — which is why this
+ * CLAMPS rather than rejects. Rejecting would 400 an honest user and,
+ * worse, strand their pending-finish blob in a permanent retry.
+ *
+ * 240 minutes is 16x the longest craving the product actually designs
+ * for (constants/addictions.ts puts a cycle at 5-15 min), so no honest
+ * session reaches it. It caps a single award at 2,600 points instead of
+ * the 15,800 that 1,440 minutes at sensitivity 10 used to yield —
+ * against a top rank of 75,000, the old ceiling let five calls clear
+ * the entire ladder.
+ */
+export const MAX_SCORED_MINUTES = 240;
+
+/**
+ * Ceiling on points earned per (user, addiction) per calendar day.
+ *
+ * A heavy but realistic day is ~10 resists ≈ 1,500 points, so this is
+ * ~3x real peak usage. With it, the top rank takes at least 15 days per
+ * addiction — the intended shape of the ladder — instead of being
+ * reachable in a single burst.
+ */
+export const MAX_DAILY_POINTS_PER_ADDICTION = 5000;
+
+/** Resolve calls allowed per user per UTC hour. One per 3 minutes. */
 export const RATE_LIMIT_MAX_PER_HOUR = 20;
 
 export type ResistPointsInput = {
@@ -55,7 +82,10 @@ export type ResistPointsInput = {
  */
 export function calculateResistPoints(input: ResistPointsInput): number {
   if (input.outcome !== 'resisted') return 0;
-  const minutes = input.durationSeconds / 60;
+  // Clamp, don't reject — an overnight timer is a real user, not an
+  // attacker, and rejecting would strand their session. See
+  // MAX_SCORED_MINUTES for why the ceiling sits where it does.
+  const minutes = Math.min(input.durationSeconds / 60, MAX_SCORED_MINUTES);
   const sensitivity = input.sensitivity;
   const base = Math.round(minutes * sensitivity);
   const cycleLength = sensitivity * 5;

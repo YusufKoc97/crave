@@ -28,9 +28,15 @@ export async function setUsername(
   userId: string,
   username: string
 ): Promise<void> {
+  // Trim before the write: migration 009 puts a format CHECK on this
+  // column (3-24 chars, [a-zA-Z0-9_-] only), so an untrimmed handle with
+  // a stray leading/trailing space would 400 at the DB instead of
+  // quietly storing a handle nobody can type. The picker already strips
+  // illegal characters (app/setup-username.tsx:83) — whitespace is the
+  // one thing it lets through.
   const { error } = await supabase
     .from('profiles')
-    .update({ username })
+    .update({ username: username.trim() })
     .eq('id', userId);
   if (error) throw error;
 }

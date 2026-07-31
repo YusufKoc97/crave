@@ -240,9 +240,12 @@ export function SignOutRow({ onPress }: { onPress: () => void }) {
 export function SignOutDialog({
   onCancel,
   onConfirm,
+  busy = false,
 }: {
   onCancel: () => void;
   onConfirm: () => void;
+  /** Disables the confirm affordance while the request is in flight. */
+  busy?: boolean;
 }) {
   return (
     <Animated.View
@@ -283,10 +286,11 @@ export function SignOutDialog({
             </Pressable>
             <Pressable
               onPress={onConfirm}
+              disabled={busy}
               style={({ pressed }) => [
                 styles.dialogBtn,
                 styles.dialogConfirm,
-                pressed && styles.rowPressed,
+                (pressed || busy) && styles.rowPressed,
               ]}
               accessibilityRole="button"
             >
@@ -320,9 +324,12 @@ export function DeleteRow({ onPress }: { onPress: () => void }) {
 export function DeleteDialog({
   onCancel,
   onConfirm,
+  busy = false,
 }: {
   onCancel: () => void;
   onConfirm: () => void;
+  /** Disables the confirm affordance while the request is in flight. */
+  busy?: boolean;
 }) {
   return (
     <Animated.View
@@ -360,10 +367,11 @@ export function DeleteDialog({
             </Pressable>
             <Pressable
               onPress={onConfirm}
+              disabled={busy}
               style={({ pressed }) => [
                 styles.dialogBtn,
                 styles.dialogDelete,
-                pressed && styles.rowPressed,
+                (pressed || busy) && styles.rowPressed,
               ]}
               accessibilityRole="button"
             >

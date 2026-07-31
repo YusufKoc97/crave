@@ -47,7 +47,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (_event, newSession) => {
-        setSession(newSession);
+        // Identity guard. supabase-js emits INITIAL_SESSION, SIGNED_IN
+        // and an hourly TOKEN_REFRESHED, each carrying a BRAND-NEW
+        // session object even when nothing meaningful changed. Handing
+        // that object to React re-ran every `user`-keyed effect in the
+        // app — eight REST calls per event, forever, plus a duplicate
+        // technique_uses row if a refresh landed mid-technique.
+        // Keep the previous reference when the value is equivalent.
+        setSession((prev) =>
+          prev?.access_token === newSession?.access_token &&
+          prev?.user?.id === newSession?.user?.id
+            ? prev
+            : newSession
+        );
       }
     );
 
