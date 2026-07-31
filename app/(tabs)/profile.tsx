@@ -19,6 +19,7 @@ import {
   LanguageRow,
   PremiumRow,
   SettingsGroup,
+  SignOutDialog,
   SignOutRow,
 } from '@/components/profile/CoreSettings';
 import { coreText, neon } from '@/components/profile/coreTheme';
@@ -61,6 +62,7 @@ export default function ProfileScreen() {
   const toast = useToast();
   const [username, setUsername] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   // Blocks a second sign-out/delete while one is mid-flight — the rows
   // and the confirm dialog have no built-in debounce.
   const [busy, setBusy] = useState(false);
@@ -87,6 +89,7 @@ export default function ProfileScreen() {
   const onSignOut = async () => {
     if (busy) return;
     setBusy(true);
+    setConfirmingSignOut(false);
     try {
       // 1. Server first — this flips the session to null and clears the
       //    local token. If it throws (network down), the user is STILL
@@ -231,7 +234,7 @@ export default function ProfileScreen() {
         <SettingsGroup>
           <PremiumRow />
           <LanguageRow />
-          <SignOutRow onPress={onSignOut} />
+          <SignOutRow onPress={() => setConfirmingSignOut(true)} />
         </SettingsGroup>
 
         <View style={styles.groupGap} />
@@ -239,6 +242,15 @@ export default function ProfileScreen() {
           <DeleteRow onPress={() => setConfirmingDelete(true)} />
         </SettingsGroup>
       </ScrollView>
+
+      {confirmingSignOut ? (
+        <SignOutDialog
+          onCancel={() => setConfirmingSignOut(false)}
+          onConfirm={() => {
+            void onSignOut();
+          }}
+        />
+      ) : null}
 
       {confirmingDelete ? (
         <DeleteDialog

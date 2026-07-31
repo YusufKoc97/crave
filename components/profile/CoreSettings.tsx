@@ -232,6 +232,75 @@ export function SignOutRow({ onPress }: { onPress: () => void }) {
   );
 }
 
+/**
+ * Sign-out confirmation. Same surface language as DeleteDialog but
+ * neutral (blue accent, not danger red) — signing out is reversible,
+ * so it must not wear the same alarm colour as account deletion.
+ */
+export function SignOutDialog({
+  onCancel,
+  onConfirm,
+}: {
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Animated.View
+      entering={FadeIn.duration(180)}
+      style={StyleSheet.absoluteFill}
+    >
+      <Pressable
+        style={styles.backdrop}
+        onPress={onCancel}
+        accessibilityRole="button"
+        accessibilityLabel={t('profile.cancel')}
+      />
+      <View style={styles.dialogWrap} pointerEvents="box-none">
+        <Animated.View
+          entering={ZoomIn.duration(280)}
+          style={[styles.dialog, styles.dialogNeutral]}
+        >
+          <View style={styles.dialogIcon}>
+            <LogOut size={44} color={neon(0.95)} strokeWidth={1.5} />
+          </View>
+          <Text style={styles.dialogTitle}>
+            {t('profile.sign_out_confirm_title')}
+          </Text>
+          <Text style={styles.dialogBody}>
+            {t('profile.sign_out_confirm_message')}
+          </Text>
+          <View style={styles.dialogActions}>
+            <Pressable
+              onPress={onCancel}
+              style={({ pressed }) => [
+                styles.dialogBtn,
+                styles.dialogCancel,
+                pressed && styles.rowPressed,
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={styles.dialogCancelText}>{t('profile.cancel')}</Text>
+            </Pressable>
+            <Pressable
+              onPress={onConfirm}
+              style={({ pressed }) => [
+                styles.dialogBtn,
+                styles.dialogConfirm,
+                pressed && styles.rowPressed,
+              ]}
+              accessibilityRole="button"
+            >
+              <Text style={styles.dialogConfirmText}>
+                {t('profile.sign_out')}
+              </Text>
+            </Pressable>
+          </View>
+        </Animated.View>
+      </View>
+    </Animated.View>
+  );
+}
+
 export function DeleteRow({ onPress }: { onPress: () => void }) {
   return (
     <SettingsRow
@@ -421,6 +490,21 @@ const styles = StyleSheet.create({
   },
   dialogDeleteText: {
     color: '#fff',
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  // Neutral confirm (sign-out) — blue accent so it doesn't read as the
+  // destructive delete flow.
+  dialogNeutral: {
+    borderColor: neon(0.35),
+  },
+  dialogConfirm: {
+    backgroundColor: neon(0.16),
+    borderWidth: 1,
+    borderColor: neon(0.45),
+  },
+  dialogConfirmText: {
+    color: neon(0.95),
     fontSize: 14.5,
     fontWeight: '800',
   },

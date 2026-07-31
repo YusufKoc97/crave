@@ -110,6 +110,8 @@
     "cancel": "Cancel",
     "deleting": "Deleting your account…",
     "signing_out": "Signing out…",
+    "sign_out_confirm_title": "Sign out?",
+    "sign_out_confirm_message": "You'll need to sign in again to keep tracking your cravings.",
     "sign_out_failed": "Couldn't sign out. Check your connection and try again.",
     "delete_failed": "Couldn't delete your account. Nothing was changed — please try again.",
     "delete_failed_retry": "Something went wrong finishing the deletion. Please try again, or contact support if it keeps happening.",
