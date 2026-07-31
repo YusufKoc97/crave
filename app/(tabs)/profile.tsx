@@ -24,6 +24,10 @@ import {
 import { coreText, neon } from '@/components/profile/coreTheme';
 import { dsColors, dsSpacing } from '@/constants/designSystem';
 import { t } from '@/lib/i18n';
+import { useToast } from '@/context/ToastContext';
+import { purgeLocalUserState } from '@/lib/localState';
+import { resetQueryCache } from '@/lib/queryClient';
+import { deleteAccount } from '@/lib/accountDeletion';
 
 /**
  * Profile — "The Core".
@@ -50,15 +54,24 @@ import { t } from '@/lib/i18n';
 
 export default function ProfileScreen() {
   const { totalPoints, sessions } = useSessions();
-  const { user, signOut } = useAuth();
+  const { user, signOut, applySession } = useAuth();
   const { addictions } = useAddictions();
   const { viewFor } = useAddictionScores();
   const stats = useUserStats();
+  const toast = useToast();
   const [username, setUsername] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // Blocks a second sign-out/delete while one is mid-flight — the rows
+  // and the confirm dialog have no built-in debounce.
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // Screen never unmounts on sign-out; clear the stale handle so it
+      // doesn't render over the next user's session.
+      setUsername(null);
+      return;
+    }
     let cancelled = false;
     getUsername(user.id).then((u) => {
       if (!cancelled) setUsername(u);
@@ -72,8 +85,68 @@ export default function ProfileScreen() {
   const handle = username || user?.email?.split('@')[0] || 'you';
 
   const onSignOut = async () => {
-    await signOut();
-    router.replace('/');
+    if (busy) return;
+    setBusy(true);
+    try {
+      // 1. Server first — this flips the session to null and clears the
+      //    local token. If it throws (network down), the user is STILL
+      //    signed in, so we must not purge or navigate: that would lie.
+      await signOut();
+      // 2. Purge local caches so nothing leaks to the next user. Runs
+      //    after the auth flip so the contexts' user→null resets have
+      //    already fired and won't re-mirror what we clear.
+      resetQueryCache();
+      await purgeLocalUserState({ includeOnboarding: false });
+      // 3. Explicit — there is no active route guard, and '/' redirects
+      //    straight back into the tabs.
+      router.replace('/(auth)/sign-in');
+    } catch {
+      toast.error(t('profile.sign_out_failed'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onDeleteAccount = async () => {
+    if (busy) return;
+    setBusy(true);
+    setConfirmingDelete(false);
+    try {
+      // 1. Delete server-side FIRST, while the session is still live —
+      //    the function authenticates from the bearer JWT, so signing
+      //    out before this would 401. On failure, nothing was changed:
+      //    do not sign out, do not purge.
+      const result = await deleteAccount();
+      if (!result.ok) {
+        toast.error(
+          result.stage === 'auth_user' || result.stage === 'verify'
+            ? t('profile.delete_failed_retry')
+            : t('profile.delete_failed')
+        );
+        return;
+      }
+
+      // 2. The account is gone. Clear the now-orphaned session. Its
+      //    /logout returns 404, which supabase-js tolerates, so this
+      //    normally succeeds; if the network drops, force the local
+      //    session to null by hand since there's nothing left to protect.
+      try {
+        await signOut();
+      } catch {
+        applySession(null);
+      }
+
+      // 3. Purge everything, including the onboarding/KVKK record — this
+      //    is the erasing user's PII and must go. Safe to clear here
+      //    because step 4 navigates imperatively to sign-in.
+      resetQueryCache();
+      await purgeLocalUserState({ includeOnboarding: true });
+      router.replace('/(auth)/sign-in');
+    } catch {
+      toast.error(t('profile.delete_failed'));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const goToAddictionLanding = (id: string) => {
@@ -171,10 +244,7 @@ export default function ProfileScreen() {
         <DeleteDialog
           onCancel={() => setConfirmingDelete(false)}
           onConfirm={() => {
-            setConfirmingDelete(false);
-            // Real `delete_user` RPC lands in a later phase; signing
-            // out keeps the session from lingering in the meantime.
-            void onSignOut();
+            void onDeleteAccount();
           }}
         />
       ) : null}

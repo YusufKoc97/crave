@@ -36,3 +36,14 @@ export const queryClient = new QueryClient({
 export function invalidateTriggerMaps(): void {
   queryClient.invalidateQueries({ queryKey: ['trigger-map'] });
 }
+
+/**
+ * Drop every cached query. Called from the sign-out / delete purge so
+ * the next user on the device does not read the previous user's
+ * heatmaps and insight cards straight out of this singleton (several
+ * query keys are not user-namespaced). Kept here, next to the client,
+ * so screens never reach into `queryClient` directly.
+ */
+export function resetQueryCache(): void {
+  queryClient.clear();
+}

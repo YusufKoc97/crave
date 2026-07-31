@@ -57,7 +57,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // Surface the failure. supabase.auth.signOut() returns `{ error }`
+    // and never throws — a network-dropped sign-out returns early
+    // BEFORE clearing the local token, so silently swallowing it means
+    // the UI navigates away while the user is still signed in and gets
+    // rehydrated into the same account on next launch. Callers must
+    // catch this and NOT navigate on failure.
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   };
 
   return (

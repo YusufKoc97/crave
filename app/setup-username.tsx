@@ -12,8 +12,15 @@ import { useAuth } from '@/context/AuthContext';
 import { setUsername as persistUsername } from '@/lib/profile';
 
 async function handleSignOut(signOut: () => Promise<void>) {
-  await signOut();
-  router.replace('/(auth)/sign-in');
+  try {
+    // signOut() now throws on a failed sign-out (e.g. network down)
+    // instead of silently no-op'ing. If it fails, stay put rather than
+    // navigating to sign-in while the session is actually still live.
+    await signOut();
+    router.replace('/(auth)/sign-in');
+  } catch (e) {
+    console.warn('setup-username sign-out failed', e);
+  }
 }
 
 const MIN_LEN = 3;

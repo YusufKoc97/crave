@@ -24,6 +24,9 @@ const AsyncStorage = {
   async multiRemove(keys: string[]) {
     for (const k of keys) store.delete(k);
   },
+  async getAllKeys(): Promise<string[]> {
+    return Array.from(store.keys());
+  },
   async clear() {
     store.clear();
   },

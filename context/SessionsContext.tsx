@@ -119,7 +119,19 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
 
   // ── Hydrate from Supabase on sign-in ────────────────────────────────
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // Sign-out (or delete) drops `user` to null. This provider lives
+      // above the router and never unmounts, so without an explicit
+      // reset the previous user's points, momentum, streak and session
+      // history keep rendering — visibly, on the profile core, whose
+      // rank ring is driven by totalPoints. AddictionScoresContext
+      // already does this; mirror it here.
+      setSessions([]);
+      setTotalPoints(0);
+      setMomentum(STARTING_MOMENTUM);
+      setStreak(0);
+      return;
+    }
     let cancelled = false;
 
     (async () => {

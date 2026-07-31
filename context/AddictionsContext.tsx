@@ -23,6 +23,10 @@ import {
   fetchUserAddictions,
 } from '@/lib/addictionsApi';
 import { useIsPremium } from '@/lib/premium';
+import {
+  ADDICTIONS_ACTIVE_KEY as STORAGE_KEY_ACTIVE,
+  ADDICTIONS_SEEDED_KEY as DEFAULTS_SEEDED_KEY,
+} from '@/lib/localState';
 
 /**
  * Faz 2 model. State = which catalog ids the user has currently
@@ -49,13 +53,10 @@ const AddictionsContext = createContext<AddictionsContextValue | undefined>(
   undefined
 );
 
-const STORAGE_KEY_ACTIVE = 'user_addictions_active_v1';
-
-/** First-launch seed key. When absent, the four defaults below are
- *  activated so the home orb has something to fan out to instead
- *  of a dead empty state. Set once and never touched again — a
- *  user who intentionally removes all four should stay at zero. */
-const DEFAULTS_SEEDED_KEY = 'user_addictions_defaults_seeded_v1';
+// STORAGE_KEY_ACTIVE ('user_addictions_active_v1') and
+// DEFAULTS_SEEDED_KEY ('user_addictions_defaults_seeded_v1') are now
+// owned by lib/localState.ts so the sign-out/delete purge and this
+// context read the exact same strings. Imported above.
 
 /** Four broad-appeal targets: two substance (nicotine, caffeine)
  *  and two behavioural (doomscroll, junk_food). Kept short and
@@ -101,7 +102,14 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
           }
         } else if (seeded !== '1') {
           setActiveIds(new Set(DEFAULT_ADDICTION_IDS));
-          await AsyncStorage.setItem(DEFAULTS_SEEDED_KEY, '1');
+          // Write the active set explicitly rather than leaning on the
+          // mirror effect — the mirror is now guarded on `user`, and
+          // this branch runs before auth, so without this the seeded
+          // defaults would never reach disk on a fresh device.
+          await AsyncStorage.multiSet([
+            [STORAGE_KEY_ACTIVE, JSON.stringify(DEFAULT_ADDICTION_IDS)],
+            [DEFAULTS_SEEDED_KEY, '1'],
+          ]);
         }
       } finally {
         hydrated.current = true;
@@ -119,7 +127,15 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
   // logins on any device carry the same starting state. Best-effort
   // per id — if one fails we still show the successful ones locally.
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // Sign-out / delete. Clear the visible set so the next user
+      // doesn't inherit these; the purge routine removes the mirrored
+      // key from disk. The mirror effect below is guarded on `user`,
+      // so this reset does NOT write '[]' back to disk (which would
+      // permanently suppress the first-launch seed for the next user).
+      setActiveIds(new Set());
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -155,6 +171,13 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
   // ── Mirror to AsyncStorage on every change ─────────────────────────
   useEffect(() => {
     if (!hydrated.current) return;
+    // Guard on `user`: when sign-out flips user→null the reset above
+    // sets activeIds to empty, and without this guard the mirror would
+    // race the purge and rewrite '[]' to disk AFTER the purge cleared
+    // it — a truthy blob that permanently kills seeding for whoever
+    // signs in next. Unauthenticated first-launch seeding writes the
+    // key explicitly (see the hydrate effect), so nothing is lost.
+    if (!user) return;
     AsyncStorage.setItem(
       STORAGE_KEY_ACTIVE,
       JSON.stringify(Array.from(activeIds))
@@ -163,7 +186,7 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
       // this session; log so a persistently failing disk is diagnosable.
       console.warn('AddictionsContext mirror write failed', e);
     });
-  }, [activeIds]);
+  }, [activeIds, user]);
 
   const limit = isPremium ? PREMIUM_ACTIVE_LIMIT : FREE_ACTIVE_LIMIT;
   const atLimit = activeIds.size >= limit;

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from './supabase';
+import { useAuth } from '@/context/AuthContext';
 import type { PeriodKey } from '@/constants/heatmap';
 import type { InsightCategory, InsightOutput } from '@/shared/insightRules';
 
@@ -70,8 +71,13 @@ async function fetchTriggerMap(
  * touching this hook directly.
  */
 export function useTriggerMap(addictionId: string, period: PeriodKey) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ['trigger-map', addictionId, period],
+    // Namespaced by user id so a sign-out/sign-in on the same device
+    // can't serve the previous user's heatmap out of the singleton
+    // cache. (The purge routine also calls resetQueryCache(); this is
+    // belt-and-braces against a cache that outlives one screen.)
+    queryKey: ['trigger-map', user?.id ?? 'anon', addictionId, period],
     queryFn: () => fetchTriggerMap(addictionId, period),
     // Info tab often opens without a live network — don't spin
     // forever if the Edge Function isn't reachable.
