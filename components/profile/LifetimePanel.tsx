@@ -1,52 +1,57 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Svg, {
-  Circle,
   Defs,
+  Ellipse,
   LinearGradient,
-  Path,
+  RadialGradient,
   Stop,
+  Text as SvgText,
 } from 'react-native-svg';
 import Animated, {
   Easing,
-  useAnimatedProps,
+  FadeInDown,
+  useAnimatedStyle,
   useSharedValue,
-  withDelay,
+  withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { ShieldCheck } from 'lucide-react-native';
 import { useReducedMotion } from '@/components/toolkit/useReducedMotion';
 import { t } from '@/lib/i18n';
 import { CountUp } from './CountUp';
-import { coreNeon, coreRadius, coreText, neon } from './coreTheme';
-import { sparkAreaPath } from './coreMath';
+import { coreRadius, coreText, hexAlpha, CORE_ANIM } from './coreTheme';
 
 /**
- * LIFETIME — one instrument panel, not four stat cards.
+ * LIFETIME — "Aurora Veil".
  *
- * The previous 2×2 grid gave four numbers equal weight, which made the
- * screen read as a dashboard. This panel establishes a hierarchy
- * instead: one hero number (cravings resisted, lifetime), a weekly
- * shape behind it, and three micro readings hanging off a hairline
- * rule underneath.
+ * A quiet altar, not a dashboard. One gold hero number over a soft
+ * drifting aurora (gold / violet / blue), and three equal medallions
+ * hanging beneath it — streak, held, toolkit — with no connecting
+ * thread.
  *
- * The number-size rule the design leans on, hardest first:
- *   hero      46px  — one per panel
- *   reading   23px  — the three columns
- *   unit      11px  — never shares the number's weight
+ * Why GOLD and not the app's blue: the blue accent (#5cc9f5) is the
+ * language of the LIVE state — the rank ring, the current streak, "on
+ * right now". Gold (#d6ad3d) is the language of the ACCUMULATED — a
+ * lifetime. Both live on this screen without competing: the blue is
+ * everywhere else, the gold is only here.
+ *
+ * The aurora blobs are SVG radial gradients (soft alpha falloff reads
+ * as a blur without paying a per-frame blur cost), animated with a
+ * translate + scale/skew drift only. Under reduced motion the drift
+ * freezes and the count-ups snap to their targets.
  */
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
+// ── Palette (gold is Lifetime-only; see the note above) ──
+const GOLD = '#d6ad3d';
+const VIOLET = 'rgb(178,120,220)'; // aurora fill only, nowhere else
+const BLUE = '#5cc9f5'; // app accent's one gentle gesture here
+const HERO_WARM = '#f7f3e8'; // broken white, tuned to sit with gold
+const gold = (a: number) => hexAlpha(GOLD, a);
 
-const SPARK_W = 330;
-// Short enough that even a peak week stays below the readings row's
-// labels — the sparkline is the panel's floor, not a layer over it.
-const SPARK_H = 46;
+const HERO_H = 150;
 
 type Props = {
   cravingsResisted: number;
-  /** 7 entries, index 0 = six days ago, index 6 = today. */
-  weekly: readonly number[];
   longestStreakDays: number;
   /** 0..1 */
   successRate: number;
@@ -56,458 +61,461 @@ type Props = {
 
 export function LifetimePanel({
   cravingsResisted,
-  weekly,
   longestStreakDays,
   successRate,
   techniquesUsed,
   techniquesTotal,
 }: Props) {
-  const weekTotal = weekly.reduce((a, b) => a + b, 0);
-  const weekMax = Math.max(1, ...weekly);
+  // Fresh account: nothing has been accumulated yet, so the panel dims
+  // rather than celebrating a row of zeros. The aurora fades to a
+  // quarter and stops; the medallions lose their gold and read grey.
+  const fresh = cravingsResisted <= 0;
 
   return (
-    <View style={styles.panel}>
-      <Sparkline values={weekly} />
-
+    <>
       <View style={styles.headRow}>
-        <View style={styles.headLeft}>
-          <View style={styles.heroRow}>
-            <CountUp
-              target={cravingsResisted}
-              delay={120}
-              format={(v) => v.toLocaleString('en-US')}
-              style={styles.heroValue}
-            />
-            <ShieldCheck size={18} color={neon(0.85)} strokeWidth={2.2} />
-          </View>
-          <Text style={styles.heroCaption}>
-            {t('profile.stat_cravings_resisted')}
-          </Text>
-        </View>
+        <Text style={styles.headLabel}>{t('profile.lifetime_section')}</Text>
+        <View style={styles.headRule} />
+      </View>
 
-        <View style={styles.headRight}>
-          <Text style={styles.weekLabel}>{t('profile.this_week')}</Text>
-          <Text style={styles.weekDelta}>+{weekTotal}</Text>
+      <View style={styles.panel}>
+        <Hero value={cravingsResisted} fresh={fresh} />
+
+        <View style={styles.medallions}>
+          <Medallion
+            value={longestStreakDays}
+            unit={t('profile.stat_streak_unit_short')}
+            label={t('profile.stat_streak_short')}
+            delay={350}
+            fresh={fresh}
+          />
+          <Medallion
+            value={Math.round(successRate * 100)}
+            unit="%"
+            label={t('profile.stat_held_short')}
+            delay={500}
+            fresh={fresh}
+          />
+          <Medallion
+            value={techniquesUsed}
+            unit={`/${techniquesTotal}`}
+            label={t('profile.stat_techniques_short')}
+            delay={650}
+            fresh={fresh}
+          />
         </View>
       </View>
 
-      {/* 7-day pulse strip — today reads full-neon so the week has a
-          "now" anchor even when the sparkline is flat. */}
-      <View style={styles.pulseStrip}>
-        {weekly.map((v, i) => {
-          const today = i === weekly.length - 1;
-          return (
-            <View
-              key={i}
-              style={[
-                styles.pulseTick,
-                { height: 6 + (v / weekMax) * 14 },
-                today
-                  ? styles.pulseToday
-                  : { backgroundColor: neon(0.14 + (v / weekMax) * 0.34) },
-              ]}
-            />
-          );
-        })}
+      {fresh ? (
+        <Text style={styles.freshHint}>{t('profile.core_dormant_body')}</Text>
+      ) : null}
+    </>
+  );
+}
+
+// ──────────────────────────── Hero ────────────────────────────
+
+function Hero({ value, fresh }: { value: number; fresh: boolean }) {
+  const display = useCountUpValue(value);
+
+  return (
+    <View style={styles.hero}>
+      <View style={styles.auroraLayer} pointerEvents="none">
+        {/* Render order = z-order: blue (coldest, faintest) at the
+            bottom, violet filling the middle, gold dominant on top. */}
+        <AuroraBlob
+          w={220}
+          h={50}
+          centerPct={0.4}
+          color={BLUE}
+          alpha={0.28}
+          durationMs={13000}
+          variant="drift"
+          fresh={fresh}
+        />
+        <AuroraBlob
+          w={280}
+          h={70}
+          centerPct={0.52}
+          color={VIOLET}
+          alpha={0.45}
+          durationMs={11000}
+          variant="skew"
+          fresh={fresh}
+        />
+        <AuroraBlob
+          w={340}
+          h={90}
+          centerPct={0.44}
+          color={GOLD}
+          alpha={0.55}
+          durationMs={9000}
+          variant="drift"
+          fresh={fresh}
+        />
       </View>
 
-      <View style={styles.rule} />
-
-      <View style={styles.readings}>
-        <Reading
-          value={longestStreakDays}
-          unit={t('profile.stat_streak_unit_short')}
-          label={t('profile.stat_streak_short')}
-          delay={140}
-          // The streak is the number people actually come back to check,
-          // so it gets the neon treatment while the other two readings
-          // stay white. Only once there IS a streak — glowing a zero
-          // would celebrate nothing.
-          accent={longestStreakDays > 0}
-          // No record to flag until there is actually a streak.
-          badge={longestStreakDays > 0 ? t('profile.record_badge') : undefined}
-          viz={<StreakTicks days={longestStreakDays} />}
-        />
-        <View style={styles.readingDivider} />
-        <Reading
-          value={Math.round(successRate * 100)}
-          unit="%"
-          label={t('profile.stat_rate_short')}
-          delay={240}
-          viz={<RateArc rate={successRate} />}
-        />
-        <View style={styles.readingDivider} />
-        <Reading
-          value={techniquesUsed}
-          unit={`/${techniquesTotal}`}
-          label={t('profile.stat_techniques_short')}
-          delay={340}
-          viz={
-            <TechniqueSquares used={techniquesUsed} total={techniquesTotal} />
-          }
-        />
+      <View style={styles.heroContent}>
+        {/* Gradient-filled number via SVG text — no MaskedView dep. The
+            fill runs from a near-white top to gold, so the digit reads
+            as struck metal rather than a flat swatch. */}
+        <Svg width={220} height={78} viewBox="0 0 220 78">
+          <Defs>
+            <LinearGradient id="heroGold" x1="0" y1="0" x2="0.17" y2="1">
+              <Stop offset="0.3" stopColor="#fffdf4" />
+              <Stop offset="1" stopColor={gold(0.9)} />
+            </LinearGradient>
+          </Defs>
+          <SvgText
+            x="110"
+            y="60"
+            textAnchor="middle"
+            fontSize={62}
+            fontWeight="800"
+            // Same tabular feel as the RN side; SVG has no
+            // font-variant-numeric, but a fixed letterSpacing keeps the
+            // count-up from jittering as digits change width.
+            letterSpacing={-3}
+            fill={fresh ? coreText.tertiary : 'url(#heroGold)'}
+          >
+            {display}
+          </SvgText>
+        </Svg>
+        <Text style={[styles.heroCaption, fresh && styles.heroCaptionFresh]}>
+          {t('profile.stat_cravings_resisted')}
+        </Text>
       </View>
     </View>
   );
 }
 
-// ──────────────────────────── Pieces ────────────────────────────
-
-/** Weekly volume as a filled area pinned to the panel floor. */
-function Sparkline({ values }: { values: readonly number[] }) {
+/**
+ * One aurora blob: an SVG ellipse with a soft radial-gradient fill,
+ * drifting on the X axis. `variant` picks the choreography — 'drift'
+ * (translate + scaleX) for gold/blue, 'skew' (translate + skewX) for
+ * the violet middle so the layers don't move in lockstep.
+ */
+function AuroraBlob({
+  w,
+  h,
+  centerPct,
+  color,
+  alpha,
+  durationMs,
+  variant,
+  fresh,
+}: {
+  w: number;
+  h: number;
+  centerPct: number;
+  color: string;
+  alpha: number;
+  durationMs: number;
+  variant: 'drift' | 'skew';
+  fresh: boolean;
+}) {
   const reduced = useReducedMotion();
-  const { line, area } = sparkAreaPath(values, SPARK_W, SPARK_H);
-  // Generous: the path is never longer than its bounding box perimeter,
-  // and an over-long dasharray just means the draw finishes early —
-  // whereas an under-long one visibly clips the tail.
-  const LEN = 1200;
-  const drawn = useSharedValue(reduced ? LEN : 0);
+  const still = reduced || fresh;
+  const p = useSharedValue(0);
 
   useEffect(() => {
-    if (reduced) {
-      drawn.value = LEN;
+    if (still) {
+      p.value = 0;
       return;
     }
-    drawn.value = withDelay(
-      400,
-      withTiming(LEN, { duration: 1100, easing: Easing.out(Easing.cubic) })
+    p.value = withRepeat(
+      withTiming(1, {
+        duration: durationMs / 2,
+        easing: Easing.inOut(Easing.sin),
+      }),
+      -1,
+      true
     );
-  }, [drawn, reduced]);
+  }, [p, still, durationMs]);
 
-  const animatedProps = useAnimatedProps(() => ({
-    strokeDasharray: [drawn.value, LEN],
-  }));
+  const animStyle = useAnimatedStyle(() => {
+    if (variant === 'skew') {
+      // translateX +8 → -12, skewX -6° → +4°
+      const tx = 8 + p.value * -20;
+      const sk = -6 + p.value * 10;
+      return { transform: [{ translateX: tx }, { skewX: `${sk}deg` }] };
+    }
+    // translateX -10 → +10, scaleX 1 → 1.08
+    const tx = -10 + p.value * 20;
+    const sx = 1 + p.value * 0.08;
+    return { transform: [{ translateX: tx }, { scaleX: sx }] };
+  });
 
-  // An all-zero week would draw a flat rule along the panel floor,
-  // which reads as a stray border rather than a chart.
-  if (!line || values.every((v) => v === 0)) return null;
+  // Fresh drops every blob to a quarter of its alpha (design table).
+  const a = fresh ? alpha * 0.25 : alpha;
+  const gradId = `blob${w}${Math.round(centerPct * 100)}`;
 
   return (
-    <View pointerEvents="none" style={styles.sparkWrap}>
-      <Svg
-        width="100%"
-        height={SPARK_H}
-        viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
-        preserveAspectRatio="none"
-      >
+    <Animated.View
+      style={[
+        styles.blob,
+        { top: centerPct * HERO_H - h / 2, height: h, marginLeft: -w / 2 },
+        animStyle,
+      ]}
+    >
+      <Svg width={w} height={h}>
         <Defs>
-          <LinearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={coreNeon} stopOpacity={0.13} />
-            <Stop offset="100%" stopColor={coreNeon} stopOpacity={0} />
-          </LinearGradient>
+          <RadialGradient id={gradId}>
+            <Stop offset="0" stopColor={color} stopOpacity={a} />
+            <Stop offset="0.7" stopColor={color} stopOpacity={0} />
+          </RadialGradient>
         </Defs>
-        <Path d={area} fill="url(#sparkFill)" />
-        {/* Kept faint on purpose: the readings row sits on top of this,
-            and at the design's .5 the stroke cut straight through the
-            column labels. It is atmosphere, not a chart to read off. */}
-        <AnimatedPath
-          d={line}
-          fill="none"
-          stroke={neon(0.26)}
-          strokeWidth={1.5}
-          animatedProps={animatedProps}
+        <Ellipse
+          cx={w / 2}
+          cy={h / 2}
+          rx={w / 2}
+          ry={h / 2}
+          fill={`url(#${gradId})`}
         />
       </Svg>
-    </View>
+    </Animated.View>
   );
 }
 
-function Reading({
+// ──────────────────────────── Medallion ────────────────────────────
+
+function Medallion({
   value,
   unit,
   label,
   delay,
-  badge,
-  accent,
-  viz,
+  fresh,
 }: {
   value: number;
   unit: string;
   label: string;
   delay: number;
-  badge?: string;
-  /** Renders the number in neon with a glow — one reading per panel. */
-  accent?: boolean;
-  viz: React.ReactNode;
+  fresh: boolean;
 }) {
+  const reduced = useReducedMotion();
+  const entering =
+    reduced || fresh ? undefined : FadeInDown.delay(delay).duration(500);
+  const gradId = `med${label}`;
+
   return (
-    <View style={styles.reading}>
-      {viz}
-      <View style={styles.readingValueRow}>
+    <Animated.View
+      entering={entering}
+      style={[styles.medallion, fresh && styles.medallionFresh]}
+    >
+      <Svg width={92} height={92} style={StyleSheet.absoluteFill}>
+        <Defs>
+          {/* Gold is confined to a top-left highlight; the well goes
+              dark by half-radius so the medallion reads as a recessed
+              coin, not a solid olive disc. r=0.9 pushed the dark stop
+              past the rim and left the whole interior mid-transition. */}
+          <RadialGradient id={gradId} cx="0.34" cy="0.27" r="0.8">
+            <Stop
+              offset="0"
+              stopColor={GOLD}
+              stopOpacity={fresh ? 0.06 : 0.2}
+            />
+            <Stop offset="0.5" stopColor="#0a0e1a" stopOpacity={0.9} />
+            <Stop offset="1" stopColor="#0a0e1a" stopOpacity={0.97} />
+          </RadialGradient>
+        </Defs>
+        <Ellipse cx={46} cy={46} rx={46} ry={46} fill={`url(#${gradId})`} />
+      </Svg>
+
+      <View style={styles.medValueRow}>
         <CountUp
           target={value}
           delay={delay}
-          style={[styles.readingValue, accent && styles.readingValueAccent]}
+          style={[styles.medValue, fresh && styles.medValueFresh]}
         />
-        <Text style={[styles.readingUnit, accent && styles.readingUnitAccent]}>
+        <Text style={[styles.medUnit, fresh && styles.medUnitFresh]}>
           {unit}
         </Text>
       </View>
-      <View style={styles.readingLabelRow}>
-        <Text style={styles.readingLabel} numberOfLines={1}>
-          {label}
-        </Text>
-        {badge ? (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{badge}</Text>
-          </View>
-        ) : null}
-      </View>
-    </View>
+      <Text style={styles.medLabel}>{label}</Text>
+    </Animated.View>
   );
 }
 
-/** Twelve ticks brightening toward the streak length. */
-function StreakTicks({ days }: { days: number }) {
-  const lit = Math.min(12, days);
-  return (
-    <View style={styles.vizRow}>
-      {Array.from({ length: 12 }, (_, i) => (
-        <View
-          key={i}
-          style={[
-            styles.tick,
-            { backgroundColor: neon(i < lit ? 0.35 + (i / 11) * 0.55 : 0.1) },
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
+// ──────────────────────────── Count-up ────────────────────────────
 
-/** A 22px ring whose arc length is the success rate. */
-function RateArc({ rate }: { rate: number }) {
-  const R = 9;
-  const C = 2 * Math.PI * R;
-  const on = C * Math.max(0, Math.min(1, rate));
-  return (
-    <View style={styles.vizRow}>
-      <Svg width={22} height={22} viewBox="0 0 22 22">
-        <Circle
-          cx={11}
-          cy={11}
-          r={R}
-          fill="none"
-          stroke="rgba(255,255,255,0.1)"
-          strokeWidth={2}
-        />
-        <Circle
-          cx={11}
-          cy={11}
-          r={R}
-          fill="none"
-          stroke={neon(0.9)}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeDasharray={`${on} ${C - on}`}
-          transform="rotate(-90 11 11)"
-        />
-      </Svg>
-    </View>
-  );
-}
+/**
+ * Same belt-and-braces roll as the CountUp component, but returning a
+ * bare number so the hero can feed it into SVG text (which CountUp,
+ * being an RN <Text>, can't render into).
+ */
+function useCountUpValue(target: number, delay = 0): number {
+  const reduced = useReducedMotion();
+  const [v, setV] = useState(reduced ? target : 0);
 
-/** Four squares, one per quarter of the toolkit. */
-function TechniqueSquares({ used, total }: { used: number; total: number }) {
-  const filled = total > 0 ? Math.round((used / total) * 4) : 0;
-  return (
-    <View style={styles.vizRow}>
-      {Array.from({ length: 4 }, (_, i) => (
-        <View
-          key={i}
-          style={[
-            styles.square,
-            {
-              backgroundColor: i < filled ? neon(0.65) : 'transparent',
-              borderColor: neon(i < filled ? 0.65 : 0.2),
-            },
-          ]}
-        />
-      ))}
-    </View>
-  );
+  useEffect(() => {
+    setV(target); // final value up front so a stalled rAF never sticks at 0
+    if (reduced) return;
+    let cancelled = false;
+    const start = setTimeout(() => {
+      if (cancelled) return;
+      setV(0);
+      const t0 = performance.now();
+      const step = () => {
+        if (cancelled) return;
+        const pr = Math.min(1, (performance.now() - t0) / CORE_ANIM.countUpMs);
+        setV(Math.round(target * (1 - Math.pow(1 - pr, 3))));
+        if (pr < 1) requestAnimationFrame(step);
+        else setV(target);
+      };
+      requestAnimationFrame(step);
+    }, delay);
+    const safety = setTimeout(
+      () => {
+        if (!cancelled) setV(target);
+      },
+      delay + CORE_ANIM.countUpMs * 3
+    );
+    return () => {
+      cancelled = true;
+      clearTimeout(start);
+      clearTimeout(safety);
+    };
+  }, [target, delay, reduced]);
+
+  return v;
 }
 
 // ──────────────────────────── Styles ────────────────────────────
 
 const styles = StyleSheet.create({
+  headRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 30,
+    marginBottom: 13,
+  },
+  headLabel: {
+    color: coreText.sectionLabel,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2.4,
+  },
+  headRule: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.11)',
+  },
+
   panel: {
     borderRadius: coreRadius.panel,
     backgroundColor: 'rgba(19,29,50,0.85)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 16,
-    // The sparkline is pinned to the panel floor and must not spill.
+    paddingHorizontal: 17,
+    paddingTop: 14,
+    paddingBottom: 18,
     overflow: 'hidden',
-    position: 'relative',
-  },
-  sparkWrap: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: SPARK_H,
-  },
-  headRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  headLeft: {
-    flex: 1,
-  },
-  heroRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  heroValue: {
-    color: coreText.title,
-    fontSize: 46,
-    fontWeight: '800',
-    letterSpacing: -2.4,
-    fontVariant: ['tabular-nums'],
-  },
-  heroCaption: {
-    color: coreText.secondary,
-    fontSize: 11.5,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  headRight: {
-    alignItems: 'flex-end',
-  },
-  weekLabel: {
-    color: coreText.sectionLabel,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.6,
-    textTransform: 'uppercase',
-  },
-  weekDelta: {
-    color: neon(0.9),
-    fontSize: 15,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
-    marginTop: 4,
-  },
-
-  pulseStrip: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 5,
-    height: 20,
-    marginTop: 14,
-  },
-  pulseTick: {
-    width: 3,
-    borderRadius: 1.5,
-  },
-  pulseToday: {
-    backgroundColor: coreNeon,
     ...Platform.select({
-      web: { boxShadow: `0 0 7px ${neon(0.8)}` },
-      default: {
-        shadowColor: coreNeon,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.9,
-        shadowRadius: 4,
-      },
+      web: { boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)' },
+      default: {},
     }),
   },
 
-  rule: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.055)',
-    marginTop: 16,
+  // ── Hero ──
+  hero: {
+    height: HERO_H,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  auroraLayer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  blob: {
+    position: 'absolute',
+    left: '50%',
+  },
+  heroContent: {
+    alignItems: 'center',
+  },
+  heroCaption: {
+    color: gold(0.85),
+    fontSize: 10.5,
+    fontWeight: '700',
+    letterSpacing: 2.6,
+    textTransform: 'uppercase',
+    marginTop: 10,
+  },
+  heroCaptionFresh: {
+    color: coreText.tertiary,
   },
 
-  readings: {
+  // ── Medallions ──
+  medallions: {
     flexDirection: 'row',
-    marginTop: 14,
+    justifyContent: 'space-evenly',
+    marginTop: 18,
   },
-  reading: {
-    flex: 1,
-    gap: 6,
+  medallion: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: gold(0.45),
+    ...Platform.select({
+      web: {
+        boxShadow: `0 0 14px ${gold(0.2)}, inset 0 1px 0 ${gold(0.32)}`,
+      },
+      default: {
+        shadowColor: GOLD,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.2,
+        shadowRadius: 14,
+      },
+    }),
   },
-  readingDivider: {
-    width: 1,
-    backgroundColor: 'rgba(255,255,255,0.055)',
-    marginHorizontal: 10,
+  medallionFresh: {
+    borderColor: gold(0.18),
+    ...Platform.select({
+      web: { boxShadow: 'none' },
+      default: { shadowOpacity: 0 },
+    }),
   },
-  readingValueRow: {
+  medValueRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 2,
+    gap: 1,
   },
-  readingValue: {
-    color: coreText.title,
-    fontSize: 23,
+  medValue: {
+    color: HERO_WARM,
+    fontSize: 24,
     fontWeight: '800',
-    letterSpacing: -1.1,
+    letterSpacing: -0.9,
     fontVariant: ['tabular-nums'],
   },
-  // textShadow* is one of the few glow primitives RN honours on iOS,
-  // Android and web alike — no Platform.select needed, unlike boxShadow.
-  readingValueAccent: {
-    color: coreNeon,
-    fontSize: 26,
-    textShadowColor: neon(0.55),
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 12,
-  },
-  readingUnit: {
-    color: neon(0.8),
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  readingUnitAccent: {
-    color: coreNeon,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  readingLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  readingLabel: {
-    flexShrink: 1,
+  medValueFresh: {
     color: coreText.tertiary,
-    fontSize: 10.5,
-    fontWeight: '600',
   },
-  badge: {
-    borderWidth: 1,
-    borderColor: neon(0.28),
-    borderRadius: 4,
-    paddingHorizontal: 3,
-    paddingVertical: 1,
+  medUnit: {
+    color: gold(0.85),
+    fontSize: 12,
+    fontWeight: '700',
   },
-  badgeText: {
-    color: neon(0.85),
-    fontSize: 7,
-    fontWeight: '800',
-    letterSpacing: 1.1,
+  medUnitFresh: {
+    color: coreText.tertiary,
+  },
+  medLabel: {
+    color: coreText.tertiary,
+    fontSize: 8.5,
+    fontWeight: '700',
+    letterSpacing: 1.6,
   },
 
-  vizRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    height: 22,
-  },
-  tick: {
-    width: 2,
-    height: 10,
-    borderRadius: 1,
-  },
-  square: {
-    width: 8,
-    height: 8,
-    borderRadius: 2,
-    borderWidth: 1,
-    marginRight: 2,
+  freshHint: {
+    color: coreText.tertiary,
+    fontSize: 11.5,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 12,
   },
 });

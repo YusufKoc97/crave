@@ -125,6 +125,7 @@
     "record_badge": "REC",
     "stat_streak_short": "Streak",
     "stat_rate_short": "Success",
+    "stat_held_short": "Held",
     "stat_techniques_short": "Toolkit",
     "stat_streak_unit_short": "d",
     "feeding_section": "Feeding the core"

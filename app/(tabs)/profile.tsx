@@ -8,7 +8,6 @@ import { useAddictionScores } from '@/context/AddictionScoresContext';
 import { getUsername } from '@/lib/profile';
 import { useUserStats } from '@/lib/userStats';
 import { overallRankFromTotalPoints } from '@/lib/overallRank';
-import { weeklyResistCounts } from '@/lib/scoring';
 import { TOOLKIT_TECHNIQUES } from '@/constants/toolkitCatalog';
 import { CoreHero } from '@/components/profile/CoreHero';
 import { LifetimePanel } from '@/components/profile/LifetimePanel';
@@ -54,7 +53,7 @@ import { deleteAccount } from '@/lib/accountDeletion';
  */
 
 export default function ProfileScreen() {
-  const { totalPoints, sessions } = useSessions();
+  const { totalPoints } = useSessions();
   const { user, signOut, applySession } = useAuth();
   const { addictions } = useAddictions();
   const { viewFor } = useAddictionScores();
@@ -183,11 +182,6 @@ export default function ProfileScreen() {
     ? viewFor(sortedTracked[0].id).score
     : 0;
 
-  const overallWeekly = useMemo(
-    () => weeklyResistCounts({ sessions, nowMs: Date.now() }),
-    [sessions]
-  );
-
   return (
     <View style={styles.root}>
       <ScrollView
@@ -204,10 +198,10 @@ export default function ProfileScreen() {
           rankOrder={overall.current.order}
         />
 
-        <Text style={styles.sectionLabel}>{t('profile.lifetime_section')}</Text>
+        {/* The LIFETIME header + hairline now live inside the panel
+            itself (Aurora Veil handoff), so no section label here. */}
         <LifetimePanel
           cravingsResisted={stats.cravingsResisted}
-          weekly={overallWeekly}
           longestStreakDays={stats.longestStreakDays}
           successRate={stats.successRate}
           techniquesUsed={stats.techniquesUsed}
