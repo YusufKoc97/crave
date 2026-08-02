@@ -4,6 +4,7 @@ import Svg, {
   Defs,
   Ellipse,
   LinearGradient,
+  Rect,
   RadialGradient,
   Stop,
   Text as SvgText,
@@ -19,7 +20,13 @@ import Animated, {
 import { useReducedMotion } from '@/components/toolkit/useReducedMotion';
 import { t } from '@/lib/i18n';
 import { CountUp } from './CountUp';
-import { coreRadius, coreText, hexAlpha, CORE_ANIM } from './coreTheme';
+import {
+  coreRadius,
+  coreSurface,
+  coreText,
+  hexAlpha,
+  CORE_ANIM,
+} from './coreTheme';
 
 /**
  * LIFETIME — "Aurora Veil".
@@ -35,10 +42,15 @@ import { coreRadius, coreText, hexAlpha, CORE_ANIM } from './coreTheme';
  * lifetime. Both live on this screen without competing: the blue is
  * everywhere else, the gold is only here.
  *
- * The aurora blobs are SVG radial gradients (soft alpha falloff reads
- * as a blur without paying a per-frame blur cost), animated with a
- * translate + scale/skew drift only. Under reduced motion the drift
- * freezes and the count-ups snap to their targets.
+ * The aurora blobs are SVG radial gradients — no blur library ships in
+ * this app, so a *multi-stop* alpha falloff (full → 0 across four
+ * stops) fakes a gaussian blur without paying a per-frame blur cost.
+ * They drift on translate + scale/skew only.
+ *
+ * The empty account is treated as a *beginning*, not a broken state:
+ * the card stays fully alive (gold number, drifting aurora, lit
+ * medallions) and simply reads zero, with a line of encouragement
+ * underneath. It is never dimmed to a grey husk.
  */
 
 // ── Palette (gold is Lifetime-only; see the note above) ──
@@ -66,10 +78,10 @@ export function LifetimePanel({
   techniquesUsed,
   techniquesTotal,
 }: Props) {
-  // Fresh account: nothing has been accumulated yet, so the panel dims
-  // rather than celebrating a row of zeros. The aurora fades to a
-  // quarter and stops; the medallions lose their gold and read grey.
-  const fresh = cravingsResisted <= 0;
+  // A fresh account still gets the full, alive treatment — it just
+  // reads zero and gains a line of encouragement. `empty` only decides
+  // whether to show that hint, no longer whether to dim the card.
+  const empty = cravingsResisted <= 0;
 
   return (
     <>
@@ -79,7 +91,24 @@ export function LifetimePanel({
       </View>
 
       <View style={styles.panel}>
-        <Hero value={cravingsResisted} fresh={fresh} />
+        {/* Panel depth: a 165° navy→darker wash, since RN styles can't
+            do linear-gradient() and there's no expo-linear-gradient. */}
+        <Svg
+          style={StyleSheet.absoluteFill}
+          width="100%"
+          height="100%"
+          pointerEvents="none"
+        >
+          <Defs>
+            <LinearGradient id="panelBg" x1="0" y1="0" x2="0.26" y2="1">
+              <Stop offset="0" stopColor={coreSurface.panelTop} />
+              <Stop offset="1" stopColor={coreSurface.panelBottom} />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#panelBg)" />
+        </Svg>
+
+        <Hero value={cravingsResisted} />
 
         <View style={styles.medallions}>
           <Medallion
@@ -87,27 +116,24 @@ export function LifetimePanel({
             unit={t('profile.stat_streak_unit_short')}
             label={t('profile.stat_streak_short')}
             delay={350}
-            fresh={fresh}
           />
           <Medallion
             value={Math.round(successRate * 100)}
             unit="%"
             label={t('profile.stat_held_short')}
             delay={500}
-            fresh={fresh}
           />
           <Medallion
             value={techniquesUsed}
             unit={`/${techniquesTotal}`}
             label={t('profile.stat_techniques_short')}
             delay={650}
-            fresh={fresh}
           />
         </View>
       </View>
 
-      {fresh ? (
-        <Text style={styles.freshHint}>{t('profile.core_dormant_body')}</Text>
+      {empty ? (
+        <Text style={styles.emptyHint}>{t('profile.core_dormant_body')}</Text>
       ) : null}
     </>
   );
@@ -115,7 +141,7 @@ export function LifetimePanel({
 
 // ──────────────────────────── Hero ────────────────────────────
 
-function Hero({ value, fresh }: { value: number; fresh: boolean }) {
+function Hero({ value }: { value: number }) {
   const display = useCountUpValue(value);
 
   return (
@@ -124,34 +150,34 @@ function Hero({ value, fresh }: { value: number; fresh: boolean }) {
         {/* Render order = z-order: blue (coldest, faintest) at the
             bottom, violet filling the middle, gold dominant on top. */}
         <AuroraBlob
-          w={220}
-          h={50}
+          w={250}
+          h={58}
           centerPct={0.4}
           color={BLUE}
           alpha={0.28}
+          blurPx={16}
           durationMs={13000}
           variant="drift"
-          fresh={fresh}
         />
         <AuroraBlob
-          w={280}
-          h={70}
+          w={320}
+          h={80}
           centerPct={0.52}
           color={VIOLET}
           alpha={0.45}
+          blurPx={20}
           durationMs={11000}
           variant="skew"
-          fresh={fresh}
         />
         <AuroraBlob
-          w={340}
-          h={90}
+          w={380}
+          h={104}
           centerPct={0.44}
           color={GOLD}
           alpha={0.55}
+          blurPx={18}
           durationMs={9000}
           variant="drift"
-          fresh={fresh}
         />
       </View>
 
@@ -176,12 +202,12 @@ function Hero({ value, fresh }: { value: number; fresh: boolean }) {
             // font-variant-numeric, but a fixed letterSpacing keeps the
             // count-up from jittering as digits change width.
             letterSpacing={-3}
-            fill={fresh ? coreText.tertiary : 'url(#heroGold)'}
+            fill="url(#heroGold)"
           >
             {display}
           </SvgText>
         </Svg>
-        <Text style={[styles.heroCaption, fresh && styles.heroCaptionFresh]}>
+        <Text style={styles.heroCaption}>
           {t('profile.stat_cravings_resisted')}
         </Text>
       </View>
@@ -190,10 +216,13 @@ function Hero({ value, fresh }: { value: number; fresh: boolean }) {
 }
 
 /**
- * One aurora blob: an SVG ellipse with a soft radial-gradient fill,
+ * One aurora blob: an SVG ellipse with a *multi-stop* radial-gradient
+ * fill (full → 0 across four stops, so the edge dissolves like a blur),
  * drifting on the X axis. `variant` picks the choreography — 'drift'
  * (translate + scaleX) for gold/blue, 'skew' (translate + skewX) for
- * the violet middle so the layers don't move in lockstep.
+ * the violet middle so the layers don't move in lockstep. On web an
+ * extra CSS blur is layered on for the full dreamy handoff look; native
+ * leans entirely on the gradient falloff.
  */
 function AuroraBlob({
   w,
@@ -201,25 +230,24 @@ function AuroraBlob({
   centerPct,
   color,
   alpha,
+  blurPx,
   durationMs,
   variant,
-  fresh,
 }: {
   w: number;
   h: number;
   centerPct: number;
   color: string;
   alpha: number;
+  blurPx: number;
   durationMs: number;
   variant: 'drift' | 'skew';
-  fresh: boolean;
 }) {
   const reduced = useReducedMotion();
-  const still = reduced || fresh;
   const p = useSharedValue(0);
 
   useEffect(() => {
-    if (still) {
+    if (reduced) {
       p.value = 0;
       return;
     }
@@ -231,7 +259,7 @@ function AuroraBlob({
       -1,
       true
     );
-  }, [p, still, durationMs]);
+  }, [p, reduced, durationMs]);
 
   const animStyle = useAnimatedStyle(() => {
     if (variant === 'skew') {
@@ -246,8 +274,6 @@ function AuroraBlob({
     return { transform: [{ translateX: tx }, { scaleX: sx }] };
   });
 
-  // Fresh drops every blob to a quarter of its alpha (design table).
-  const a = fresh ? alpha * 0.25 : alpha;
   const gradId = `blob${w}${Math.round(centerPct * 100)}`;
 
   return (
@@ -255,14 +281,19 @@ function AuroraBlob({
       style={[
         styles.blob,
         { top: centerPct * HERO_H - h / 2, height: h, marginLeft: -w / 2 },
+        // Web gets a real gaussian blur on top of the soft gradient;
+        // native ignores this key and relies on the multi-stop falloff.
+        Platform.select({ web: { filter: `blur(${blurPx}px)` }, default: {} }),
         animStyle,
       ]}
     >
       <Svg width={w} height={h}>
         <Defs>
           <RadialGradient id={gradId}>
-            <Stop offset="0" stopColor={color} stopOpacity={a} />
-            <Stop offset="0.7" stopColor={color} stopOpacity={0} />
+            <Stop offset="0" stopColor={color} stopOpacity={alpha} />
+            <Stop offset="0.32" stopColor={color} stopOpacity={alpha * 0.62} />
+            <Stop offset="0.58" stopColor={color} stopOpacity={alpha * 0.2} />
+            <Stop offset="0.78" stopColor={color} stopOpacity={0} />
           </RadialGradient>
         </Defs>
         <Ellipse
@@ -284,52 +315,42 @@ function Medallion({
   unit,
   label,
   delay,
-  fresh,
 }: {
   value: number;
   unit: string;
   label: string;
   delay: number;
-  fresh: boolean;
 }) {
   const reduced = useReducedMotion();
-  const entering =
-    reduced || fresh ? undefined : FadeInDown.delay(delay).duration(500);
-  const gradId = `med${label}`;
+  const entering = reduced ? undefined : FadeInDown.delay(delay).duration(500);
+  const baseId = `medBase${label}`;
+  const sheenId = `medSheen${label}`;
 
   return (
-    <Animated.View
-      entering={entering}
-      style={[styles.medallion, fresh && styles.medallionFresh]}
-    >
+    <Animated.View entering={entering} style={styles.medallion}>
+      {/* Two layers, never one: an OPAQUE domed-dark base, then an
+          additive gold sheen on top. A single translucent radial (the
+          old approach) let the panel bleed through and muddied to olive;
+          painting the sheen over solid dark can only add warmth. */}
       <Svg width={92} height={92} style={StyleSheet.absoluteFill}>
         <Defs>
-          {/* Gold is confined to a top-left highlight; the well goes
-              dark by half-radius so the medallion reads as a recessed
-              coin, not a solid olive disc. r=0.9 pushed the dark stop
-              past the rim and left the whole interior mid-transition. */}
-          <RadialGradient id={gradId} cx="0.34" cy="0.27" r="0.8">
-            <Stop
-              offset="0"
-              stopColor={GOLD}
-              stopOpacity={fresh ? 0.06 : 0.2}
-            />
-            <Stop offset="0.5" stopColor="#0a0e1a" stopOpacity={0.9} />
-            <Stop offset="1" stopColor="#0a0e1a" stopOpacity={0.97} />
+          <RadialGradient id={baseId} cx="0.5" cy="0.4" r="0.75">
+            <Stop offset="0" stopColor="#111a2e" stopOpacity={1} />
+            <Stop offset="1" stopColor="#070b16" stopOpacity={1} />
+          </RadialGradient>
+          <RadialGradient id={sheenId} cx="0.32" cy="0.26" r="0.62">
+            <Stop offset="0" stopColor={GOLD} stopOpacity={0.24} />
+            <Stop offset="0.55" stopColor={GOLD} stopOpacity={0.06} />
+            <Stop offset="1" stopColor={GOLD} stopOpacity={0} />
           </RadialGradient>
         </Defs>
-        <Ellipse cx={46} cy={46} rx={46} ry={46} fill={`url(#${gradId})`} />
+        <Ellipse cx={46} cy={46} rx={46} ry={46} fill={`url(#${baseId})`} />
+        <Ellipse cx={46} cy={46} rx={46} ry={46} fill={`url(#${sheenId})`} />
       </Svg>
 
       <View style={styles.medValueRow}>
-        <CountUp
-          target={value}
-          delay={delay}
-          style={[styles.medValue, fresh && styles.medValueFresh]}
-        />
-        <Text style={[styles.medUnit, fresh && styles.medUnitFresh]}>
-          {unit}
-        </Text>
+        <CountUp target={value} delay={delay} style={styles.medValue} />
+        <Text style={styles.medUnit}>{unit}</Text>
       </View>
       <Text style={styles.medLabel}>{label}</Text>
     </Animated.View>
@@ -404,7 +425,6 @@ const styles = StyleSheet.create({
 
   panel: {
     borderRadius: coreRadius.panel,
-    backgroundColor: 'rgba(19,29,50,0.85)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
     paddingHorizontal: 17,
@@ -443,9 +463,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginTop: 10,
   },
-  heroCaptionFresh: {
-    color: coreText.tertiary,
-  },
 
   // ── Medallions ──
   medallions: {
@@ -474,13 +491,6 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  medallionFresh: {
-    borderColor: gold(0.18),
-    ...Platform.select({
-      web: { boxShadow: 'none' },
-      default: { shadowOpacity: 0 },
-    }),
-  },
   medValueRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -493,16 +503,10 @@ const styles = StyleSheet.create({
     letterSpacing: -0.9,
     fontVariant: ['tabular-nums'],
   },
-  medValueFresh: {
-    color: coreText.tertiary,
-  },
   medUnit: {
     color: gold(0.85),
     fontSize: 12,
     fontWeight: '700',
-  },
-  medUnitFresh: {
-    color: coreText.tertiary,
   },
   medLabel: {
     color: coreText.tertiary,
@@ -511,7 +515,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.6,
   },
 
-  freshHint: {
+  emptyHint: {
     color: coreText.tertiary,
     fontSize: 11.5,
     fontWeight: '500',
