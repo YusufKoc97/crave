@@ -59,7 +59,7 @@ import {
  *      meta), and the play button + "N of M" position indicator.
  *
  * Tap on the card body OR on the play button both trigger
- * `onSelect(technique)` — the parent opens TechniqueRunnerModal
+ * `onSelect(technique)` — the parent opens ExerciseRunner
  * (karar #3A — no in-card playing state).
  */
 

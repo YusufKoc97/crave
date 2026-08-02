@@ -11,7 +11,7 @@ import { t } from '@/lib/i18n';
  * ToolkitGrid used on the Info Toolkit sub-tab. Opened from the
  * "Try a technique" button on the active-craving screen; picking
  * a card hands the Technique back to the caller (which then
- * mounts TechniqueRunnerModal with context='active_craving').
+ * mounts ExerciseRunner with context='active_craving').
  *
  * Rendered as an RN <Modal> rather than a Stack.Screen route so
  * the underlying timer keeps ticking behind it. The user can

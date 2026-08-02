@@ -33,7 +33,7 @@ import { useAddictionScores } from '@/context/AddictionScoresContext';
 import { IntensityModal } from '@/components/IntensityModal';
 import { TriggerCaptureModal } from '@/components/TriggerCaptureModal';
 import { ToolkitPickerModal } from '@/components/ToolkitPickerModal';
-import { TechniqueRunnerModal } from '@/components/TechniqueRunnerModal';
+import { ExerciseRunner } from '@/components/ExerciseRunner';
 import { PresenceIndicator } from '@/components/PresenceIndicator';
 import { AmbientGlow } from '@/components/ui/AmbientGlow';
 import { NeonFrame } from '@/components/ui/NeonFrame';
@@ -807,7 +807,7 @@ export default function ActiveSession() {
       {/* Faz 6 — guided-flow overlay. Runs on top of the timer;
           context = 'active_craving' so telemetry ties this
           technique_use back to the specific craving session. */}
-      <TechniqueRunnerModal
+      <ExerciseRunner
         technique={runningTechnique}
         accentColor={accentColor}
         context="active_craving"

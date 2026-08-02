@@ -21,7 +21,7 @@ import { useAddictions } from '@/context/AddictionsContext';
 import { useAddictionScores } from '@/context/AddictionScoresContext';
 import { JourneyBar } from '@/components/JourneyBar';
 import { ToolkitPane } from '@/components/toolkit/ToolkitPane';
-import { TechniqueRunnerModal } from '@/components/TechniqueRunnerModal';
+import { ExerciseRunner } from '@/components/ExerciseRunner';
 import { TriggersPane } from '@/components/triggerMap/TriggersPane';
 import { ComparisonPane } from '@/components/comparison/ComparisonPane';
 import { AmbientGlow } from '@/components/ui/AmbientGlow';
@@ -159,7 +159,7 @@ export default function AddictionLandingScreen() {
           via RN Modal so the tab bar stays reachable underneath
           for cancel-and-navigate flows. Info-tab context passes
           addictionId but no session_id. */}
-      <TechniqueRunnerModal
+      <ExerciseRunner
         technique={runningTechnique}
         accentColor={addiction.color}
         context="info_tab"

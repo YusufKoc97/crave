@@ -16,37 +16,40 @@ import {
 } from '@/constants/toolkitCatalog';
 import { useAuth } from '@/context/AuthContext';
 import { logTechniqueEnd, logTechniqueStart } from '@/lib/techniqueUses';
-import { hapticCommit } from '@/lib/haptics';
+import { hapticCelebrate, hapticCommit, hapticTap } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
-import { Breathing478Screen } from '@/components/technique/Breathing478Screen';
-import { UrgeSurfingScreen } from '@/components/technique/UrgeSurfingScreen';
-import { Grounding54321Screen } from '@/components/technique/Grounding54321Screen';
-import { BodyScanScreen } from '@/components/technique/BodyScanScreen';
+import { useReducedMotion } from '@/components/toolkit/useReducedMotion';
+import { SCENE_REGISTRY } from '@/components/technique/sceneRegistry';
+import type { SceneHaptics } from '@/components/technique/types';
 
 /**
- * Faz 6 — shared toolkit runner. One RN <Modal> that hosts every
- * technique's guided flow + the post-flow feedback pane, mounted
- * from either the Info Toolkit sub-tab (info_tab context) or the
- * active-session picker (active_craving context).
+ * Faz 6 / Toolkit foundation — the shared exercise runner. One RN
+ * <Modal> that hosts every exercise's guided "scene" + the post-flow
+ * feedback pane, mounted from either the Info Toolkit sub-tab
+ * (info_tab context) or the active-session picker (active_craving
+ * context).
+ *
+ * The scene itself is resolved from {@link SCENE_REGISTRY} by
+ * `technique.type` — the runner shell knows nothing about any specific
+ * exercise, so a new one plugs in as a catalog entry + a scene file +
+ * one registry line, with zero edits here.
  *
  * Two internal phases:
- *   1. 'guiding'  — the technique-specific screen runs.
- *   2. 'feedback' — a 4-emoji + Skip pane records how the user
- *                    felt about it.
+ *   1. 'guiding'  — the exercise-specific scene runs.
+ *   2. 'feedback' — a 4-emoji + Skip pane records how the user felt.
  *
  * The RN Modal (as opposed to a Stack.Screen route) is deliberate:
  * when launched from active-session it must NOT unmount the timer
- * screen underneath. Same pattern as RankUnlockModal /
- * IntensityModal / FailureConfirmModal.
+ * screen underneath. Same pattern as RankUnlockModal / IntensityModal
+ * / FailureConfirmModal.
  *
  * Lifecycle contract:
- *   - Fresh mount on every launch (`technique` prop transitions
- *     from null → Technique). No state bleed between invocations.
- *   - `AppState` foreground → in-place restart (see the effect
- *     below). Modal stays open; the guiding screen resets its own
- *     phase / timers.
- *   - Quit (×) or completion both funnel to the feedback pane.
- *     The DB `completed` flag records the distinction.
+ *   - Fresh mount on every launch (`technique` prop transitions from
+ *     null → Technique). No state bleed between invocations.
+ *   - `AppState` foreground → in-place restart (see the effect below).
+ *     Modal stays open; the scene resets its own phase / timers.
+ *   - Quit (×) or completion both funnel to the feedback pane. The DB
+ *     `completed` flag records the distinction.
  */
 
 type Props = {
@@ -64,7 +67,14 @@ type Props = {
 
 type Phase = 'guiding' | 'feedback';
 
-export function TechniqueRunnerModal({
+/** Stable haptic hooks handed to every scene (see {@link SceneHaptics}). */
+const SCENE_HAPTICS: SceneHaptics = {
+  tap: hapticTap,
+  commit: hapticCommit,
+  celebrate: hapticCelebrate,
+};
+
+export function ExerciseRunner({
   technique,
   accentColor,
   context,
@@ -81,8 +91,8 @@ export function TechniqueRunnerModal({
   // technique start. UPDATE on end targets this row.
   const useIdRef = useRef<string | null>(null);
   // Reset seed for the guiding phase — bumping this re-mounts the
-  // technique component (fresh state) when the user re-foregrounds
-  // the app mid-flow (Faz 6 karar #6).
+  // scene (fresh state) when the user re-foregrounds the app mid-flow
+  // (Faz 6 karar #6).
   const [resetSeed, setResetSeed] = useState(0);
 
   // Log start when the technique changes from null → set.
@@ -117,10 +127,10 @@ export function TechniqueRunnerModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [technique, user?.id, context, sessionId, addictionId]);
 
-  // AppState foreground → in-place restart of the guiding screen.
-  // Karar #6: modal stays open, technique starts from phase 0.
-  // Only fires while the guiding pane is on-screen — resetting a
-  // feedback pane would just undo the user's rating tap.
+  // AppState foreground → in-place restart of the guiding scene.
+  // Karar #6: modal stays open, scene starts from phase 0. Only fires
+  // while the guiding pane is on-screen — resetting a feedback pane
+  // would just undo the user's rating tap.
   useEffect(() => {
     if (!technique) return;
     const sub = AppState.addEventListener('change', (state) => {
@@ -137,9 +147,9 @@ export function TechniqueRunnerModal({
   }, []);
 
   const handleQuit = useCallback(() => {
-    // Quit (× tapped) — flow ends without full completion, but
-    // we still surface the feedback pane so we capture the
-    // subjective outcome even for partial attempts.
+    // Quit (× tapped) — flow ends without full completion, but we
+    // still surface the feedback pane so we capture the subjective
+    // outcome even for partial attempts.
     setCompletedFlag(false);
     setPhase('feedback');
   }, []);
@@ -148,8 +158,8 @@ export function TechniqueRunnerModal({
     (feedback: TechniqueFeedback | null) => {
       hapticCommit();
       if (useIdRef.current) {
-        // Fire-and-forget — we don't want to block the modal
-        // dismissal on telemetry.
+        // Fire-and-forget — we don't want to block the modal dismissal
+        // on telemetry.
         logTechniqueEnd({
           useId: useIdRef.current,
           completed: completedFlag,
@@ -202,10 +212,11 @@ export function TechniqueRunnerModal({
 }
 
 /**
- * Routes a technique to its matching guided screen. Every
- * sub-component receives an `onComplete` callback that fires the
- * moment the guided phase naturally finishes (last cycle / step /
- * region done). The runner then moves to the feedback pane.
+ * Resolves a technique to its scene via the registry and mounts it.
+ * Every scene receives an `onComplete` callback that fires the moment
+ * the guided phase naturally finishes; the runner then moves to the
+ * feedback pane. Haptics + reduced-motion are injected so new scenes
+ * have a single source for both.
  */
 function GuidingScreen({
   technique,
@@ -216,46 +227,19 @@ function GuidingScreen({
   accentColor: string;
   onComplete: () => void;
 }) {
-  switch (technique.type) {
-    case 'breathing':
-      return (
-        <Breathing478Screen
-          technique={technique}
-          accentColor={accentColor}
-          onComplete={onComplete}
-        />
-      );
-    case 'mindfulness':
-      return (
-        <UrgeSurfingScreen
-          technique={technique}
-          accentColor={accentColor}
-          onComplete={onComplete}
-        />
-      );
-    case 'grounding':
-      return (
-        <Grounding54321Screen
-          technique={technique}
-          accentColor={accentColor}
-          onComplete={onComplete}
-        />
-      );
-    case 'body_scan':
-      return (
-        <BodyScanScreen
-          technique={technique}
-          accentColor={accentColor}
-          onComplete={onComplete}
-        />
-      );
-    default: {
-      // Exhaustiveness guard — TS will flag any missing case.
-      const _exhaustive: never = technique.type;
-      void _exhaustive;
-      return null;
-    }
-  }
+  const reducedMotion = useReducedMotion();
+  const scene = SCENE_REGISTRY[technique.type];
+  if (!scene) return null;
+  const Scene = scene.component;
+  return (
+    <Scene
+      technique={technique}
+      accentColor={accentColor}
+      onComplete={onComplete}
+      haptics={SCENE_HAPTICS}
+      reducedMotion={reducedMotion}
+    />
+  );
 }
 
 function FeedbackPane({
