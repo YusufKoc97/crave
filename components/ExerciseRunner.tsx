@@ -8,8 +8,10 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSharedValue } from 'react-native-reanimated';
 import {
   FEEDBACK_OPTIONS,
+  techniqueName,
   type Technique,
   type TechniqueContext,
   type TechniqueFeedback,
@@ -17,9 +19,11 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { logTechniqueEnd, logTechniqueStart } from '@/lib/techniqueUses';
 import { hapticCelebrate, hapticCommit, hapticTap } from '@/lib/haptics';
+import { hexAlpha } from '@/constants/designSystem';
 import { t } from '@/lib/i18n';
 import { useReducedMotion } from '@/components/toolkit/useReducedMotion';
 import { SCENE_REGISTRY } from '@/components/technique/sceneRegistry';
+import { ExerciseAtmosphere } from '@/components/technique/ExerciseAtmosphere';
 import type { SceneHaptics } from '@/components/technique/types';
 
 /**
@@ -94,6 +98,18 @@ export function ExerciseRunner({
   // scene (fresh state) when the user re-foregrounds the app mid-flow
   // (Faz 6 karar #6).
   const [resetSeed, setResetSeed] = useState(0);
+  // 0..1 guided-phase progress a scene may report; drives the shell's
+  // focal-glow intensification. The four MVP scenes own their own
+  // timers and never report, so it stays 0 and the glow simply
+  // breathes at its ambient baseline.
+  const progress = useSharedValue(0);
+
+  const handleProgress = useCallback(
+    (fraction: number) => {
+      progress.value = Math.max(0, Math.min(1, fraction));
+    },
+    [progress]
+  );
 
   // Log start when the technique changes from null → set.
   useEffect(() => {
@@ -102,6 +118,7 @@ export function ExerciseRunner({
     setPhase('guiding');
     setCompletedFlag(false);
     setResetSeed(0);
+    progress.value = 0;
     useIdRef.current = null;
     if (!user) return;
     let cancelled = false;
@@ -182,9 +199,24 @@ export function ExerciseRunner({
       statusBarTranslucent
     >
       <View style={styles.root}>
+        {/* Atmospheric shell behind every phase (Direction 2). */}
+        <ExerciseAtmosphere accentColor={accentColor} progress={progress} />
+
         {phase === 'guiding' && (
           <>
             <View style={styles.header}>
+              <View style={styles.headerTitleWrap} pointerEvents="none">
+                <Text style={styles.headerEmoji}>{technique.emoji}</Text>
+                <Text
+                  style={[
+                    styles.headerTitle,
+                    { color: hexAlpha(accentColor, 0.9) },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {techniqueName(technique).toUpperCase()}
+                </Text>
+              </View>
               <Pressable
                 onPress={handleQuit}
                 hitSlop={10}
@@ -192,7 +224,7 @@ export function ExerciseRunner({
                 accessibilityRole="button"
                 accessibilityLabel={t('toolkit.quit')}
               >
-                <Ionicons name="close" size={22} color="#94A3B8" />
+                <Ionicons name="close" size={22} color="#cfe0f5" />
               </Pressable>
             </View>
             <GuidingScreen
@@ -200,6 +232,7 @@ export function ExerciseRunner({
               technique={technique}
               accentColor={accentColor}
               onComplete={handleGuidingComplete}
+              onProgress={handleProgress}
             />
           </>
         )}
@@ -222,10 +255,12 @@ function GuidingScreen({
   technique,
   accentColor,
   onComplete,
+  onProgress,
 }: {
   technique: Technique;
   accentColor: string;
   onComplete: () => void;
+  onProgress: (fraction: number) => void;
 }) {
   const reducedMotion = useReducedMotion();
   const scene = SCENE_REGISTRY[technique.type];
@@ -236,6 +271,7 @@ function GuidingScreen({
       technique={technique}
       accentColor={accentColor}
       onComplete={onComplete}
+      onProgress={onProgress}
       haptics={SCENE_HAPTICS}
       reducedMotion={reducedMotion}
     />
@@ -258,7 +294,10 @@ function FeedbackPane({
           <Pressable
             key={opt.id}
             onPress={() => onSelect(opt.id)}
-            style={styles.feedbackOption}
+            style={[
+              styles.feedbackOption,
+              { borderColor: hexAlpha(accentColor, 0.28) },
+            ]}
             accessibilityRole="button"
             accessibilityLabel={t(opt.labelKey)}
           >
@@ -286,24 +325,44 @@ function FeedbackPane({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#020810',
+    // Fallback under the atmospheric shell so there's never a flash of
+    // white on mount; the shell paints the real, layered background.
+    backgroundColor: '#02060e',
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingTop: 52,
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
+  headerTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerEmoji: {
+    fontSize: 15,
+    lineHeight: 18,
+  },
+  headerTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 2.4,
+  },
   closeBtn: {
+    position: 'absolute',
+    right: 16,
+    top: 48,
     width: 40,
     height: 40,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0A1628',
+    backgroundColor: 'rgba(10,22,40,0.55)',
     borderWidth: 1,
-    borderColor: '#1E2D4D',
+    borderColor: 'rgba(207,224,245,0.16)',
   },
   feedbackRoot: {
     flex: 1,
@@ -331,8 +390,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1E2D4D',
-    backgroundColor: '#0A1628',
+    // Translucent so the atmospheric shell reads through; the accent
+    // tint is layered on inline (per-addiction) in the JSX.
+    borderColor: 'rgba(207,224,245,0.1)',
+    backgroundColor: 'rgba(10,22,40,0.5)',
     alignItems: 'center',
     boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
   },
