@@ -5,6 +5,7 @@ import { Breathing478Screen } from './Breathing478Screen';
 import { UrgeSurfingScreen } from './UrgeSurfingScreen';
 import { Grounding54321Screen } from './Grounding54321Screen';
 import { BodyScanScreen } from './BodyScanScreen';
+import { RideTheWaveScreen } from './RideTheWaveScreen';
 
 /**
  * Scene registry — the single place the {@link ExerciseRunner} looks up
@@ -35,6 +36,9 @@ export const SCENE_REGISTRY: Record<TechniqueType, ExerciseScene> = {
   mindfulness: { component: UrgeSurfingScreen, ownsProgress: true },
   grounding: { component: Grounding54321Screen, ownsProgress: true },
   body_scan: { component: BodyScanScreen, ownsProgress: true },
+  // Draws its own progress (the wave + marker) and additionally reports
+  // onProgress to drive the shell's focal glow.
+  ride_the_wave: { component: RideTheWaveScreen, ownsProgress: true },
 };
 
 export function sceneFor(type: TechniqueType): ExerciseScene {

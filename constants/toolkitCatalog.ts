@@ -20,7 +20,8 @@ export type TechniqueType =
   | 'breathing'
   | 'mindfulness'
   | 'grounding'
-  | 'body_scan';
+  | 'body_scan'
+  | 'ride_the_wave';
 
 export type Technique = {
   id: string;
@@ -62,6 +63,15 @@ export const TOOLKIT_TECHNIQUES: readonly Technique[] = [
     durationSeconds: 360,
     emoji: '🧘',
     displayOrder: 4,
+  },
+  // 4 min urge-surfing wave — one craving rising, peaking (~80s), and
+  // fading. Nicotine-only pilot for now.
+  {
+    id: 'ride_the_wave',
+    type: 'ride_the_wave',
+    durationSeconds: 240,
+    emoji: '🏄',
+    displayOrder: 5,
   },
 ] as const;
 

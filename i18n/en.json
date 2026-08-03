@@ -437,6 +437,7 @@
     "type_mindfulness": "Mindfulness",
     "type_grounding": "Grounding",
     "type_body_scan": "Body scan",
+    "type_ride_the_wave": "Urge surfing",
     "meta": {
       "breathing_478": "4 cycles",
       "urge_surfing": "Ride it out",
@@ -477,6 +478,17 @@
         "name": "Body Scan",
         "short_description": "Find the tension",
         "long_description": "Slowly scan from head to feet. Notice where tension lives. Awareness without judgment."
+      },
+      "ride_the_wave": {
+        "name": "Ride the Wave",
+        "short_description": "Watch it rise and fall",
+        "long_description": "A craving is a single wave: it rises, peaks, then fades on its own if you don't act. Watch one wave pass and see for yourself that it's temporary.",
+        "wave_rising": "The urge is rising. Don't fight it — just watch.",
+        "wave_near_peak": "This is the hardest moment. It won't get worse than this.",
+        "wave_peak": "You're at the top. From here, it only fades.",
+        "wave_early_fade": "Feel it passing. The wave is losing its power.",
+        "wave_late_fade": "Almost gone. You didn't act on it.",
+        "wave_final": "You rode it out."
       }
     }
   },

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
+  Activity,
   Clock,
   Hand,
   Layers,
@@ -79,6 +80,7 @@ const TYPE_ICONS: Record<Technique['type'], ComponentType<LucideProps>> = {
   mindfulness: Waves,
   grounding: Hand,
   body_scan: PersonStanding,
+  ride_the_wave: Activity,
 };
 
 const TYPE_LABEL_KEYS: Record<Technique['type'], string> = {
@@ -86,6 +88,7 @@ const TYPE_LABEL_KEYS: Record<Technique['type'], string> = {
   mindfulness: 'toolkit.type_mindfulness',
   grounding: 'toolkit.type_grounding',
   body_scan: 'toolkit.type_body_scan',
+  ride_the_wave: 'toolkit.type_ride_the_wave',
 };
 
 export function TechniqueCard({

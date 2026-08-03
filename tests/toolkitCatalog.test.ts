@@ -12,8 +12,8 @@ import {
 } from '@/constants/toolkitCatalog';
 
 describe('TOOLKIT_TECHNIQUES', () => {
-  it('has exactly 4 techniques (Faz 6 MVP scope)', () => {
-    expect(TOOLKIT_TECHNIQUES.length).toBe(4);
+  it('has exactly 5 techniques (Faz 6 MVP + Ride the Wave)', () => {
+    expect(TOOLKIT_TECHNIQUES.length).toBe(5);
   });
 
   it('carries the canonical technique ids', () => {
@@ -22,6 +22,7 @@ describe('TOOLKIT_TECHNIQUES', () => {
       'urge_surfing',
       'grounding_54321',
       'body_scan',
+      'ride_the_wave',
     ]);
   });
 
@@ -49,14 +50,17 @@ describe('TOOLKIT_TECHNIQUES', () => {
     expect(getTechnique('grounding_54321')?.durationSeconds).toBe(180);
     // 6 min body scan (8 regions × 45s)
     expect(getTechnique('body_scan')?.durationSeconds).toBe(360);
+    // 4 min single-wave urge surfing
+    expect(getTechnique('ride_the_wave')?.durationSeconds).toBe(240);
   });
 
-  it('every technique type maps to one of the four handlers', () => {
+  it('every technique type maps to a registered scene handler', () => {
     const validTypes = new Set([
       'breathing',
       'mindfulness',
       'grounding',
       'body_scan',
+      'ride_the_wave',
     ]);
     for (const tech of TOOLKIT_TECHNIQUES) {
       expect(validTypes.has(tech.type)).toBe(true);
