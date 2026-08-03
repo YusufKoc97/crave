@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Svg, {
+  Circle,
   Defs,
+  Ellipse,
   G,
   LinearGradient,
   Path,
+  RadialGradient,
   Rect,
   Stop,
   ClipPath,
@@ -15,7 +18,6 @@ import Animated, {
   Extrapolation,
   FadeIn,
   interpolate,
-  interpolateColor,
   useAnimatedProps,
   useAnimatedStyle,
   useFrameCallback,
@@ -36,27 +38,30 @@ import type { SceneProps } from './types';
  * the peak and descend — proof, by the end, that the urge was
  * temporary and passed on its own.
  *
- * TEMPO is the point (not constant speed): the marker rises FAST,
- * lingers almost to a hold at the peak (you sit in the hardest
- * moment), then fades SLOWLY on the long tail. The geometry of the
- * curve is fixed (peak at ~1/3 of the width); only the *distribution
- * of time across it* is warped — see TAU/TV below.
+ * Depth by horizon: everything ABOVE the wave's surface line is sky
+ * (the shell's ExerciseAtmosphere — stars, nebula, glow); everything
+ * BELOW it is water — a semi-opaque body with its own gradient, an
+ * under-crest bloom, and slow drifting light. Because the water body
+ * occludes the atmosphere behind it, the two layers stop bleeding into
+ * each other (no muddy overlap) and the scene reads as sky-over-water
+ * with real depth instead of a flat curve on a glow.
  *
- * The whole curve is visible from the start (the descent is always in
- * view — that is the reassurance); the travelled portion lights up
- * behind the marker via an animated clip reveal.
+ * TEMPO is the point (not constant speed): the marker rises FAST,
+ * slows across the crest (you sit in the hardest moment — slowed, never
+ * frozen), then fades SLOWLY on the long tail. The geometry of the
+ * curve is fixed (peak at ~1/3 of the width); only the *distribution of
+ * time across it* is warped — see TAU/TV below.
  *
  * No breathing cues here — breathing is a separate toolkit exercise.
  *
  * Contract (see SceneProps): fires `onComplete` once at 240s of
- * *foreground* time, reports `onProgress(0..1)`, taps `haptics` at the
- * peak and at the closing line, honours `reducedMotion` (curve +
- * marker + warped speed + text always run; only the marker's
- * decorative halo pulse is dropped). The timeline is driven by a frame
- * callback, so it pauses when the app backgrounds and resumes exactly
- * where it left off — a brief glance away never loses progress. The
- * runner only remounts (a true reset) after a long absence; see
- * `foregroundGraceMs` on the registry entry.
+ * *foreground* time, reports `onProgress(0..1)` (the wave's intensity,
+ * so the shell's glow blooms toward the peak), taps `haptics` at the
+ * peak and the closing line, honours `reducedMotion` (curve + marker +
+ * warped speed + text + the marker's intensity glow always run; only
+ * the ambient drift/pulse loops are dropped). The timeline is driven by
+ * a frame callback, so it pauses when the app backgrounds and resumes
+ * exactly where it left off. See `foregroundGraceMs` on the registry.
  */
 
 const DURATION_MS = 240_000; // 4 minutes of foreground time, single wave
@@ -65,6 +70,7 @@ const END_LEVEL = 0.06; // where the tail settles (near baseline)
 const SAMPLES = 56;
 
 const DOT = 18;
+const HALO = 66; // soft radial glow box around the marker
 const H = 260;
 const BASELINE = 210;
 const TOP_MARGIN = 46;
@@ -72,13 +78,16 @@ const AMP = BASELINE - TOP_MARGIN; // 164
 const MARGIN_X = 24;
 
 // Time-warp: raw time τ (0..1) → curve position tv (0..1). Fast rise,
-// a near-hold across the peak, then a slow steady fade. Piecewise
-// linear over these keyframes.
-//   τ 0.00–0.18  → tv 0 → 0.333   fast climb to the peak (~43s)
-//   τ 0.18–0.40  → tv 0.333 → 0.40 the linger (barely moves ~53s)
-//   τ 0.40–1.00  → tv 0.40 → 1.0   the long slow fade (~144s)
-const TAU = [0, 0.09, 0.18, 0.3, 0.4, 1] as const;
-const TV = [0, 0.2, 0.333, 0.35, 0.4, 1] as const;
+// a real slow-down across the crest (but always moving — the old
+// near-hold read as a freeze), then a long steady fade. Piecewise
+// linear over these keyframes; the slowest segment (the crest linger)
+// is ~3.4× slower than the rise, not a stop.
+//   τ 0.00–0.14 → tv 0 → 0.30    fast climb to the crest (~34s)
+//   τ 0.14–0.30 → tv 0.30 → 0.40 the crest linger — slow, still drifting
+//   τ 0.30–0.55 → tv 0.40 → 0.60 gentle early fade
+//   τ 0.55–1.00 → tv 0.60 → 1.0  the long slow fade
+const TAU = [0, 0.14, 0.3, 0.55, 1] as const;
+const TV = [0, 0.3, 0.4, 0.6, 1] as const;
 
 // JS mirror of the worklet interpolate(raw, TAU, TV) so the phase /
 // haptic / progress logic reads the same curve position as the marker.
@@ -107,7 +116,7 @@ function intensity(f: number): number {
 
 // Phase-synced awareness lines, keyed on curve position tv (so they
 // track the marker, not raw time — the 'peak' line lingers through the
-// held peak). `until` is the upper tv bound.
+// slowed crest). `until` is the upper tv bound.
 const PHASES = [
   { key: 'wave_rising', until: 0.27 },
   { key: 'wave_near_peak', until: 0.31 },
@@ -125,6 +134,7 @@ function phaseIndexFor(tv: number): number {
 }
 
 const AnimatedRect = Animated.createAnimatedComponent(Rect);
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 export function RideTheWaveScreen({
   accentColor,
@@ -138,7 +148,8 @@ export function RideTheWaveScreen({
 
   // Sampled geometry — computed once per width. FRACS/YS feed the
   // marker's Y interpolation so the dot sits exactly on the drawn line.
-  const { lineD, areaD, FRACS, YS, INTENS } = useMemo(() => {
+  // crestX/crestY position the under-crest bloom.
+  const { lineD, areaD, FRACS, YS, INTENS, crestX, crestY } = useMemo(() => {
     const xs: number[] = [];
     const ys: number[] = [];
     const fr: number[] = [];
@@ -156,25 +167,31 @@ export function RideTheWaveScreen({
     let area = `M ${xs[0]} ${BASELINE} L ${xs[0]} ${ys[0]}`;
     for (let i = 1; i < SAMPLES; i++) area += ` L ${xs[i]} ${ys[i]}`;
     area += ` L ${xs[SAMPLES - 1]} ${BASELINE} Z`;
-    return { lineD: line, areaD: area, FRACS: fr, YS: ys, INTENS: ia };
+    return {
+      lineD: line,
+      areaD: area,
+      FRACS: fr,
+      YS: ys,
+      INTENS: ia,
+      crestX: MARGIN_X + PEAK_FRAC * plotW,
+      crestY: BASELINE - 0.72 * AMP,
+    };
   }, [plotW]);
-
-  // Soft light band that drifts back and forth across the water body —
-  // "light playing on the surface" (fix #3). Frozen under reduced
-  // motion (the band is simply not rendered).
-  const BAND = W * 0.42;
-  const sweep = useSharedValue(0);
 
   const [phaseIdx, setPhaseIdx] = useState(0);
 
   // Raw time base 0→1. Advanced by a frame callback so it accrues only
   // FOREGROUND frames — backgrounding pauses it, foreground resumes it
-  // exactly where it stopped (fix #4, the seamless-resume half). tv
-  // (curve position) is warped from this in the worklets below.
+  // exactly where it stopped. tv (curve position) is warped from this.
   const raw = useSharedValue(0);
-  // Decorative halo pulse around the marker — dropped under reduced
-  // motion.
-  const halo = useSharedValue(0);
+
+  // Ambient loops (calm tide): two soft light bodies drift over the
+  // water at different depths/speeds (parallax = "living water"); a
+  // slow surface breath brightens the crest rim. All dropped under
+  // reduced motion.
+  const drift1 = useSharedValue(0);
+  const drift2 = useSharedValue(0);
+  const breath = useSharedValue(0);
 
   const phaseRef = useRef(0);
   const completedRef = useRef(false);
@@ -194,8 +211,8 @@ export function RideTheWaveScreen({
       const tau = raw.value;
       const tv = warp(tau);
       // Report the wave's *intensity* (not raw time) so the shell's
-      // atmosphere blooms toward the peak and releases on the fade
-      // (fix #2) — peaks at tv≈1/3, settles near baseline by the end.
+      // atmosphere blooms toward the peak and releases on the fade —
+      // peaks at tv≈1/3, settles near baseline by the end.
       onProgress?.(intensity(tv));
 
       const pi = phaseIndexFor(tv);
@@ -219,41 +236,52 @@ export function RideTheWaveScreen({
 
   useEffect(() => {
     if (reducedMotion) {
-      halo.value = 0;
+      drift1.value = 0;
+      drift2.value = 0;
+      breath.value = 0;
       return;
     }
-    halo.value = withRepeat(
-      withTiming(1, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
+    drift1.value = withRepeat(
+      withTiming(1, { duration: 8200, easing: Easing.inOut(Easing.sin) }),
       -1,
       true
     );
-    return () => cancelAnimation(halo);
-  }, [reducedMotion, halo]);
-
-  useEffect(() => {
-    if (reducedMotion) {
-      sweep.value = 0;
-      return;
-    }
-    // Slow back-and-forth so the light slooshes gently rather than
-    // wiping — reads as a calm tide.
-    sweep.value = withRepeat(
-      withTiming(1, { duration: 5200, easing: Easing.inOut(Easing.sin) }),
+    drift2.value = withRepeat(
+      withTiming(1, { duration: 11600, easing: Easing.inOut(Easing.sin) }),
       -1,
       true
     );
-    return () => cancelAnimation(sweep);
-  }, [reducedMotion, sweep]);
+    breath.value = withRepeat(
+      withTiming(1, { duration: 4200, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+    return () => {
+      cancelAnimation(drift1);
+      cancelAnimation(drift2);
+      cancelAnimation(breath);
+    };
+  }, [reducedMotion, drift1, drift2, breath]);
 
-  // Reveal the bright travelled curve up to the marker's warped X.
+  // Reveal the bright travelled water up to the marker's warped X.
   const revealProps = useAnimatedProps(() => {
     const tv = interpolate(raw.value, TAU, TV, Extrapolation.CLAMP);
     return { width: MARGIN_X + tv * plotW };
   });
 
-  // Drift the shimmer band across the water body.
-  const shimmerProps = useAnimatedProps(() => ({
-    x: -BAND + sweep.value * (W + BAND),
+  // Two drifting light bodies over the water (clipped to the area),
+  // moving in opposite directions at different speeds = parallax.
+  const GLOW_W = W * 0.66;
+  const drift1Props = useAnimatedProps(() => ({
+    x: -GLOW_W * 0.5 + drift1.value * (W - GLOW_W * 0.2),
+  }));
+  const drift2Props = useAnimatedProps(() => ({
+    x: W - GLOW_W * 0.8 - drift2.value * (W - GLOW_W * 0.2),
+  }));
+
+  // Gentle surface breath on the crest rim highlight.
+  const rimProps = useAnimatedProps(() => ({
+    strokeOpacity: 0.5 + breath.value * 0.28,
   }));
 
   const markerStyle = useAnimatedStyle(() => {
@@ -265,19 +293,27 @@ export function RideTheWaveScreen({
     };
   });
 
-  // Marker charge (fix #2): the halo swells and warms toward the peak
-  // and cools on the fade, driven by the wave's intensity at the
-  // marker (iv). This is emotional signal, not decoration, so it keeps
-  // running under reduced motion — only the additive `halo` pulse is
-  // gated (halo stays 0 when reduced).
+  // Marker glow (accent) — a soft radial that swells with the wave's
+  // intensity at the marker (iv) and pulses gently with the breath.
+  // Emotional signal, so the intensity swell keeps running under reduced
+  // motion; only the breath pulse is gated (breath stays 0).
   const haloStyle = useAnimatedStyle(() => {
     const tv = interpolate(raw.value, TAU, TV, Extrapolation.CLAMP);
     const iv = interpolate(tv, FRACS, INTENS, Extrapolation.CLAMP);
-    const color = interpolateColor(iv, [0, 1], [accentColor, '#ffe0bd']);
     return {
-      backgroundColor: color,
-      opacity: 0.2 + iv * 0.32 - halo.value * 0.06,
-      transform: [{ scale: 1 + iv * 0.9 + halo.value * 0.3 }],
+      opacity: 0.32 + iv * 0.26 + breath.value * 0.1,
+      transform: [{ scale: 0.72 + iv * 0.5 + breath.value * 0.08 }],
+    };
+  });
+
+  // Warm overlay glow — invisible at baseline, blooms only near the
+  // crest so the hardest moment reads warm/charged, then cools.
+  const haloWarmStyle = useAnimatedStyle(() => {
+    const tv = interpolate(raw.value, TAU, TV, Extrapolation.CLAMP);
+    const iv = interpolate(tv, FRACS, INTENS, Extrapolation.CLAMP);
+    return {
+      opacity: Math.max(0, iv - 0.35) * 0.7,
+      transform: [{ scale: 0.8 + iv * 0.55 }],
     };
   });
 
@@ -298,19 +334,26 @@ export function RideTheWaveScreen({
       <View style={{ width: W, height: H }}>
         <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
           <Defs>
-            <LinearGradient id="rtwDim" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={accentColor} stopOpacity={0.16} />
-              <Stop offset="1" stopColor={accentColor} stopOpacity={0.02} />
-            </LinearGradient>
-            <LinearGradient id="rtwBright" x1="0" y1="0" x2="0" y2="1">
+            {/* Water body: accent-tinted surface fading into a deep
+                navy floor. The opaque floor is what occludes the sky
+                glow behind, giving the horizon separation. */}
+            <LinearGradient id="rtwWater" x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0" stopColor={accentColor} stopOpacity={0.5} />
-              <Stop offset="1" stopColor={accentColor} stopOpacity={0.06} />
+              <Stop offset="0.4" stopColor={accentColor} stopOpacity={0.34} />
+              <Stop offset="1" stopColor="#0a1524" stopOpacity={0.94} />
             </LinearGradient>
-            <LinearGradient id="rtwShimmer" x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0" stopColor="#eaf2ff" stopOpacity={0} />
-              <Stop offset="0.5" stopColor="#eaf2ff" stopOpacity={0.12} />
+            {/* Luminous depth under the crest. */}
+            <RadialGradient id="rtwBloom" cx="0.5" cy="0.5" r="0.5">
+              <Stop offset="0" stopColor={accentColor} stopOpacity={0.42} />
+              <Stop offset="0.6" stopColor={accentColor} stopOpacity={0.12} />
+              <Stop offset="1" stopColor={accentColor} stopOpacity={0} />
+            </RadialGradient>
+            {/* Soft drifting light on the surface. */}
+            <RadialGradient id="rtwGlow" cx="0.5" cy="0.5" r="0.5">
+              <Stop offset="0" stopColor="#eaf2ff" stopOpacity={0.22} />
+              <Stop offset="0.6" stopColor="#eaf2ff" stopOpacity={0.08} />
               <Stop offset="1" stopColor="#eaf2ff" stopOpacity={0} />
-            </LinearGradient>
+            </RadialGradient>
             <ClipPath id="rtwReveal">
               <AnimatedRect
                 x={0}
@@ -327,54 +370,74 @@ export function RideTheWaveScreen({
           {/* Baseline hairline — the "calm" the wave returns to. */}
           <Path
             d={`M ${MARGIN_X} ${BASELINE} L ${W - MARGIN_X} ${BASELINE}`}
-            stroke={hexAlpha('#8aa0c0', 0.25)}
+            stroke={hexAlpha('#8aa0c0', 0.22)}
             strokeWidth={1}
           />
 
-          {/* Whole wave, dim — the descent is always in view. */}
-          <Path d={areaD} fill="url(#rtwDim)" />
+          {/* Water body — the whole wave, always in view (the descent
+              is the reassurance). Occludes the sky behind it. */}
+          <Path d={areaD} fill="url(#rtwWater)" />
+
+          {/* Everything that lives inside the water, clipped to it. */}
+          <G clipPath="url(#rtwArea)">
+            {/* Under-crest luminous bloom. */}
+            <Ellipse
+              cx={crestX}
+              cy={crestY}
+              rx={plotW * 0.26}
+              ry={72}
+              fill="url(#rtwBloom)"
+            />
+            {/* Drifting surface light — the calm-tide motion. */}
+            {!reducedMotion ? (
+              <>
+                <AnimatedRect
+                  y={BASELINE - AMP * 0.9}
+                  width={GLOW_W}
+                  height={150}
+                  fill="url(#rtwGlow)"
+                  animatedProps={drift1Props}
+                />
+                <AnimatedRect
+                  y={BASELINE - AMP * 0.5}
+                  width={GLOW_W}
+                  height={120}
+                  fill="url(#rtwGlow)"
+                  animatedProps={drift2Props}
+                />
+              </>
+            ) : null}
+          </G>
+
+          {/* Dim surface line over the untravelled water. */}
           <Path
             d={lineD}
             stroke={accentColor}
-            strokeOpacity={0.35}
+            strokeOpacity={0.32}
             strokeWidth={2}
             fill="none"
           />
 
-          {/* Travelled portion, bright — revealed up to the marker.
-              A wide soft under-stroke turns the travelled line into a
-              glowing trail (fix #3). */}
+          {/* Travelled portion — brighter water + a glowing rim that
+              breathes. Revealed up to the marker. */}
           <G clipPath="url(#rtwReveal)">
-            <Path d={areaD} fill="url(#rtwBright)" />
+            {/* wide soft under-stroke = trail glow */}
             <Path
               d={lineD}
               stroke={accentColor}
-              strokeOpacity={0.18}
-              strokeWidth={9}
+              strokeOpacity={0.16}
+              strokeWidth={10}
               fill="none"
             />
-            <Path
+            {/* bright surface rim, breathing */}
+            <AnimatedPath
               d={lineD}
-              stroke={accentColor}
-              strokeOpacity={0.95}
-              strokeWidth={3}
+              stroke="#eaf2ff"
+              strokeWidth={2.5}
               fill="none"
+              animatedProps={rimProps}
             />
           </G>
-
-          {/* Living surface: a soft light band drifting over the water
-              body. Decorative — dropped entirely under reduced motion. */}
-          {!reducedMotion ? (
-            <G clipPath="url(#rtwArea)">
-              <AnimatedRect
-                y={0}
-                width={BAND}
-                height={H}
-                fill="url(#rtwShimmer)"
-                animatedProps={shimmerProps}
-              />
-            </G>
-          ) : null}
         </Svg>
 
         {/* Marker — "you are here" on the curve. */}
@@ -382,7 +445,44 @@ export function RideTheWaveScreen({
           style={[styles.marker, markerStyle]}
           pointerEvents="none"
         >
-          <Animated.View style={[styles.halo, haloStyle]} />
+          <Animated.View style={[styles.haloBox, haloStyle]}>
+            <Svg width={HALO} height={HALO}>
+              <Defs>
+                <RadialGradient id="rtwHalo" cx="0.5" cy="0.5" r="0.5">
+                  <Stop offset="0" stopColor={accentColor} stopOpacity={0.6} />
+                  <Stop
+                    offset="0.45"
+                    stopColor={accentColor}
+                    stopOpacity={0.22}
+                  />
+                  <Stop offset="1" stopColor={accentColor} stopOpacity={0} />
+                </RadialGradient>
+              </Defs>
+              <Circle
+                cx={HALO / 2}
+                cy={HALO / 2}
+                r={HALO / 2}
+                fill="url(#rtwHalo)"
+              />
+            </Svg>
+          </Animated.View>
+          <Animated.View style={[styles.haloBox, haloWarmStyle]}>
+            <Svg width={HALO} height={HALO}>
+              <Defs>
+                <RadialGradient id="rtwHaloWarm" cx="0.5" cy="0.5" r="0.5">
+                  <Stop offset="0" stopColor="#ffe0bd" stopOpacity={0.7} />
+                  <Stop offset="0.5" stopColor="#ffcf9e" stopOpacity={0.2} />
+                  <Stop offset="1" stopColor="#ffcf9e" stopOpacity={0} />
+                </RadialGradient>
+              </Defs>
+              <Circle
+                cx={HALO / 2}
+                cy={HALO / 2}
+                r={HALO / 2}
+                fill="url(#rtwHaloWarm)"
+              />
+            </Svg>
+          </Animated.View>
           <View
             style={[
               styles.dot,
@@ -436,11 +536,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  halo: {
+  haloBox: {
     position: 'absolute',
-    width: DOT * 2.2,
-    height: DOT * 2.2,
-    borderRadius: DOT * 1.1,
+    width: HALO,
+    height: HALO,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dot: {
     width: DOT,
