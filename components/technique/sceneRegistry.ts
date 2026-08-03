@@ -23,6 +23,15 @@ export type ExerciseScene = {
    * shell's generic progress affordance and should report `onProgress`.
    */
   ownsProgress?: boolean;
+  /**
+   * Grace window (ms) before a foreground event triggers a full
+   * restart. Default `0` = the foundation's behaviour: any
+   * background→foreground remounts the scene from zero. A scene that
+   * can meaningfully resume mid-flow (e.g. Ride the Wave's timeline)
+   * sets a short window so a brief glance away resumes instead of
+   * resetting; only an absence longer than this restarts.
+   */
+  foregroundGraceMs?: number;
 };
 
 /**
@@ -37,8 +46,13 @@ export const SCENE_REGISTRY: Record<TechniqueType, ExerciseScene> = {
   grounding: { component: Grounding54321Screen, ownsProgress: true },
   body_scan: { component: BodyScanScreen, ownsProgress: true },
   // Draws its own progress (the wave + marker) and additionally reports
-  // onProgress to drive the shell's focal glow.
-  ride_the_wave: { component: RideTheWaveScreen, ownsProgress: true },
+  // onProgress to drive the shell's focal glow. A 12s grace window lets
+  // a brief glance away resume the wave instead of restarting it.
+  ride_the_wave: {
+    component: RideTheWaveScreen,
+    ownsProgress: true,
+    foregroundGraceMs: 12_000,
+  },
 };
 
 export function sceneFor(type: TechniqueType): ExerciseScene {

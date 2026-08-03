@@ -103,6 +103,9 @@ export function ExerciseRunner({
   // timers and never report, so it stays 0 and the glow simply
   // breathes at its ambient baseline.
   const progress = useSharedValue(0);
+  // Wall-clock at which the app last went to background/inactive while
+  // a scene was guiding — drives the foreground-restart grace (fix #4).
+  const backgroundedAtRef = useRef<number | null>(null);
 
   const handleProgress = useCallback(
     (fraction: number) => {
@@ -144,15 +147,32 @@ export function ExerciseRunner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [technique, user?.id, context, sessionId, addictionId]);
 
-  // AppState foreground → in-place restart of the guiding scene.
-  // Karar #6: modal stays open, scene starts from phase 0. Only fires
-  // while the guiding pane is on-screen — resetting a feedback pane
-  // would just undo the user's rating tap.
+  // AppState foreground → in-place restart of the guiding scene, but
+  // only after a real absence. Karar #6 restarted on ANY foreground;
+  // fix #4 adds a per-scene grace window (registry `foregroundGraceMs`,
+  // default 0). A scene with grace resumes seamlessly after a brief
+  // glance away and only restarts once the app was away longer than its
+  // window. The four MVP scenes keep grace 0 → unchanged (any
+  // background→foreground still restarts them). A tap never changes
+  // AppState, so it never resets anything. Only fires while guiding —
+  // resetting a feedback pane would undo the user's rating tap.
   useEffect(() => {
     if (!technique) return;
+    const grace = SCENE_REGISTRY[technique.type]?.foregroundGraceMs ?? 0;
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && phase === 'guiding') {
-        setResetSeed((s) => s + 1);
+      if (state === 'active') {
+        if (phase === 'guiding') {
+          const awayMs =
+            backgroundedAtRef.current != null
+              ? Date.now() - backgroundedAtRef.current
+              : 0;
+          if (awayMs > grace) setResetSeed((s) => s + 1);
+        }
+        backgroundedAtRef.current = null;
+      } else if (state === 'background' || state === 'inactive') {
+        if (backgroundedAtRef.current == null) {
+          backgroundedAtRef.current = Date.now();
+        }
       }
     });
     return () => sub.remove();

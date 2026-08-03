@@ -17,6 +17,7 @@ import Animated, {
   interpolate,
   useAnimatedProps,
   useAnimatedStyle,
+  useFrameCallback,
   useSharedValue,
   withRepeat,
   withTiming,
@@ -28,28 +29,37 @@ import type { SceneProps } from './types';
 /**
  * Ride the Wave — urge surfing, visualized.
  *
- * A craving is drawn as one wave: it rises from baseline, peaks around
- * a third of the way in (the hardest moment), then fades on a long,
- * gradual tail back toward baseline. A marker rides the curve so the
- * user literally sees themselves climb the peak and descend — proof,
- * by the end, that the urge was temporary and passed on its own.
+ * A craving is drawn as one wave: it rises from baseline, peaks (the
+ * hardest moment), then fades on a long tail back toward baseline. A
+ * marker rides the curve so the user literally sees themselves climb
+ * the peak and descend — proof, by the end, that the urge was
+ * temporary and passed on its own.
+ *
+ * TEMPO is the point (not constant speed): the marker rises FAST,
+ * lingers almost to a hold at the peak (you sit in the hardest
+ * moment), then fades SLOWLY on the long tail. The geometry of the
+ * curve is fixed (peak at ~1/3 of the width); only the *distribution
+ * of time across it* is warped — see TAU/TV below.
  *
  * The whole curve is visible from the start (the descent is always in
- * view — that is the reassurance), and the portion already travelled
- * lights up behind the marker via an animated clip reveal.
+ * view — that is the reassurance); the travelled portion lights up
+ * behind the marker via an animated clip reveal.
  *
  * No breathing cues here — breathing is a separate toolkit exercise.
  *
- * Contract (see SceneProps): fires `onComplete` once at 240s, reports
- * `onProgress(0..1)` so the shell's focal glow intensifies toward the
- * end, taps `haptics` at the peak and at the closing line, and honours
- * `reducedMotion` (curve + marker + text always run; only the marker's
- * decorative halo pulse is dropped). Cleans up its timer/animation on
- * unmount; the shell restarts it from zero on foreground via a remount.
+ * Contract (see SceneProps): fires `onComplete` once at 240s of
+ * *foreground* time, reports `onProgress(0..1)`, taps `haptics` at the
+ * peak and at the closing line, honours `reducedMotion` (curve +
+ * marker + warped speed + text always run; only the marker's
+ * decorative halo pulse is dropped). The timeline is driven by a frame
+ * callback, so it pauses when the app backgrounds and resumes exactly
+ * where it left off — a brief glance away never loses progress. The
+ * runner only remounts (a true reset) after a long absence; see
+ * `foregroundGraceMs` on the registry entry.
  */
 
-const DURATION_MS = 240_000; // 4 minutes, single wave
-const PEAK_FRAC = 1 / 3; // ~80s in
+const DURATION_MS = 240_000; // 4 minutes of foreground time, single wave
+const PEAK_FRAC = 1 / 3; // peak at 1/3 of the curve width
 const END_LEVEL = 0.06; // where the tail settles (near baseline)
 const SAMPLES = 56;
 
@@ -60,9 +70,30 @@ const TOP_MARGIN = 46;
 const AMP = BASELINE - TOP_MARGIN; // 164
 const MARGIN_X = 24;
 
+// Time-warp: raw time τ (0..1) → curve position tv (0..1). Fast rise,
+// a near-hold across the peak, then a slow steady fade. Piecewise
+// linear over these keyframes.
+//   τ 0.00–0.18  → tv 0 → 0.333   fast climb to the peak (~43s)
+//   τ 0.18–0.40  → tv 0.333 → 0.40 the linger (barely moves ~53s)
+//   τ 0.40–1.00  → tv 0.40 → 1.0   the long slow fade (~144s)
+const TAU = [0, 0.09, 0.18, 0.3, 0.4, 1] as const;
+const TV = [0, 0.2, 0.333, 0.35, 0.4, 1] as const;
+
+// JS mirror of the worklet interpolate(raw, TAU, TV) so the phase /
+// haptic / progress logic reads the same curve position as the marker.
+function warp(tau: number): number {
+  const c = Math.max(0, Math.min(1, tau));
+  for (let i = 1; i < TAU.length; i++) {
+    if (c <= TAU[i]) {
+      const s = (c - TAU[i - 1]) / (TAU[i] - TAU[i - 1]);
+      return TV[i - 1] + s * (TV[i] - TV[i - 1]);
+    }
+  }
+  return 1;
+}
+
 // Intensity a(f) ∈ [0,1]: 0 = baseline (calm), 1 = peak. Fast smooth
-// rise, then a long gradual decay — mirrors a real craving's fast
-// onset and slow fade.
+// rise, then a long gradual decay.
 function smootherstep(x: number): number {
   const c = Math.max(0, Math.min(1, x));
   return c * c * c * (c * (c * 6 - 15) + 10);
@@ -73,7 +104,9 @@ function intensity(f: number): number {
   return END_LEVEL + (1 - END_LEVEL) * Math.pow(1 - v, 1.5);
 }
 
-// Phase-synced awareness lines. `until` is the upper fraction bound.
+// Phase-synced awareness lines, keyed on curve position tv (so they
+// track the marker, not raw time — the 'peak' line lingers through the
+// held peak). `until` is the upper tv bound.
 const PHASES = [
   { key: 'wave_rising', until: 0.27 },
   { key: 'wave_near_peak', until: 0.31 },
@@ -82,11 +115,11 @@ const PHASES = [
   { key: 'wave_late_fade', until: 0.9 },
   { key: 'wave_final', until: 1.01 },
 ] as const;
-const PEAK_PHASE = 2; // 'wave_peak' — haptic + glow crest
+const PEAK_PHASE = 2; // 'wave_peak' — haptic
 const FINAL_PHASE = 5; // 'wave_final' — closing haptic
 
-function phaseIndexFor(f: number): number {
-  for (let i = 0; i < PHASES.length; i++) if (f < PHASES[i].until) return i;
+function phaseIndexFor(tv: number): number {
+  for (let i = 0; i < PHASES.length; i++) if (tv < PHASES[i].until) return i;
   return PHASES.length - 1;
 }
 
@@ -102,7 +135,7 @@ export function RideTheWaveScreen({
   const { width: W } = useWindowDimensions();
   const plotW = W - MARGIN_X * 2;
 
-  // Sampled geometry — computed once per width. FRACS/YS also feed the
+  // Sampled geometry — computed once per width. FRACS/YS feed the
   // marker's Y interpolation so the dot sits exactly on the drawn line.
   const { lineD, areaD, FRACS, YS } = useMemo(() => {
     const xs: number[] = [];
@@ -124,9 +157,11 @@ export function RideTheWaveScreen({
 
   const [phaseIdx, setPhaseIdx] = useState(0);
 
-  // Marker driver: 0→1 over the session. Runs even under reduced
-  // motion — the marker travelling IS the exercise, not decoration.
-  const tv = useSharedValue(0);
+  // Raw time base 0→1. Advanced by a frame callback so it accrues only
+  // FOREGROUND frames — backgrounding pauses it, foreground resumes it
+  // exactly where it stopped (fix #4, the seamless-resume half). tv
+  // (curve position) is warped from this in the worklets below.
+  const raw = useSharedValue(0);
   // Decorative halo pulse around the marker — dropped under reduced
   // motion.
   const halo = useSharedValue(0);
@@ -134,36 +169,38 @@ export function RideTheWaveScreen({
   const phaseRef = useRef(0);
   const completedRef = useRef(false);
 
+  useFrameCallback((frame) => {
+    'worklet';
+    if (raw.value >= 1) return;
+    const dt = frame.timeSincePreviousFrame ?? 16;
+    raw.value = Math.min(1, raw.value + dt / DURATION_MS);
+  });
+
+  // JS side — reads the (foreground-only) raw value each tick and syncs
+  // the awareness line, haptics, progress report and completion to the
+  // marker's curve position.
   useEffect(() => {
-    tv.value = withTiming(1, { duration: DURATION_MS, easing: Easing.linear });
-
-    const start = performance.now();
     const id = setInterval(() => {
-      const f = Math.min(1, (performance.now() - start) / DURATION_MS);
-      onProgress?.(f);
+      const tau = raw.value;
+      const tv = warp(tau);
+      onProgress?.(tau);
 
-      const pi = phaseIndexFor(f);
+      const pi = phaseIndexFor(tv);
       if (pi !== phaseRef.current) {
         phaseRef.current = pi;
         setPhaseIdx(pi);
-        // Gentle tap at the peak (you made it to the top) and at the
-        // closing line (you rode it out).
         if (pi === PEAK_PHASE || pi === FINAL_PHASE) haptics?.tap();
       }
 
-      if (f >= 1 && !completedRef.current) {
+      if (tau >= 1 && !completedRef.current) {
         completedRef.current = true;
         clearInterval(id);
         onComplete();
       }
-    }, 200);
-
-    return () => {
-      clearInterval(id);
-      cancelAnimation(tv);
-    };
-    // Mount-once: props are stable for a given launch; the shell remounts
-    // this component (fresh key) to restart, so we never re-run here.
+    }, 150);
+    return () => clearInterval(id);
+    // Mount-once; props are stable for a given launch and the shell
+    // remounts (fresh key) to restart after a long absence.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -180,15 +217,16 @@ export function RideTheWaveScreen({
     return () => cancelAnimation(halo);
   }, [reducedMotion, halo]);
 
-  // Clip that reveals the "already travelled" bright curve up to the
-  // marker's X — grows on the UI thread, no per-frame path rebuild.
-  const revealProps = useAnimatedProps(() => ({
-    width: MARGIN_X + tv.value * plotW,
-  }));
+  // Reveal the bright travelled curve up to the marker's warped X.
+  const revealProps = useAnimatedProps(() => {
+    const tv = interpolate(raw.value, TAU, TV, Extrapolation.CLAMP);
+    return { width: MARGIN_X + tv * plotW };
+  });
 
   const markerStyle = useAnimatedStyle(() => {
-    const mx = MARGIN_X + tv.value * plotW;
-    const my = interpolate(tv.value, FRACS, YS, Extrapolation.CLAMP);
+    const tv = interpolate(raw.value, TAU, TV, Extrapolation.CLAMP);
+    const mx = MARGIN_X + tv * plotW;
+    const my = interpolate(tv, FRACS, YS, Extrapolation.CLAMP);
     return {
       transform: [{ translateX: mx - DOT / 2 }, { translateY: my - DOT / 2 }],
     };
