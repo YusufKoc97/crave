@@ -105,10 +105,14 @@ export function ExerciseAtmosphere({
 
   // Nebula: gentle scale + opacity swell.
   const nebulaStyle = useAnimatedStyle(() => {
-    const s = 1 + breath.value * 0.06;
+    // Additive progress bloom: p=0 leaves the resting baseline exactly
+    // as it was (so scenes that never report progress are unchanged);
+    // a scene reporting intensity tightens the whole nebula toward its
+    // peak and releases it on the fade.
+    const p = progress?.value ?? 0;
     return {
-      opacity: 0.85 + breath.value * 0.15,
-      transform: [{ scale: s }],
+      opacity: 0.85 + breath.value * 0.15 + p * 0.13,
+      transform: [{ scale: 1 + breath.value * 0.06 + p * 0.1 }],
     };
   });
 
@@ -119,8 +123,8 @@ export function ExerciseAtmosphere({
     const p = progress?.value ?? 0;
     const base = 0.4 + breath.value * 0.12;
     return {
-      opacity: base + p * 0.4,
-      transform: [{ scale: 0.9 + breath.value * 0.06 + p * 0.35 }],
+      opacity: base + p * 0.5,
+      transform: [{ scale: 0.9 + breath.value * 0.06 + p * 0.45 }],
     };
   });
 

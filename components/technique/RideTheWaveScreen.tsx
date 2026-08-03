@@ -15,6 +15,7 @@ import Animated, {
   Extrapolation,
   FadeIn,
   interpolate,
+  interpolateColor,
   useAnimatedProps,
   useAnimatedStyle,
   useFrameCallback,
@@ -137,23 +138,32 @@ export function RideTheWaveScreen({
 
   // Sampled geometry — computed once per width. FRACS/YS feed the
   // marker's Y interpolation so the dot sits exactly on the drawn line.
-  const { lineD, areaD, FRACS, YS } = useMemo(() => {
+  const { lineD, areaD, FRACS, YS, INTENS } = useMemo(() => {
     const xs: number[] = [];
     const ys: number[] = [];
     const fr: number[] = [];
+    const ia: number[] = [];
     for (let i = 0; i < SAMPLES; i++) {
       const f = i / (SAMPLES - 1);
+      const a = intensity(f);
       fr.push(f);
+      ia.push(a);
       xs.push(MARGIN_X + f * plotW);
-      ys.push(BASELINE - intensity(f) * AMP);
+      ys.push(BASELINE - a * AMP);
     }
     let line = `M ${xs[0]} ${ys[0]}`;
     for (let i = 1; i < SAMPLES; i++) line += ` L ${xs[i]} ${ys[i]}`;
     let area = `M ${xs[0]} ${BASELINE} L ${xs[0]} ${ys[0]}`;
     for (let i = 1; i < SAMPLES; i++) area += ` L ${xs[i]} ${ys[i]}`;
     area += ` L ${xs[SAMPLES - 1]} ${BASELINE} Z`;
-    return { lineD: line, areaD: area, FRACS: fr, YS: ys };
+    return { lineD: line, areaD: area, FRACS: fr, YS: ys, INTENS: ia };
   }, [plotW]);
+
+  // Soft light band that drifts back and forth across the water body —
+  // "light playing on the surface" (fix #3). Frozen under reduced
+  // motion (the band is simply not rendered).
+  const BAND = W * 0.42;
+  const sweep = useSharedValue(0);
 
   const [phaseIdx, setPhaseIdx] = useState(0);
 
@@ -183,7 +193,10 @@ export function RideTheWaveScreen({
     const id = setInterval(() => {
       const tau = raw.value;
       const tv = warp(tau);
-      onProgress?.(tau);
+      // Report the wave's *intensity* (not raw time) so the shell's
+      // atmosphere blooms toward the peak and releases on the fade
+      // (fix #2) — peaks at tv≈1/3, settles near baseline by the end.
+      onProgress?.(intensity(tv));
 
       const pi = phaseIndexFor(tv);
       if (pi !== phaseRef.current) {
@@ -217,11 +230,31 @@ export function RideTheWaveScreen({
     return () => cancelAnimation(halo);
   }, [reducedMotion, halo]);
 
+  useEffect(() => {
+    if (reducedMotion) {
+      sweep.value = 0;
+      return;
+    }
+    // Slow back-and-forth so the light slooshes gently rather than
+    // wiping — reads as a calm tide.
+    sweep.value = withRepeat(
+      withTiming(1, { duration: 5200, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true
+    );
+    return () => cancelAnimation(sweep);
+  }, [reducedMotion, sweep]);
+
   // Reveal the bright travelled curve up to the marker's warped X.
   const revealProps = useAnimatedProps(() => {
     const tv = interpolate(raw.value, TAU, TV, Extrapolation.CLAMP);
     return { width: MARGIN_X + tv * plotW };
   });
+
+  // Drift the shimmer band across the water body.
+  const shimmerProps = useAnimatedProps(() => ({
+    x: -BAND + sweep.value * (W + BAND),
+  }));
 
   const markerStyle = useAnimatedStyle(() => {
     const tv = interpolate(raw.value, TAU, TV, Extrapolation.CLAMP);
@@ -232,10 +265,21 @@ export function RideTheWaveScreen({
     };
   });
 
-  const haloStyle = useAnimatedStyle(() => ({
-    opacity: 0.4 - halo.value * 0.28,
-    transform: [{ scale: 0.9 + halo.value * 0.6 }],
-  }));
+  // Marker charge (fix #2): the halo swells and warms toward the peak
+  // and cools on the fade, driven by the wave's intensity at the
+  // marker (iv). This is emotional signal, not decoration, so it keeps
+  // running under reduced motion — only the additive `halo` pulse is
+  // gated (halo stays 0 when reduced).
+  const haloStyle = useAnimatedStyle(() => {
+    const tv = interpolate(raw.value, TAU, TV, Extrapolation.CLAMP);
+    const iv = interpolate(tv, FRACS, INTENS, Extrapolation.CLAMP);
+    const color = interpolateColor(iv, [0, 1], [accentColor, '#ffe0bd']);
+    return {
+      backgroundColor: color,
+      opacity: 0.2 + iv * 0.32 - halo.value * 0.06,
+      transform: [{ scale: 1 + iv * 0.9 + halo.value * 0.3 }],
+    };
+  });
 
   const line = t(`toolkit.techniques.ride_the_wave.${PHASES[phaseIdx].key}`);
 
@@ -262,6 +306,11 @@ export function RideTheWaveScreen({
               <Stop offset="0" stopColor={accentColor} stopOpacity={0.5} />
               <Stop offset="1" stopColor={accentColor} stopOpacity={0.06} />
             </LinearGradient>
+            <LinearGradient id="rtwShimmer" x1="0" y1="0" x2="1" y2="0">
+              <Stop offset="0" stopColor="#eaf2ff" stopOpacity={0} />
+              <Stop offset="0.5" stopColor="#eaf2ff" stopOpacity={0.12} />
+              <Stop offset="1" stopColor="#eaf2ff" stopOpacity={0} />
+            </LinearGradient>
             <ClipPath id="rtwReveal">
               <AnimatedRect
                 x={0}
@@ -269,6 +318,9 @@ export function RideTheWaveScreen({
                 height={H}
                 animatedProps={revealProps}
               />
+            </ClipPath>
+            <ClipPath id="rtwArea">
+              <Path d={areaD} />
             </ClipPath>
           </Defs>
 
@@ -289,9 +341,18 @@ export function RideTheWaveScreen({
             fill="none"
           />
 
-          {/* Travelled portion, bright — revealed up to the marker. */}
+          {/* Travelled portion, bright — revealed up to the marker.
+              A wide soft under-stroke turns the travelled line into a
+              glowing trail (fix #3). */}
           <G clipPath="url(#rtwReveal)">
             <Path d={areaD} fill="url(#rtwBright)" />
+            <Path
+              d={lineD}
+              stroke={accentColor}
+              strokeOpacity={0.18}
+              strokeWidth={9}
+              fill="none"
+            />
             <Path
               d={lineD}
               stroke={accentColor}
@@ -300,6 +361,20 @@ export function RideTheWaveScreen({
               fill="none"
             />
           </G>
+
+          {/* Living surface: a soft light band drifting over the water
+              body. Decorative — dropped entirely under reduced motion. */}
+          {!reducedMotion ? (
+            <G clipPath="url(#rtwArea)">
+              <AnimatedRect
+                y={0}
+                width={BAND}
+                height={H}
+                fill="url(#rtwShimmer)"
+                animatedProps={shimmerProps}
+              />
+            </G>
+          ) : null}
         </Svg>
 
         {/* Marker — "you are here" on the curve. */}
@@ -307,13 +382,7 @@ export function RideTheWaveScreen({
           style={[styles.marker, markerStyle]}
           pointerEvents="none"
         >
-          <Animated.View
-            style={[
-              styles.halo,
-              { backgroundColor: hexAlpha(accentColor, 0.5) },
-              haloStyle,
-            ]}
-          />
+          <Animated.View style={[styles.halo, haloStyle]} />
           <View
             style={[
               styles.dot,
