@@ -63,7 +63,8 @@ constants/
                           FREE_ACTIVE_LIMIT / PREMIUM_ACTIVE_LIMIT + maxMinutesFor()
   rankLadder.ts        ─ 9-rank i18n wrapper over shared/ranks.ts
   triggerCatalog.ts    ─ Faz 5: 8 common + 79 addiction-specific triggers
-  toolkitCatalog.ts    ─ Faz 6: 4 guided techniques + feedback options
+  toolkitCatalog.ts    ─ 5 egzersiz + feedback + techniquesForAddiction()
+                          (egzersizin hangi bağımlılıklara açık olduğu tek filtre)
   presence.ts          ─ Faz 7: threshold + poll interval + active window
   heatmap.ts           ─ Faz 8a: grid dims, DAY_KEYS, PERIOD_ORDER, 5-color
                           ramp + heatmapColor() + sparse/full thresholds
@@ -112,16 +113,24 @@ components/
   RankUnlockModal.tsx      ─ Full-screen celebration, queue support, particle burst
   IntensityModal.tsx       ─ Faz 5: 5-emoji ladder + Skip (post-resist)
   TriggerCaptureModal.tsx  ─ Faz 5 REVERSAL: post-resolve trigger picker (min-1)
-  ToolkitGrid.tsx          ─ Faz 6: 4-card 2×2 grid (used by Info + active picker)
-  ToolkitPickerModal.tsx   ─ Faz 6: bottom-sheet picker for active-session
-  TechniqueRunnerModal.tsx ─ Faz 6: guided flow + feedback (all 4 techniques)
-  PresenceIndicator.tsx    ─ Faz 7: 10s polling "you're not alone" line
-  technique/               ─ Faz 6: one file per guided screen
+  ToolkitGrid.tsx          ─ 2×2 grid (Info + active picker) — addiction'a göre filtreli
+  ToolkitPickerModal.tsx   ─ bottom-sheet picker for active-session
+  ExerciseRunner.tsx       ─ TÜM egzersizlerin kabuğu (eski adı
+                             TechniqueRunnerModal — registry'ye çevrildi, 37b4011)
+  PresenceIndicator.tsx    ─ 10s polling "you're not alone" line
+                             ⚠️ sayaç hep 0 — "Bilinen Bozuk"a bak
+  technique/               ─ one file per guided scene
     Breathing478Screen.tsx
     UrgeSurfingScreen.tsx
     Grounding54321Screen.tsx
     BodyScanScreen.tsx
-    types.ts               ─ Shared TechniqueScreenProps contract
+    RideTheWaveScreen.tsx  ─ 5. egzersiz (madde bağımlılıkları)
+    ExerciseAtmosphere.tsx ─ runner'ın SVG gökyüzü/nebula/yıldız katmanı
+    sceneRegistry.ts       ─ type → sahne; total Record (eksikse derleme kırılır)
+    types.ts               ─ SceneProps kontratı (TechniqueScreenProps alias'ı kaldı)
+  toolkit/                 ─ Toolkit sekmesi: carousel + kart + aurora + preview'lar
+  comparison/              ─ Modül 4 (Pulse / Distribution / Standing / Patterns)
+  profile/                 ─ LifetimePanel ("Aurora Veil") vb.
   triggerMap/              ─ Faz 8a: Modül 3 root + sub-components
     TriggersPane.tsx       ─ Root — progressive disclosure (zero/sparse/full)
     PeriodFilter.tsx       ─ 3-pill segmented (7d / 30d / all)
@@ -450,18 +459,148 @@ false` + craving_sessions history saklanır → re-add kaldığı yerden
     **Yeni bağımlılık**: `uuid` (runtime) + `@types/uuid` (dev).
     DB migration yok (schema aynı, sadece INSERT timing değişti).
 
+## 🏔️ Rütbe Merdiveni (9 rütbe)
+
+Tanım: `shared/ranks.ts` (cross-runtime, Edge Function da okur) →
+`constants/rankLadder.ts` (client sarmalayıcı). Görünen adlar
+`i18n/en.json` → `ranks.<id>.name`.
+
+| #   | **id (kodda)** | **Görünen ad** | Eşik (puan) |
+| --- | -------------- | -------------- | ----------- |
+| 1   | `traveler`     | **Base**       | 0           |
+| 2   | `first_step`   | First Step     | 100         |
+| 3   | `steady`       | Steady         | 400         |
+| 4   | `persistent`   | **Ridge**      | 1.000       |
+| 5   | `disciplined`  | **Foothold**   | 2.500       |
+| 6   | `aware`        | **Vantage**    | 6.000       |
+| 7   | `master`       | **Peak**       | 15.000      |
+| 8   | `expert`       | **Horizon**    | 35.000      |
+| 9   | `free`         | **Free**       | 75.000      |
+
+> ⚠️ **TUZAK: id'ler ile görünen adlar uyuşmuyor.** İsimler "tırmanış
+> anlatısı"na çevrildi (`a4aa3fd`) ama **id'ler kasten değişmedi** —
+> `user_unlocked_ranks` satırları ve 004'ün eşikleri bu id'lere bağlı.
+> `persistent` → "Ridge", `master` → "Peak" görürsen şaşırma; id'i
+> yeniden adlandırmak kullanıcıların kazanılmış rütbelerini düşürür.
+
+Her rütbenin bir ambleminin olduğu bir amblem sistemi var
+(`bc62920`, `266b243`, `dc31621`) — Profile, Journey ve rütbe
+gösterilen her yüzey aynı amblemi çeker.
+
+## 🎨 Tasarım Turu (2026-07-21 → 08-05)
+
+Bir ay boyunca uygulamanın **tamamı** yeniden tasarlandı. Ortak dil:
+tek koyu lacivert zemin, bağımlılığın kendi rengi accent, programatik
+SVG + Reanimated (görsel dosya yok, blur/gradient kütüphanesi yok).
+
+| Yüzey                    | Ne oldu                                                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Tema**                 | Üç ana sekme tek koyu lacivert zeminde birleşti (`22cca66`, `ad28bf9`); Info'nun dört modülü tek nötr tona bağlandı (`c821151`)                              |
+| **Info**                 | İkon-only alt sekmeler + cross-fade geçiş (`0203add`); sekmeler arası yatay pager swipe (`32a4cd9`)                                                          |
+| **Journey**              | Omurga dolgusu puanı yansıtıyor + neon (`ed7f197`); yıldız titremesi grup başına tek düğüme indirildi (perf, `ad28bf9`)                                      |
+| **Toolkit**              | Kart carousel + ExerciseRunner iskeleti (aşağıda ayrı bölüm)                                                                                                 |
+| **Triggers (Modül 3)**   | Baştan tasarım: hero insight'lar + radial saat + yatay heatmap (`dacacfa`, `ba4febd`); bağımlılığın rengine bağlandı (`f334e05`)                             |
+| **Comparison (Modül 4)** | Sıfırdan 4 milestone: Pulse → Distribution/Standing (bell curve) → patterns + launch/low-data + premium gate (`4ff6037`→`03ae990`)                           |
+| **Profile**              | "The Core" tasarımı (`01d7d78`), componentize (`3e56c40`), Core hero amblem sistemine geçti (`a6966a0`), Lifetime kartı "Aurora Veil" (`37d452e`, `900cad0`) |
+| **Craving capture**      | Yoğunluk sayfası 1-10 kadranı (`6f8b3e9`), tetikleyici sayfası yeniden tasarlandı (`7982b7f`)                                                                |
+| **Active session**       | Uygulama temasına uyum (`f4bd9fd`), kritik an için nefes alan neon çerçeve (`c061d0f`, `96b181e`)                                                            |
+| **Picker**               | "Socket loadout" tasarımı (`b86cccf`) + neon materialize yerleşme (`f599640`)                                                                                |
+
+**Kütüphane kısıtı:** `expo-blur`, `expo-linear-gradient`,
+`@react-native-masked-view` **kurulu değil**. Blur taklidi çok duraklı
+SVG radial gradient ile; web'de ek olarak `Platform.select({ web:
+{ filter: 'blur(Npx)' } })`. Yeni tasarımda bunu varsay.
+
+## 🧰 Toolkit / Egzersiz Mimarisi
+
+- **`components/ExerciseRunner.tsx`** — tüm egzersizlerin kabuğu:
+  Modal, faz akışı (guiding → feedback), `technique_uses` yazımı,
+  `ExerciseAtmosphere` (SVG gökyüzü/nebula/yıldız katmanı), haptics
+  ve `reducedMotion` enjeksiyonu. **Hiçbir egzersizi tanımaz.**
+- **`components/technique/sceneRegistry.ts`** — `Record<TechniqueType,
+ExerciseScene>`. Total record olduğu için yeni bir `TechniqueType`
+  eklerken sahne kaydetmezsen **derleme kırılır** (eski `switch`'in
+  `never` guard'ının yerini aldı).
+  - `ownsProgress`: sahne kendi sayacını mı çiziyor
+  - `foregroundGraceMs`: arka plandan dönünce kaç ms'ye kadar
+    sıfırlamasın (Ride the Wave: 12s — **keyfi tahmin, cihazda ayarla**)
+- **Sahne kontratı** (`components/technique/types.ts` → `SceneProps`):
+  `onComplete()` tam bir kez, her an unmount'a hazır, `onProgress`,
+  `haptics`, `reducedMotion`, `addictionId` (opsiyonel).
+
+### Ride the Wave (5. egzersiz)
+
+- 240s tek dalga: hızlı yükseliş → tepede yavaşlama (durmuyor) → uzun
+  sönüm. Zaman `useFrameCallback` ile **sadece ön planda** ilerler.
+- Geometri sabit, **zaman** TAU/TV keyframe'leriyle büküyor (`warp`).
+- `intensity()`'nin iki yarısı da tepeye **sıfır eğimle** varmalı —
+  aksi halde SVG ne kadar smooth olursa olsun tepede köşe kalır.
+- **Sadece madde bağımlılıklarında**: `nicotine`, `alcohol`, `vape`,
+  `pmo` (`RIDE_THE_WAVE_ADDICTIONS`). Filtre tek yerde:
+  `techniquesForAddiction()`.
+- Metin per-bağımlılık: `ride_the_wave.by_addiction.<id>.<phase>`,
+  yoksa ortak satıra düşer. PMO metni **klinik ve nötr** — ekranda
+  bağımlılık adı geçmez.
+
+## 🔒 Güvenlik Denetimi (2026-07-31, migration 009)
+
+Rate-limit/anti-spam denetiminde bulunan istismar yüzeyleri kapatıldı:
+
+1. `user_total_score` view'ını **herkes** okuyabiliyordu → `security_invoker`
+2. `anon` rolünün **her tabloda** INSERT/UPDATE/DELETE/TRUNCATE yetkisi vardı → geri alındı
+3. `craving_sessions` client'a `FOR ALL` açıktı → kullanıcı çözülmüş satırı
+   tekrar tekrar puanlatabiliyordu; UPDATE/DELETE kaldırıldı
+4. `profiles` UPDATE kolon kapsamsızdı → sadece `username` kolonuna izin;
+   ayrıca 3-24 karakter + `^[a-zA-Z0-9_-]+$` CHECK ve `lower(username)`
+   üzerinde case-insensitive unique index (handle kapatma)
+5. Serbest metin kolonlarına uzunluk sınırı
+6. **Atomik rate limit**: eski limiter SELECT→hesapla→UPSERT yapıyordu
+   (yarış koşulu). Yerine `bump_rate_limit()` SECURITY DEFINER fonksiyonu;
+   client ne çağırabilir ne de kendi kovasını sıfırlayabilir
+7. Migration sonunda verifier — yarım uygulanırsa yüksek sesle patlar
+
+### Puan tavanları (`shared/scoring.ts` — hepsi server-side)
+
+| Sabit                            | Değer | Niçin                                                                             |
+| -------------------------------- | ----- | --------------------------------------------------------------------------------- |
+| `MAX_SCORED_MINUTES`             | 240   | Tek ödülü ~2.600 puanla sınırlar; eski tavanda 5 çağrı en üst rütbeyi süpürüyordu |
+| `MAX_DAILY_POINTS_PER_ADDICTION` | 5.000 | Günlük tavan                                                                      |
+| `RATE_LIMIT_MAX_PER_HOUR`        | 20    | Saatlik çağrı tavanı                                                              |
+| `MAX_SESSION_MINUTES`            | 1.440 | 24s üstü seans reddedilir                                                         |
+| `FAILURE_PENALTY_MAX`            | 200   | Ceza skorun %5'i, 200'de kapanır                                                  |
+
+> **Puanlama asla client'ta hesaplanmaz.** `resolve-craving` Edge
+> Function tek otorite; client sadece ham girdiyi (süre, yoğunluk,
+> sonuç) yollar.
+
+## ⚡ Edge Functions (`supabase/functions/`)
+
+Deploy: `supabase functions deploy <ad>` (CLI kurulu ve yetkili).
+
+| Fonksiyon          | Ne yapar                                                                                                                                                                                                                                                                                                         | Durum                                           |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `resolve-craving`  | **Puanlamanın tek otoritesi.** Süre/yoğunluk/sonuç alır, `shared/scoring.ts` ile hesaplar, `craving_sessions`'a `status='resolved'` yazar, skor + rütbe unlock'larını günceller. `session_id` üzerinden idempotent (PK çakışması eski cevabı döndürür)                                                           | canlı                                           |
+| `trigger-map-data` | Modül 3 verisi: heatmap + peak hours + trigger dağılımı + insight'lar                                                                                                                                                                                                                                            | canlı                                           |
+| `delete-account`   | **Gerçek hesap silme.** `auth.admin.deleteUser` service-role gerektirdiği için client'ta olamaz. Önce tüm kullanıcı tablolarını (craving_session_triggers, craving_sessions, technique_uses, user_addictions, scores…) siler, sonra `profiles`, en son auth kullanıcısını. Kısmi silmede yüksek sesle hata verir | **canlı, deploy edildi** (`6e5cef2`)            |
+| `active-presence`  | Aynı anda craving yaşayan _diğer_ kullanıcı sayısı. JWT zorunlu, çağıranı sayımdan çıkarır                                                                                                                                                                                                                       | ⚠️ **her zaman 0 döndürüyor** — "Bilinen Bozuk" |
+
 ## 🧠 Önemli Kararlar (UX/Mimari)
 
-| Karar                                           | Sebep                                                    |
-| ----------------------------------------------- | -------------------------------------------------------- |
-| **Puanlar asla düşmez**                         | Recovery'de cezalandırma motivasyon kırar                |
-| **Streak kayıpta kırılmaz, donar**              | Aynı sebep — dürüst paylaşımı teşvik et                  |
-| **Date.now anchor (setInterval counter değil)** | iOS background timer suspend eder; wall-clock immune     |
-| **Sensitivity 1-10 → maxMin 5-15**              | İlk testlerde 60dk ceiling cezalandırıcı hissedildi      |
-| **Cycle reset + bonus**                         | 15dk'lık tek bir hedef yerine tekrar eden mini-zaferler  |
-| **Onboarding'de açık rıza**                     | KVKK Madde 9 sağlık verisi için "açık rıza" temeli       |
-| **Handle opsiyonel**                            | Community kalktıktan sonra artık post-auth zorunlu değil |
-| **DEV_MODE artık yok**                          | Auth zorunlu; scoring server-only                        |
+| Karar                                            | Sebep                                                                                     |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| **Puanlar asla düşmez**                          | Recovery'de cezalandırma motivasyon kırar                                                 |
+| **Streak kayıpta kırılmaz, donar**               | Aynı sebep — dürüst paylaşımı teşvik et                                                   |
+| **Date.now anchor (setInterval counter değil)**  | iOS background timer suspend eder; wall-clock immune                                      |
+| **Sensitivity 1-10 → maxMin 5-15**               | İlk testlerde 60dk ceiling cezalandırıcı hissedildi                                       |
+| **Cycle reset + bonus**                          | 15dk'lık tek bir hedef yerine tekrar eden mini-zaferler                                   |
+| **Onboarding'de açık rıza**                      | KVKK Madde 9 sağlık verisi için "açık rıza" temeli                                        |
+| **Handle opsiyonel**                             | Community kalktıktan sonra artık post-auth zorunlu değil                                  |
+| **DEV_MODE artık yok**                           | Auth zorunlu; scoring server-only                                                         |
+| **Egzersiz kabuğu egzersizi tanımaz**            | `ExerciseRunner` + `SCENE_REGISTRY`: yeni egzersiz eklemek runner'a dokunmaz              |
+| **Ride the Wave sadece madde bağımlılıklarında** | Dalga eğrisi yükselen/tepe/sönen madde dürtüsü için yazıldı; davranışsal olanlara uymuyor |
+| **Rütbe id'leri sabit, adlar i18n'de**           | İsim değişse de kazanılmış rütbe düşmesin                                                 |
+| **Görsel katman programatik**                    | blur/gradient kütüphanesi yok; SVG + Reanimated ile çözülür                               |
+| **Mock/demo veri işaretli**                      | `TEMP-*` marker'ları ile; backend gelince tek çağrı yeri değişsin                         |
 
 ## 🗄️ DB Schema (Supabase)
 
@@ -511,40 +650,72 @@ max_duration_minutes (int) [LEGACY, derive sensitivity'den] | created_at
 > AddictionsContext bunu Supabase'le sync eder (lib/addictionsApi.ts).
 > AsyncStorage offline cache'i; server source of truth.
 
-### momentum_log (henüz kullanılmıyor)
+### technique_uses
 
 ```
-id | user_id | value | created_at
+id | user_id | technique_id | addiction_id | context | feedback | used_at
 ```
+
+- `technique_id` bir CHECK ile sınırlı (009 + 010): `breathing_478`,
+  `urge_surfing`, `grounding_54321`, `body_scan`, `ride_the_wave`.
+  **Yeni egzersiz eklerken bu CHECK'i genişletmezsen INSERT 23514 ile
+  patlar ve egzersiz sessizce sayılmaz.**
+- `context`: `active_craving` | `info_tab` — Modül 3 "önleyici mi,
+  tepkisel mi" analizini bununla diliyor.
+
+> **`momentum_log` YOK.** Migration 007 ile CASCADE drop edildi (ölü
+> tablo, okuyanı yoktu — `13d111c`). Eski dokümanlarda görürsen inanma.
 
 ## ⚠️ Schema Gotcha'ları
 
 1. **addiction_id TEXT, UUID değil** — preset id'leri ('nicotine' vs)
    doğrudan saklanır. Custom addiction'lar `custom-{ts}-{rand}` formatında.
-   (Faz 2'de custom kaldırılıp 20 sabit katalog gelecek.)
 2. **handle_new_user trigger** auth.users INSERT → profiles INSERT yapar
-   (security definer + RLS bypass). Email confirmation OFF olduğu için
-   signUp anında session döner, profiles row'u trigger'la oluşur.
+   (security definer + RLS bypass). Sadece `(id, onboarding_completed)`
+   yazar; diğer tüm kolonlar DEFAULT'una düşer.
+3. **`profiles.username` nullable ve DEFAULT'suz olmalı.** Bir zamanlar
+   `NOT NULL DEFAULT ''` + UNIQUE idi → ilk kayıt boş string'i kapıyor,
+   **ikinci kayıttan itibaren her signup 500 veriyordu.** 008 düzeltti.
+   Detay için "Çözülmüş Bug'lar".
+4. **`profiles.momentum` / `streak` NOT NULL ama DEFAULT'lu** (50 / 0).
+   Kasıtlı: server-authoritative, client yazmaz (003 §5).
+5. **`craving_sessions`'ta 'active' satır YOK.** Faz 5 REVERSAL'dan beri
+   in-flight craving'in tek kaynağı AsyncStorage snapshot'ı; DB'ye
+   sadece resolve anında `status='resolved'` yazılır. Bu, presence
+   sayacını bozan sessiz varsayım — "Bilinen Bozuk"a bak.
 
-## 🔐 RLS Özeti
+## 🔐 RLS Özeti (009 abuse-lockdown sonrası)
 
-- **profiles**: owner select/update/insert, others nothing
-- **craving_sessions**: owner all, others nothing
+- **profiles**: owner select/insert; UPDATE **sadece `username` kolonunda**
+  (`grant update (username)`) — puan/streak'i client yazamaz
+- **craving_sessions**: owner select/insert; **UPDATE/DELETE yok** (eskiden
+  `FOR ALL` idi → kullanıcı kendi satırını sınırsız yeniden puanlatabiliyordu)
 - **addictions** (custom): owner all
-- **momentum_log**: owner all
+- **user_addiction_scores**: `force row level security`, client yazamaz
+- **user_total_score** (view): `security_invoker = true` — eskiden **herkes**
+  herkesin skorunu okuyabiliyordu
+- **rate_limits**: RLS var, hiçbir policy yok → sadece service_role
+- **anon rolü**: her tablodaki INSERT/UPDATE/DELETE/TRUNCATE yetkisi geri alındı
 
-## 📦 Çalıştırılan Migration'lar
+## 📦 Migration'lar
 
-Hepsi `supabase/sql_editor`'dan elle çalıştırıldı (henüz tooling yok):
+Dosyalar `supabase/migrations/`. **Supabase CLI kurulu ve yetkili** —
+`supabase db query --linked --file x.sql` ile prod'a uygulanır
+(dashboard SQL editor'a gerek yok).
 
-1. **Initial** — profiles, addictions, craving_sessions, momentum_log + RLS + handle_new_user trigger
-2. **craving_sessions reset** — eski schema NOT NULL outcome/duration_seconds idi, in-flight 'active' satırlar için nullable yapıldı (drop + recreate)
-3. **Community + profiles ALTER** — forum_posts/forum_likes + count trigger + RLS, profiles'a momentum/streak ADD COLUMN
-4. **Faz 1 DROP** — forum_posts, forum_likes, forum_reports, reflections tablolarının CASCADE drop'u (bu commit ile birlikte kullanıcıya SQL verildi)
+| #   | Ne yaptı                                                                   | Durum                  |
+| --- | -------------------------------------------------------------------------- | ---------------------- |
+| 003 | backend scoring, rate_limits tablosu, momentum/streak server-authoritative | uygulandı              |
+| 004 | rank ladder + `user_unlocked_ranks`                                        | uygulandı              |
+| 005 | `craving_session_triggers`                                                 | uygulandı              |
+| 006 | `technique_uses`                                                           | uygulandı              |
+| 007 | hesap silme CASCADE'leri + `momentum_log` DROP                             | uygulandı              |
+| 008 | **signup fix** — `profiles.username` nullable + DEFAULT kaldırıldı         | uygulandı              |
+| 009 | **abuse lockdown** — RLS/grant sıkılaştırma + `bump_rate_limit()`          | uygulandı              |
+| 010 | `technique_uses` CHECK'ine `ride_the_wave` eklendi                         | uygulandı (2026-08-03) |
 
-> Yeni feature DB ihtiyacı duyduğunda: `ALTER TABLE ADD COLUMN IF NOT EXISTS`
-> veya `CREATE TABLE IF NOT EXISTS` ile additive migration yaz, kullanıcıya
-> ver, çalıştırsın. Bir daha reset yok.
+> Additive yaz (`ADD COLUMN IF NOT EXISTS`), idempotent olsun, sonunda
+> `do $$ ... raise exception ... $$` ile kendini doğrulasın. Reset yok.
 
 ## 🎨 Tema / Konvansiyon
 
@@ -579,32 +750,70 @@ username: test_resister
 
 Email confirmation Supabase dashboard'dan OFF.
 
+## 🐛 Çözülmüş Bug'lar (kök nedeniyle — tekrar etmesin)
+
+| Bug                                                      | Kök neden                                                                                                                                                                                                                                       | Çözüm                                                                                                                                                                                                              |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Her yeni kayıt 500 veriyordu**                         | `profiles.username` `NOT NULL DEFAULT ''` + UNIQUE. `handle_new_user` username yazmaz → herkes DEFAULT `''`'e düşüyordu. İlk kayıt boş string'i kaptı, **sonraki her signup unique çakışmasına girdi**. Yeni kullanıcı kazanımı tamamen kırıktı | Migration **008**: kolon nullable + DEFAULT kaldırıldı, boş satır NULL'landı. Postgres UNIQUE NULL'ları eşit saymaz → sınırsız NULL sorun değil. **2026-08-05'te prod'da E2E doğrulandı: gerçek signup 200 döndü** |
+| **Comparison açılışta çökme**                            | Worklet içinden JS fonksiyonu çağrılıyordu                                                                                                                                                                                                      | `ed859b6`                                                                                                                                                                                                          |
+| **Craving ekranı iOS'ta açılmıyordu**                    | İki ayrı çökme; biri `uuid` v4'ün `crypto.getRandomValues` olmadan patlaması                                                                                                                                                                    | `e38a070` + root layout'ta `react-native-get-random-values` en üstte side-effect import                                                                                                                            |
+| **CellDetailSheet web'de kendiliğinden açılıyordu**      | `a5208f1`                                                                                                                                                                                                                                       |                                                                                                                                                                                                                    |
+| **Saat kartında yüzde iki kez yazılıyordu**              | `40af4b1`                                                                                                                                                                                                                                       |                                                                                                                                                                                                                    |
+| **Sessizce yutulan promise hataları**                    | Hatalar yüzeye çıkarıldı                                                                                                                                                                                                                        | `b641c68`                                                                                                                                                                                                          |
+| **iOS'ta neon çerçeve farklı görünüyordu**               | `96b181e`                                                                                                                                                                                                                                       |                                                                                                                                                                                                                    |
+| **Heatmap hücreleri etiketlerle hizasızdı**              | Hücre geometrisi `useMemo`'sunun bağımlılıklarında `cellSize` yoktu → ölçüm gelince hücreler eski placeholder adımında kalıyordu                                                                                                                | `2eac1fa`                                                                                                                                                                                                          |
+| **Ride the Wave tepesi köşeliydi**                       | Matematik: yükseliş tepeye eğim 0 ile varırken iniş eğim −1.5 ile başlıyordu. Path smoothing bunu gizleyemez                                                                                                                                    | İniş kendi smoothstep'inden geçirildi → iki yarı da düz varıyor (`3b6f0fc`)                                                                                                                                        |
+| **Egzersiz metninde tire satır sonunda asılı kalıyordu** | Em-dash satır kenarına düşebilir; nbsp yaması sorunu bir alt satırın başına taşıdı                                                                                                                                                              | Tire metinden çıkarıldı (`3b6f0fc`)                                                                                                                                                                                |
+
+## 🔴 Bilinen Bozuk
+
+- **Presence sayacı her zaman 0 döner.** `active-presence` Edge Function
+  `craving_sessions`'ta `status='active'` satırları sayıyor. Ama **Faz 5
+  REVERSAL'dan beri kimse 'active' satır yazmıyor** — in-flight craving'in
+  tek kaynağı AsyncStorage snapshot'ı, DB'ye sadece `resolve-craving`
+  yazıyor ve o da `status:'resolved'` yazıyor. Yani sorgu hiçbir zaman
+  eşleşmiyor. Sayaç 0 iken UI **hiçbir şey göstermiyor** (kasıtlı), o
+  yüzden sessizce ölü. Düzeltmek için ya presence'ı ayrı bir tabloya/
+  heartbeat'e taşımak ya da active satırı geri getirmek gerekir — ikisi de
+  karar gerektirir, tek satırlık yama değil.
+
+## 🚫 ASLA YAPMA
+
+1. **`profiles.username`'e DEFAULT geri koyma / NOT NULL yapma.** Bu bug
+   iki kez çıktı. Signup'ı tamamen kırar.
+2. **Puanı client'ta hesaplama / DB'ye yazdırma.** Tek otorite
+   `resolve-craving`. `profiles` UPDATE'i bilerek sadece `username`.
+3. **`anon` rolüne yazma yetkisi verme**, RLS'i gevşetme, `FOR ALL`
+   policy yazma. 009 bunları kapattı.
+4. **Yeni egzersiz eklerken `technique_uses` CHECK'ini unutma** (010
+   örnek). Unutursan egzersiz çalışır ama hiç sayılmaz.
+5. **Rütbe id'lerini yeniden adlandırma.** Görünen adlar i18n'de değişir;
+   id `user_unlocked_ranks`'e yazılıdır, değiştirirsen kazanılmış
+   rütbeler düşer.
+6. **Kullanıcının istemediği UI'ı silme.** "Geliştir" ≠ "yeniden yaz";
+   sadece o eleman için açıkça "kaldır/sil" dendiğinde sil.
+7. **8081 portunu işgal etme.** Kullanıcının `npx expo start`'ı orada;
+   telefonu ona bağlı. Kendi preview'ını **8082/8083**'te aç, işin bitince
+   kapat.
+8. **Demo/mock veriyi commit'e sokma.** Sadece preview klonunda kalsın;
+   geçici dev route'ları (`app/dev-*.tsx`) teslimden önce sil.
+9. **Görsel işi "tamamlandı" diye teslim etme.** Kendi preview'ında
+   screenshot alıp gözünle doğrula; doğrulamadıysan bunu açıkça söyle.
+   Test sayısı görsel kanıt değildir.
+10. **Prod DB'de yıkıcı işlemi teşhis etmeden yapma.** Önce canlı duruma
+    karşı doğrula — eski bir teşhis bugünkü şemaya uymayabilir.
+
 ## 📋 Bekleyen / Sıradaki İşler
 
 | Önem | İş                                                                                     |
 | ---- | -------------------------------------------------------------------------------------- |
-| ⭐   | **Push notifications** (expo-notifications) — daily reminder, "ring fills" celebration |
+| 🔴   | **Presence sayacı** — yukarıdaki kök nedene bir karar ver                              |
+| ⭐   | **Ride the Wave dışındaki 4 egzersizin görsel turu** — hâlâ eski iskelette             |
+| ⭐   | **Push notifications** (expo-notifications) — günlük hatırlatma                        |
 | ⭐   | **Apple/Google sign-in** — şu an sadece email/password                                 |
-
-### ✅ Yakın Zamanda Kapatılanlar
-
-> ⚠️ Aşağıdaki geçmiş listedeki **community, AI asistan ve reflection
-> journal** özellikleri Faz 1 cleanup ile kaldırıldı. Kayıt tarihi
-> olarak burada duruyor ama kod, DB tablo ve env değişkenleri artık yok.
-
-- **AI asistan v1** [FAZ 1'DE KALDIRILDI]: `/assistant` modal ekranı — Profile'dan erişiliyor. Anthropic API'ye Supabase Edge Function üzerinden proxy. Türkçe sistem promptu (recovery-aware, no therapy substitute, akut risk için 182/112). v1: no streaming, no persistence. Edge function deploy commit `[hash]` mesajında. `EXPO_PUBLIC_ASSISTANT_URL` env yoksa setup empty state gösteriyor
-- **Report mechanism**: Post kartlarında flag butonu (own değilse) → bottom sheet 5 reason. `reportPost` API'si, `forum_reports` tablosu (additive migration commit `[hash]` mesajında). Duplicate report sessizce success. Moderator UI scope dışı
-- **Realtime community feed**: `subscribeToNewPosts` (Supabase realtime channel) → community.tsx pending buffer + "N yeni gönderi" floating pill. Filter/search değişince buffer temizleniyor; local create sonrası feed'e zaten gelmiş post'lar dedupe ediliyor. Scroll position korunuyor (auto-prepend yok)
-- **Username post-auth gate**: `/setup-username` ekranı + `app/index.tsx`'de username probe. Sign-in/up `router.replace('/')` ile artık root'a iniyor; root username'i boşsa setup'a, doluysa (tabs)'e. Compose ekranındaki `needsUsername` fork'u kalktı, ~150 satır azaldı
-- **Edit/delete own posts** (community): PostCard'da kendi post'larında pencil + trash mini-butonlar. Compose ekranı `?editId` param'ıyla edit moduna giriyor; addiction picker kilitleniyor (kategori değişikliği feed'i bozar). `lib/community.ts`'e `updatePost`, `deletePost`, `fetchPost` eklendi. Delete optimistic + rollback
-- **Custom addiction edit**: `AddictionsContext.updateAddiction(id, patch)` + `add-addiction.tsx`'de `?id` param desteği. Profile satırına tap → modal edit modunda açılıyor (custom only; default'lar read-only). × delete butonu için web'de stopPropagation guard
-- **Forgot password flow**: `/(auth)/forgot-password` ekranı + sign-in'den link. `supabase.auth.resetPasswordForEmail`. Reset link'i Supabase hosted recovery sayfası açıyor — native deep-link handling şimdilik scope dışı
-- **Profile "Bağımlılıklarım" listesi**: Profile ekranında stats ile email/sign-out arasında inline liste. Her satırda × ile silme; default → `hiddenDefaults`, custom → diziden çıkar. + Ekle pill'i `/add-addiction`'a yönlendiriyor
-- **Sign-in/up redirect bug**: AuthContext'e `applySession()` eklendi. Auth ekranları, `router.replace`'ten önce session'ı imperatif olarak React state'e basıyor — `onAuthStateChange` callback'inin geç gelişi (tabs) guard'ını yanıltmıyor
-- **Pagination community** (commit `4621750`): `onEndReached` → `fetchPosts({before})`, dedupe, hasMore terminator footer
-- **Streak daily reset** (commit `21cfcf8`): "consecutive days with ≥1 resist" semantiği, local sessions cache'den türetiyor — DB schema değişikliği yok. 8/8 senaryo testte yeşil
-- **Web focus ring** (commit `bb82b65`): Tarayıcı default amber outline → brand mavi (`#3B82F6` 2px). Tek style enjeksiyonu, native no-op
-- **Custom craving picker redesign** (commit `1c263a4`): Color/Icon kompakt buton + flex-wrap grid, char counter, 24 renk + ~150 kategorili emoji
+| ◽   | Comparison verisi gerçek backend'e bağlanacak (şu an `TEMP-COMPARISON-MOCK-DATA`)      |
+| ◽   | Premium gate yazıldı ama mount edilmiyor (`TEMP-PREMIUM-GATE-DISABLED`)                |
+| ◽   | Yaş + rıza kapıları geçici kapalı (`TEMP-AGE-GATE-DISABLED`, `b071c87`) — geri gelecek |
 
 ## 🌐 Repo
 
@@ -634,4 +843,14 @@ npx expo start --web   # veya --ios
 4. Yeni feature'da migration gerekiyorsa **additive yaz** (`ALTER ADD COLUMN IF NOT EXISTS`), reset yok
 5. RN Web'de TextInput'a programmatic değer girerken `Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set` setter'ını kullan + `dispatchEvent('input')` — yoksa React state sync olmaz
 6. Pressable'a programmatic click için: walk up to `tabIndex=0` ancestor, sonra `pointerdown + pointerup + click` MouseEvent dispatch
-7. Schema değişikliklerinde Supabase dashboard'dan SQL Editor'la çalıştırılır — `supabase` CLI kurulu değil
+7. **Supabase CLI kurulu ve yetkili** (eski not "kurulu değil" diyordu, yanlış).
+   Prod'a SQL: `supabase db query --linked --file x.sql`, fonksiyon deploy:
+   `supabase functions deploy <ad>`. `\echo` gibi psql meta komutları
+   çalışmaz — saf SQL yaz.
+8. **Kendi preview'ını 8082/8083'te aç** (`npx expo start --web --port 8082`),
+   8081 kullanıcının. Görsel değişikliği ekran görüntüsüyle kendin doğrula.
+9. Web preview boştayken `requestAnimationFrame` durur → Reanimated'ın
+   **SVG `animatedProps` animasyonları akmaz**. Kompozisyon/renk/geometri
+   web'de doğrulanır; sürekli hareket **cihazda** doğrulanmalı.
+10. Gerçek repo `~/Desktop/Mobile/crave` (telefon buna bağlanır).
+    `~/crave` ayrı bir kopya — düzeltmeyi yanlış yere yazma.
