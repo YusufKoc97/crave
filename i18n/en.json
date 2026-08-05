@@ -508,8 +508,26 @@
             "wave_late_fade": "Almost gone. You didn't act on it."
           }
         }
+      },
+      "fake_feed": {
+        "name": "Fake Feed",
+        "short_description": "A feed that ends",
+        "long_description": "Your thumb wants to scroll. This gives it somewhere safe to go: a short, finite feed. Ten cards, then it stops. No refresh, nothing more to load. The point is the ending — flows can end. Infinite feeds just hide where theirs would be.",
+        "cards": {
+          "invitation": "Scroll down.",
+          "speed_mirror": "This is you, most nights.",
+          "thumb": "Notice your thumb.",
+          "number": "You scroll about 90 meters a day.",
+          "empty_search": "What were you looking for?",
+          "slow_pulse": "Slow down with this.",
+          "hold": "Hold to pause.",
+          "winding_down": "This feed is running out.",
+          "bottom": "You've reached the bottom. Normally, there isn't one.",
+          "end": "Every scroll has an end. Infinite feeds just hide theirs. Now put the phone down."
+        }
       }
-    }
+    },
+    "type_fake_feed": "Finite feed"
   },
   "breathing": {
     "inhale": "Breathe in",

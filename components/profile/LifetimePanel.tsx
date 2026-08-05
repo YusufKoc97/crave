@@ -67,16 +67,12 @@ type Props = {
   longestStreakDays: number;
   /** 0..1 */
   successRate: number;
-  techniquesUsed: number;
-  techniquesTotal: number;
 };
 
 export function LifetimePanel({
   cravingsResisted,
   longestStreakDays,
   successRate,
-  techniquesUsed,
-  techniquesTotal,
 }: Props) {
   // A fresh account still gets the full, alive treatment — it just
   // reads zero and gains a line of encouragement. `empty` only decides
@@ -122,12 +118,6 @@ export function LifetimePanel({
             unit="%"
             label={t('profile.stat_held_short')}
             delay={500}
-          />
-          <Medallion
-            value={techniquesUsed}
-            unit={`/${techniquesTotal}`}
-            label={t('profile.stat_techniques_short')}
-            delay={650}
           />
         </View>
       </View>

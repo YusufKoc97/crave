@@ -23,7 +23,8 @@ export type TechniqueType =
   | 'mindfulness'
   | 'grounding'
   | 'body_scan'
-  | 'ride_the_wave';
+  | 'ride_the_wave'
+  | 'fake_feed';
 
 export type Technique = {
   id: string;
@@ -54,6 +55,13 @@ export const RIDE_THE_WAVE_ADDICTIONS = [
   'vape',
   'pmo',
 ] as const;
+
+/**
+ * Fake Feed answers the *scroll reflex* — it only makes sense for
+ * doomscrolling. Offering it elsewhere would hand a scroll ritual to
+ * someone whose urge has nothing to do with scrolling.
+ */
+export const FAKE_FEED_ADDICTIONS = ['doomscroll'] as const;
 
 export const TOOLKIT_TECHNIQUES: readonly Technique[] = [
   // 4 cycles × 19s (4-in / 7-hold / 8-out) = 76s
@@ -97,6 +105,18 @@ export const TOOLKIT_TECHNIQUES: readonly Technique[] = [
     emoji: '🏄',
     displayOrder: 5,
     addictions: RIDE_THE_WAVE_ADDICTIONS,
+  },
+  // A finite, deliberately unrewarding feed: 10 cards, then it ends.
+  // Doomscrolling only — it answers the scroll reflex specifically.
+  // `durationSeconds` here is an ESTIMATE for the card's "N min"
+  // label only: completion is card-driven (card 10), never timed.
+  {
+    id: 'fake_feed',
+    type: 'fake_feed',
+    durationSeconds: 120,
+    emoji: '📵',
+    displayOrder: 6,
+    addictions: FAKE_FEED_ADDICTIONS,
   },
 ] as const;
 

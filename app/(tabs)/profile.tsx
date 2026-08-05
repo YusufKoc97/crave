@@ -8,7 +8,6 @@ import { useAddictionScores } from '@/context/AddictionScoresContext';
 import { getUsername } from '@/lib/profile';
 import { useUserStats } from '@/lib/userStats';
 import { overallRankFromTotalPoints } from '@/lib/overallRank';
-import { TOOLKIT_TECHNIQUES } from '@/constants/toolkitCatalog';
 import { CoreHero } from '@/components/profile/CoreHero';
 import { LifetimePanel } from '@/components/profile/LifetimePanel';
 import { FeedingRow } from '@/components/profile/FeedingRow';
@@ -204,8 +203,6 @@ export default function ProfileScreen() {
           cravingsResisted={stats.cravingsResisted}
           longestStreakDays={stats.longestStreakDays}
           successRate={stats.successRate}
-          techniquesUsed={stats.techniquesUsed}
-          techniquesTotal={TOOLKIT_TECHNIQUES.length}
         />
 
         {sortedTracked.length > 0 ? (

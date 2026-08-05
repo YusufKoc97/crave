@@ -6,6 +6,7 @@ import { UrgeSurfingScreen } from './UrgeSurfingScreen';
 import { Grounding54321Screen } from './Grounding54321Screen';
 import { BodyScanScreen } from './BodyScanScreen';
 import { RideTheWaveScreen } from './RideTheWaveScreen';
+import { FakeFeedScreen } from './FakeFeedScreen';
 
 /**
  * Scene registry — the single place the {@link ExerciseRunner} looks up
@@ -50,6 +51,15 @@ export const SCENE_REGISTRY: Record<TechniqueType, ExerciseScene> = {
   // a brief glance away resume the wave instead of restarting it.
   ride_the_wave: {
     component: RideTheWaveScreen,
+    ownsProgress: true,
+    foregroundGraceMs: 12_000,
+  },
+  // Card-driven, not timed: it ends when the tenth card has been read.
+  // Reports no progress on purpose (see the scene docstring). The same
+  // 12s grace as Ride the Wave — a glance away shouldn't throw away a
+  // feed the user is halfway through.
+  fake_feed: {
+    component: FakeFeedScreen,
     ownsProgress: true,
     foregroundGraceMs: 12_000,
   },

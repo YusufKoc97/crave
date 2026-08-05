@@ -14,8 +14,8 @@ import {
 } from '@/constants/toolkitCatalog';
 
 describe('TOOLKIT_TECHNIQUES', () => {
-  it('has exactly 5 techniques (Faz 6 MVP + Ride the Wave)', () => {
-    expect(TOOLKIT_TECHNIQUES.length).toBe(5);
+  it('has exactly 6 techniques (Faz 6 MVP + Ride the Wave + Fake Feed)', () => {
+    expect(TOOLKIT_TECHNIQUES.length).toBe(6);
   });
 
   it('carries the canonical technique ids', () => {
@@ -25,6 +25,7 @@ describe('TOOLKIT_TECHNIQUES', () => {
       'grounding_54321',
       'body_scan',
       'ride_the_wave',
+      'fake_feed',
     ]);
   });
 
@@ -63,6 +64,7 @@ describe('TOOLKIT_TECHNIQUES', () => {
       'grounding',
       'body_scan',
       'ride_the_wave',
+      'fake_feed',
     ]);
     for (const tech of TOOLKIT_TECHNIQUES) {
       expect(validTypes.has(tech.type)).toBe(true);
@@ -232,6 +234,22 @@ describe('i18n coverage', () => {
       expect(idsFor(null)).not.toContain('ride_the_wave');
       expect(idsFor('not_a_real_addiction')).not.toContain('ride_the_wave');
       expect(idsFor(null)).toContain('breathing_478');
+    });
+
+    it('offers fake_feed to doomscroll only', () => {
+      expect(idsFor('doomscroll')).toContain('fake_feed');
+      for (const id of ['nicotine', 'alcohol', 'vape', 'pmo', 'gaming', null]) {
+        expect(idsFor(id), `${id} must not offer fake_feed`).not.toContain(
+          'fake_feed'
+        );
+      }
+    });
+
+    it('keeps the two gated exercises apart', () => {
+      // Doomscroll gets the feed but not the wave; the substance
+      // addictions get the wave but not the feed.
+      expect(idsFor('doomscroll')).not.toContain('ride_the_wave');
+      expect(idsFor('nicotine')).not.toContain('fake_feed');
     });
   });
 });

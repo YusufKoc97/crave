@@ -7,6 +7,7 @@ import {
   Layers,
   PersonStanding,
   Play,
+  Smartphone,
   Waves,
   Wind,
 } from 'lucide-react-native';
@@ -81,6 +82,7 @@ const TYPE_ICONS: Record<Technique['type'], ComponentType<LucideProps>> = {
   grounding: Hand,
   body_scan: PersonStanding,
   ride_the_wave: Activity,
+  fake_feed: Smartphone,
 };
 
 const TYPE_LABEL_KEYS: Record<Technique['type'], string> = {
@@ -89,6 +91,7 @@ const TYPE_LABEL_KEYS: Record<Technique['type'], string> = {
   grounding: 'toolkit.type_grounding',
   body_scan: 'toolkit.type_body_scan',
   ride_the_wave: 'toolkit.type_ride_the_wave',
+  fake_feed: 'toolkit.type_fake_feed',
 };
 
 export function TechniqueCard({
