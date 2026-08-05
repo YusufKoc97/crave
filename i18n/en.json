@@ -520,9 +520,9 @@
           "number": "You scroll about 90 meters a day.",
           "empty_search": "What were you looking for?",
           "slow_pulse": "Slow down with this.",
-          "hold": "Hold to pause.",
+          "hold": "Nothing here is waiting for you.",
           "winding_down": "This feed is running out.",
-          "bottom": "You've reached the bottom. Normally, there isn't one.",
+          "bottom": "The bottom is just below this. Normally, there isn't one.",
           "end": "Every scroll has an end. Infinite feeds just hide theirs. Now put the phone down."
         }
       }

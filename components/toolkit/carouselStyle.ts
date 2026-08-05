@@ -78,6 +78,12 @@ export const SCENE_HUES: Record<
   urge_surfing: { primary: '#1FA9C4', secondary: '#3E7CE9' },
   grounding_54321: { primary: '#E8A54A', secondary: '#E76A63' },
   body_scan: { primary: '#7B3FE0', secondary: '#4A2FA8' },
+  // Deep water under a night sky — the wave's own palette.
+  ride_the_wave: { primary: '#2B6E86', secondary: '#1A3350' },
+  // Deliberately the dimmest pair on the shelf. Fake Feed treats the
+  // scroll reflex; a bright, saturated card would start rewarding the
+  // user before they even open it.
+  fake_feed: { primary: '#2F4E8F', secondary: '#16213F' },
 };
 
 /** hex → rgba() helper. Duplicated on purpose (no cross-imports). */

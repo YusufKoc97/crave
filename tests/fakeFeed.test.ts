@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { t } from '@/lib/i18n';
 import {
   FAKE_FEED_CARDS,
   FAKE_FEED_CARD_COUNT,
@@ -108,6 +109,31 @@ describe('Fake Feed — pace guard', () => {
     expect(
       feedStep({ index: 1, unlocked: 5, dwellMs: DWELL * 3, requiredMs: DWELL })
     ).toEqual({ kind: 'wait' });
+  });
+});
+
+describe('Fake Feed — copy', () => {
+  it('every card resolves to a real string, not a raw key path', () => {
+    for (const card of FAKE_FEED_CARDS) {
+      const key = `toolkit.techniques.fake_feed.cards.${card.key}`;
+      // lib/i18n returns the key itself when a lookup misses, so a
+      // rename would otherwise ship "toolkit.techniques…" to the user.
+      expect(t(key), `missing i18n for ${key}`).not.toBe(key);
+      expect(t(key).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('promises no interaction the skeleton cannot honour', () => {
+    // The skeleton has no hold gesture, no pulse and no tap targets.
+    // Copy that invites one would leave the user pressing a dead card.
+    const holdish = /\bhold\b|\bpress\b|\btap\b|\blong.press\b/i;
+    for (const card of FAKE_FEED_CARDS.slice(1)) {
+      const line = t(`toolkit.techniques.fake_feed.cards.${card.key}`);
+      expect(
+        holdish.test(line),
+        `${card.key} promises a gesture: ${line}`
+      ).toBe(false);
+    }
   });
 });
 
