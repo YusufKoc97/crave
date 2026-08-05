@@ -101,9 +101,12 @@ export function triggersHeatmapRamp(
   accent: string
 ): readonly [string, string, string, string] {
   return [
-    'rgba(255,255,255,0.05)',
-    triggersHexAlpha(accent, 0.28),
-    triggersHexAlpha(accent, 0.55),
+    // Monochromatic accent ramp so density reads as one hue getting
+    // denser — an empty cell is a faint accent tint (not a white cast,
+    // which broke the scale), then three clear steps up to full accent.
+    triggersHexAlpha(accent, 0.1),
+    triggersHexAlpha(accent, 0.34),
+    triggersHexAlpha(accent, 0.64),
     accent, // full, glow layered by cell
   ] as const;
 }

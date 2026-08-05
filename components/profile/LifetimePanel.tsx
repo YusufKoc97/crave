@@ -56,7 +56,8 @@ import {
 // ── Palette (gold is Lifetime-only; see the note above) ──
 const GOLD = '#d6ad3d';
 const VIOLET = 'rgb(178,120,220)'; // aurora fill only, nowhere else
-const BLUE = '#5cc9f5'; // app accent's one gentle gesture here
+const AMBER = '#e6b866'; // warm counter-tone; the old cyan mixed to
+// green over the gold blob, so the aurora now stays in the gold family
 const HERO_WARM = '#f7f3e8'; // broken white, tuned to sit with gold
 const gold = (a: number) => hexAlpha(GOLD, a);
 
@@ -147,13 +148,14 @@ function Hero({ value }: { value: number }) {
   return (
     <View style={styles.hero}>
       <View style={styles.auroraLayer} pointerEvents="none">
-        {/* Render order = z-order: blue (coldest, faintest) at the
-            bottom, violet filling the middle, gold dominant on top. */}
+        {/* Render order = z-order: amber (faintest) at the bottom,
+            violet filling the middle, gold dominant on top — all warm,
+            no cyan, so nothing mixes to green. */}
         <AuroraBlob
           w={250}
           h={58}
           centerPct={0.4}
-          color={BLUE}
+          color={AMBER}
           alpha={0.28}
           blurPx={16}
           durationMs={13000}

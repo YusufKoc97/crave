@@ -465,10 +465,26 @@ function WaveLayer({
   // from 0 to -50% and loop seamlessly.
   const W = 384;
   const H = 84;
-  let d = `M0,${yb}`;
-  for (let x = 0; x <= W; x += 6) {
-    const y = yb - Math.sin((x * 2 * Math.PI) / 96) * amp;
-    d += ` L${x},${y.toFixed(1)}`;
+  // Sample the sine, then join the samples with Catmull-Rom→cubic
+  // béziers so the crest reads as a smooth swell rather than a faceted
+  // polyline. Period 96 divides W and the -192 drift, so the loop still
+  // tiles seamlessly.
+  const step = 8;
+  const pts: [number, number][] = [];
+  for (let x = 0; x <= W; x += step) {
+    pts.push([x, yb - Math.sin((x * 2 * Math.PI) / 96) * amp]);
+  }
+  let d = `M${pts[0][0]},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i - 1] ?? pts[i];
+    const [x1, y1] = pts[i];
+    const [x2, y2] = pts[i + 1];
+    const [x3, y3] = pts[i + 2] ?? pts[i + 1];
+    const c1x = x1 + (x2 - x0) / 6;
+    const c1y = y1 + (y2 - y0) / 6;
+    const c2x = x2 - (x3 - x1) / 6;
+    const c2y = y2 - (y3 - y1) / 6;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${x2},${y2.toFixed(1)}`;
   }
   d += ` L${W},${H} L0,${H} Z`;
 

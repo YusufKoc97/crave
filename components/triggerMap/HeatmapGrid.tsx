@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import Svg, { Circle, G, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { G, Rect, Text as SvgText } from 'react-native-svg';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -55,10 +55,8 @@ type Props = {
 const CELL_GAP = 2;
 const CELL_SIZE_MIN = 8;
 const CELL_SIZE_MAX = 14;
-const DAY_LABEL_WIDTH = 28;
+const DAY_LABEL_WIDTH = 36; // room for "Wed"/"Mon" without left-clipping
 const HOUR_LABEL_HEIGHT = 20;
-const INTENSITY_MARKER_RADIUS = 1.8;
-const INTENSITY_THRESHOLD = 4;
 const HOT_CELL_COUNT = 5;
 /** Card padding (see styles.wrap below). Used to compute the
  *  amount of horizontal room the SVG grid has to fit inside. */
@@ -120,7 +118,11 @@ export function HeatmapGrid({
       }
     }
     return out;
-  }, [heatmap, intensityMap]);
+    // cellSize matters: cells are laid out from it, so they must
+    // recompute when the measured width changes it (else the grid
+    // renders at the stale placeholder pitch and drifts out of line
+    // with the day labels).
+  }, [heatmap, intensityMap, cellSize]);
 
   // Which hour labels to render across the top. Every 6 hours plus
   // the trailing 23 so the right edge is anchored.
@@ -182,7 +184,7 @@ export function HeatmapGrid({
                   return (
                     <SvgText
                       key={dayKey}
-                      x={DAY_LABEL_WIDTH - 10}
+                      x={DAY_LABEL_WIDTH - 9}
                       y={y}
                       fill="#8FA5CC"
                       fontSize={9}
@@ -222,16 +224,6 @@ export function HeatmapGrid({
                         ry={2}
                         fill={fill}
                       />
-                      {cell.avgIntensity !== null &&
-                      cell.avgIntensity >= INTENSITY_THRESHOLD ? (
-                        <Circle
-                          cx={cell.x + cellSize - 2}
-                          cy={cell.y + 2}
-                          r={INTENSITY_MARKER_RADIUS}
-                          fill="#FFFFFF"
-                          fillOpacity={0.92}
-                        />
-                      ) : null}
                     </G>
                   );
                 })}
