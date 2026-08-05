@@ -66,8 +66,8 @@ import type { SceneProps } from './types';
 
 const DURATION_MS = 240_000; // 4 minutes of foreground time, single wave
 const PEAK_FRAC = 1 / 3; // peak at 1/3 of the curve width
-const END_LEVEL = 0.06; // where the tail settles (near baseline)
-const SAMPLES = 56;
+const END_LEVEL = 0.03; // where the tail settles (near baseline)
+const SAMPLES = 96; // dense enough that the smoothed curve reads clean
 
 const DOT = 18;
 const HALO = 66; // soft radial glow box around the marker
@@ -162,11 +162,28 @@ export function RideTheWaveScreen({
       xs.push(MARGIN_X + f * plotW);
       ys.push(BASELINE - a * AMP);
     }
-    let line = `M ${xs[0]} ${ys[0]}`;
-    for (let i = 1; i < SAMPLES; i++) line += ` L ${xs[i]} ${ys[i]}`;
-    let area = `M ${xs[0]} ${BASELINE} L ${xs[0]} ${ys[0]}`;
-    for (let i = 1; i < SAMPLES; i++) area += ` L ${xs[i]} ${ys[i]}`;
-    area += ` L ${xs[SAMPLES - 1]} ${BASELINE} Z`;
+    // Catmull-Rom → cubic bézier through every sample, so the crest and
+    // the tail read as polished water rather than faceted line segments.
+    let segs = '';
+    for (let i = 0; i < SAMPLES - 1; i++) {
+      const x0 = xs[i - 1] ?? xs[i];
+      const y0 = ys[i - 1] ?? ys[i];
+      const x1 = xs[i];
+      const y1 = ys[i];
+      const x2 = xs[i + 1];
+      const y2 = ys[i + 1];
+      const x3 = xs[i + 2] ?? x2;
+      const y3 = ys[i + 2] ?? y2;
+      const c1x = x1 + (x2 - x0) / 6;
+      const c1y = y1 + (y2 - y0) / 6;
+      const c2x = x2 - (x3 - x1) / 6;
+      const c2y = y2 - (y3 - y1) / 6;
+      segs += ` C ${c1x} ${c1y} ${c2x} ${c2y} ${x2} ${y2}`;
+    }
+    const line = `M ${xs[0]} ${ys[0]}${segs}`;
+    const area =
+      `M ${xs[0]} ${BASELINE} L ${xs[0]} ${ys[0]}${segs}` +
+      ` L ${xs[SAMPLES - 1]} ${BASELINE} Z`;
     return {
       lineD: line,
       areaD: area,
@@ -301,19 +318,25 @@ export function RideTheWaveScreen({
     const tv = interpolate(raw.value, TAU, TV, Extrapolation.CLAMP);
     const iv = interpolate(tv, FRACS, INTENS, Extrapolation.CLAMP);
     return {
-      opacity: 0.32 + iv * 0.26 + breath.value * 0.1,
+      // White base glow — gentle and roughly constant; the size grows
+      // with intensity, but the *colour* of the peak comes from the red
+      // overlay below, so this stays low and lets red dominate up top.
+      opacity: 0.34 + breath.value * 0.1,
       transform: [{ scale: 0.72 + iv * 0.5 + breath.value * 0.08 }],
     };
   });
 
-  // Warm overlay glow — invisible at baseline, blooms only near the
-  // crest so the hardest moment reads warm/charged, then cools.
-  const haloWarmStyle = useAnimatedStyle(() => {
+  // Red charge overlay — the crest is the critical moment: the glow
+  // reddens as the marker climbs, is deepest red at the very top, then
+  // fades back out so the white base returns on the descent. Emotional
+  // signal (not decoration), so it tracks intensity even under reduced
+  // motion.
+  const haloRedStyle = useAnimatedStyle(() => {
     const tv = interpolate(raw.value, TAU, TV, Extrapolation.CLAMP);
     const iv = interpolate(tv, FRACS, INTENS, Extrapolation.CLAMP);
     return {
-      opacity: Math.max(0, iv - 0.35) * 0.7,
-      transform: [{ scale: 0.8 + iv * 0.55 }],
+      opacity: iv * 0.95,
+      transform: [{ scale: 0.8 + iv * 0.5 }],
     };
   });
 
@@ -415,6 +438,8 @@ export function RideTheWaveScreen({
             stroke={accentColor}
             strokeOpacity={0.32}
             strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
             fill="none"
           />
 
@@ -427,6 +452,8 @@ export function RideTheWaveScreen({
               stroke={accentColor}
               strokeOpacity={0.16}
               strokeWidth={10}
+              strokeLinecap="round"
+              strokeLinejoin="round"
               fill="none"
             />
             {/* bright surface rim, breathing */}
@@ -434,6 +461,8 @@ export function RideTheWaveScreen({
               d={lineD}
               stroke="#eaf2ff"
               strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
               fill="none"
               animatedProps={rimProps}
             />
@@ -449,13 +478,9 @@ export function RideTheWaveScreen({
             <Svg width={HALO} height={HALO}>
               <Defs>
                 <RadialGradient id="rtwHalo" cx="0.5" cy="0.5" r="0.5">
-                  <Stop offset="0" stopColor={accentColor} stopOpacity={0.6} />
-                  <Stop
-                    offset="0.45"
-                    stopColor={accentColor}
-                    stopOpacity={0.22}
-                  />
-                  <Stop offset="1" stopColor={accentColor} stopOpacity={0} />
+                  <Stop offset="0" stopColor="#eef4ff" stopOpacity={0.62} />
+                  <Stop offset="0.45" stopColor="#eef4ff" stopOpacity={0.22} />
+                  <Stop offset="1" stopColor="#eef4ff" stopOpacity={0} />
                 </RadialGradient>
               </Defs>
               <Circle
@@ -466,20 +491,20 @@ export function RideTheWaveScreen({
               />
             </Svg>
           </Animated.View>
-          <Animated.View style={[styles.haloBox, haloWarmStyle]}>
+          <Animated.View style={[styles.haloBox, haloRedStyle]}>
             <Svg width={HALO} height={HALO}>
               <Defs>
-                <RadialGradient id="rtwHaloWarm" cx="0.5" cy="0.5" r="0.5">
-                  <Stop offset="0" stopColor="#ffe0bd" stopOpacity={0.7} />
-                  <Stop offset="0.5" stopColor="#ffcf9e" stopOpacity={0.2} />
-                  <Stop offset="1" stopColor="#ffcf9e" stopOpacity={0} />
+                <RadialGradient id="rtwHaloRed" cx="0.5" cy="0.5" r="0.5">
+                  <Stop offset="0" stopColor="#f5322a" stopOpacity={0.85} />
+                  <Stop offset="0.5" stopColor="#b01414" stopOpacity={0.42} />
+                  <Stop offset="1" stopColor="#7a0d0d" stopOpacity={0} />
                 </RadialGradient>
               </Defs>
               <Circle
                 cx={HALO / 2}
                 cy={HALO / 2}
                 r={HALO / 2}
-                fill="url(#rtwHaloWarm)"
+                fill="url(#rtwHaloRed)"
               />
             </Svg>
           </Animated.View>
