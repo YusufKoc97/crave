@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, {
   Extrapolation,
@@ -9,7 +9,11 @@ import Animated, {
   useSharedValue,
   type SharedValue,
 } from 'react-native-reanimated';
-import { TOOLKIT_TECHNIQUES, type Technique } from '@/constants/toolkitCatalog';
+import {
+  TOOLKIT_TECHNIQUES,
+  techniquesForAddiction,
+  type Technique,
+} from '@/constants/toolkitCatalog';
 import { TechniqueCard } from './TechniqueCard';
 import { CARD_W } from './carouselStyle';
 
@@ -41,6 +45,9 @@ const GAP = 12;
 
 type Props = {
   accentColor: string;
+  /** Whose toolkit this is — decides which techniques are offered
+   *  (see techniquesForAddiction). */
+  addictionId?: string | null;
   onSelect: (technique: Technique) => void;
   /** Currently-focused card index (parent state). */
   focusedIndex: number;
@@ -55,6 +62,7 @@ type Props = {
 
 export function ToolkitCarousel({
   accentColor,
+  addictionId,
   onSelect,
   focusedIndex,
   onIndexChange,
@@ -64,6 +72,13 @@ export function ToolkitCarousel({
   const screenW = Dimensions.get('window').width;
   const snapInterval = CARD_W + GAP;
   const sidePadding = Math.max(24, (screenW - CARD_W) / 2);
+  // The offered set for this addiction — swipe/snap/select behaviour is
+  // unchanged, it just runs over this list instead of the global one.
+  const techniques = useMemo(
+    () => techniquesForAddiction(addictionId),
+    [addictionId]
+  );
+  const lastIndex = techniques.length - 1;
 
   const scrollX = useSharedValue(0);
 
@@ -85,7 +100,7 @@ export function ToolkitCarousel({
     },
     onMomentumEnd: (e) => {
       const i = Math.round(e.contentOffset.x / snapInterval);
-      const clamped = Math.max(0, Math.min(TOOLKIT_TECHNIQUES.length - 1, i));
+      const clamped = Math.max(0, Math.min(lastIndex, i));
       runOnJS(emitIndex)(clamped);
     },
   });
@@ -102,12 +117,12 @@ export function ToolkitCarousel({
         onScroll={scrollHandler}
         scrollEventThrottle={16}
       >
-        {TOOLKIT_TECHNIQUES.map((tech, i) => (
+        {techniques.map((tech, i) => (
           <CardSlot
             key={tech.id}
             technique={tech}
             index={i}
-            total={TOOLKIT_TECHNIQUES.length}
+            total={techniques.length}
             accentColor={accentColor}
             scrollX={scrollX}
             snapInterval={snapInterval}

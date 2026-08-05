@@ -797,6 +797,7 @@ export default function ActiveSession() {
       <ToolkitPickerModal
         visible={toolkitPickerOpen}
         accentColor={accentColor}
+        addictionId={params.id}
         onClose={() => setToolkitPickerOpen(false)}
         onSelect={(tech) => {
           setToolkitPickerOpen(false);

@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
-  TOOLKIT_TECHNIQUES,
+  techniquesForAddiction,
   techniqueDurationLabel,
   techniqueName,
   techniqueShortDescription,
@@ -24,15 +24,17 @@ import { t } from '@/lib/i18n';
 
 type Props = {
   accentColor: string;
+  /** Whose toolkit this is — decides which techniques are offered. */
+  addictionId?: string | null;
   onSelect: (technique: Technique) => void;
 };
 
-export function ToolkitGrid({ accentColor, onSelect }: Props) {
+export function ToolkitGrid({ accentColor, addictionId, onSelect }: Props) {
   return (
     <View style={styles.wrap}>
       <Text style={styles.header}>{t('toolkit.grid_header')}</Text>
       <View style={styles.grid}>
-        {TOOLKIT_TECHNIQUES.map((tech) => (
+        {techniquesForAddiction(addictionId).map((tech) => (
           <ToolkitCard
             key={tech.id}
             technique={tech}

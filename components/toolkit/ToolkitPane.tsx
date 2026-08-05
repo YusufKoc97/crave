@@ -32,6 +32,8 @@ import { t } from '@/lib/i18n';
 
 type Props = {
   accentColor: string;
+  /** Whose toolkit this is — decides which techniques are offered. */
+  addictionId?: string | null;
   onSelect: (technique: Technique) => void;
 };
 
@@ -50,7 +52,7 @@ function pickPreview(techniqueId: string): React.ReactNode {
   }
 }
 
-export function ToolkitPane({ accentColor, onSelect }: Props) {
+export function ToolkitPane({ accentColor, addictionId, onSelect }: Props) {
   const [segment, setSegment] = useState<ToolkitSegment>('all');
   const [focusedIndex, setFocusedIndex] = useState(0);
 
@@ -73,6 +75,7 @@ export function ToolkitPane({ accentColor, onSelect }: Props) {
 
       <ToolkitCarousel
         accentColor={accentColor}
+        addictionId={addictionId}
         onSelect={onSelect}
         focusedIndex={focusedIndex}
         onIndexChange={setFocusedIndex}

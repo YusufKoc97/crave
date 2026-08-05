@@ -22,6 +22,8 @@ import { t } from '@/lib/i18n';
 type Props = {
   visible: boolean;
   accentColor: string;
+  /** Whose toolkit this is — decides which techniques are offered. */
+  addictionId?: string | null;
   onSelect: (technique: Technique) => void;
   onClose: () => void;
 };
@@ -29,6 +31,7 @@ type Props = {
 export function ToolkitPickerModal({
   visible,
   accentColor,
+  addictionId,
   onSelect,
   onClose,
 }: Props) {
@@ -66,6 +69,7 @@ export function ToolkitPickerModal({
           >
             <ToolkitGrid
               accentColor={accentColor}
+              addictionId={addictionId}
               onSelect={(tech) => {
                 onSelect(tech);
               }}

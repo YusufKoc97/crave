@@ -138,6 +138,7 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 export function RideTheWaveScreen({
   accentColor,
+  addictionId,
   onComplete,
   onProgress,
   haptics,
@@ -340,7 +341,21 @@ export function RideTheWaveScreen({
     };
   });
 
-  const line = t(`toolkit.techniques.ride_the_wave.${PHASES[phaseIdx].key}`);
+  // Awareness copy is tuned per urge: prefer the addiction's own line,
+  // fall back to the shared wording when it has none. `t()` echoes the
+  // key back when it's missing, which is what the equality check
+  // detects — so a typo/absent override degrades to the generic line
+  // instead of printing a raw key on screen.
+  const line = useMemo(() => {
+    const phase = PHASES[phaseIdx].key;
+    const generic = `toolkit.techniques.ride_the_wave.${phase}`;
+    if (addictionId) {
+      const scoped = `toolkit.techniques.ride_the_wave.by_addiction.${addictionId}.${phase}`;
+      const scopedText = t(scoped);
+      if (scopedText !== scoped) return scopedText;
+    }
+    return t(generic);
+  }, [phaseIdx, addictionId]);
 
   return (
     <View style={styles.root}>

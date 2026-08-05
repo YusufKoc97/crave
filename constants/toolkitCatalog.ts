@@ -3,9 +3,11 @@ import { t } from '@/lib/i18n';
 /**
  * Faz 6 — Craving Toolkit catalog.
  *
- * Four MVP techniques, all shared across every addiction (no
- * addiction-specific set in v1). Structure only — every visible
- * string comes from i18n (`toolkit.techniques.<id>.*`).
+ * The four MVP techniques are universal (offered for every
+ * addiction); a technique may instead name the addictions it is
+ * written for via `addictions` — see {@link techniquesForAddiction},
+ * which every list surface filters through. Structure only — every
+ * visible string comes from i18n (`toolkit.techniques.<id>.*`).
  *
  * `durationSeconds` is the guided-flow length the technique
  * screens use to lay out timelines. Card UI shows it as minutes
@@ -29,7 +31,29 @@ export type Technique = {
   durationSeconds: number;
   emoji: string;
   displayOrder: number;
+  /**
+   * Addiction ids this technique is offered for. Omitted = universal
+   * (the four MVP techniques, which suit every addiction). A technique
+   * that names addictions is hidden everywhere else — see
+   * {@link techniquesForAddiction}, the single filter every list
+   * surface goes through.
+   */
+  addictions?: readonly string[];
 };
+
+/**
+ * Ride the Wave is written for *substance* urges that come in a
+ * discrete rising/peaking/fading wave. It is deliberately NOT offered
+ * for the behavioural / intake addictions (caffeine, junk food,
+ * gambling, shopping, doomscroll, gaming), whose cravings don't follow
+ * this curve.
+ */
+export const RIDE_THE_WAVE_ADDICTIONS = [
+  'nicotine',
+  'alcohol',
+  'vape',
+  'pmo',
+] as const;
 
 export const TOOLKIT_TECHNIQUES: readonly Technique[] = [
   // 4 cycles × 19s (4-in / 7-hold / 8-out) = 76s
@@ -64,16 +88,35 @@ export const TOOLKIT_TECHNIQUES: readonly Technique[] = [
     emoji: '🧘',
     displayOrder: 4,
   },
-  // 4 min urge-surfing wave — one craving rising, peaking (~80s), and
-  // fading. Nicotine-only pilot for now.
+  // 4 min urge-surfing wave — one craving rising, peaking, and fading.
+  // Substance urges only (see RIDE_THE_WAVE_ADDICTIONS).
   {
     id: 'ride_the_wave',
     type: 'ride_the_wave',
     durationSeconds: 240,
     emoji: '🏄',
     displayOrder: 5,
+    addictions: RIDE_THE_WAVE_ADDICTIONS,
   },
 ] as const;
+
+/**
+ * The techniques offered for a given addiction — the ONE place list
+ * surfaces (carousel, grid, picker) filter through, so a technique's
+ * availability is decided by its catalog entry and never duplicated
+ * per screen. A null/unknown addiction falls back to the universal
+ * set, so no surface can accidentally show a technique that names
+ * addictions to an addiction it wasn't written for.
+ */
+export function techniquesForAddiction(
+  addictionId: string | null | undefined
+): readonly Technique[] {
+  return TOOLKIT_TECHNIQUES.filter(
+    (tech) =>
+      !tech.addictions ||
+      (!!addictionId && tech.addictions.includes(addictionId))
+  );
+}
 
 /** Fast id → technique lookup for modal routing. */
 const BY_ID: Record<string, Technique> = TOOLKIT_TECHNIQUES.reduce(

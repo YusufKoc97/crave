@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   FEEDBACK_OPTIONS,
+  RIDE_THE_WAVE_ADDICTIONS,
   TOOLKIT_TECHNIQUES,
   getTechnique,
+  techniquesForAddiction,
   techniqueDurationLabel,
   techniqueLongDescription,
   techniqueName,
@@ -186,5 +188,50 @@ describe('i18n coverage', () => {
         `missing i18n for toolkit.techniques.${tech.id}.long_description`
       ).toBe(false);
     }
+  });
+
+  describe('techniquesForAddiction', () => {
+    const idsFor = (a: string | null) =>
+      techniquesForAddiction(a).map((tech) => tech.id);
+
+    it('offers ride_the_wave only to the substance addictions', () => {
+      for (const id of RIDE_THE_WAVE_ADDICTIONS) {
+        expect(idsFor(id), `${id} should offer ride_the_wave`).toContain(
+          'ride_the_wave'
+        );
+      }
+    });
+
+    it('hides ride_the_wave from every other addiction', () => {
+      const others = [
+        'caffeine',
+        'gambling',
+        'junk_food',
+        'shopping',
+        'doomscroll',
+        'gaming',
+      ];
+      for (const id of others) {
+        expect(idsFor(id), `${id} must not offer ride_the_wave`).not.toContain(
+          'ride_the_wave'
+        );
+      }
+    });
+
+    it('keeps the four universal techniques for every addiction', () => {
+      const universal = TOOLKIT_TECHNIQUES.filter((tech) => !tech.addictions);
+      for (const id of ['nicotine', 'caffeine', 'gaming']) {
+        const ids = idsFor(id);
+        for (const tech of universal) {
+          expect(ids, `${id} lost ${tech.id}`).toContain(tech.id);
+        }
+      }
+    });
+
+    it('falls back to the universal set when the addiction is unknown', () => {
+      expect(idsFor(null)).not.toContain('ride_the_wave');
+      expect(idsFor('not_a_real_addiction')).not.toContain('ride_the_wave');
+      expect(idsFor(null)).toContain('breathing_478');
+    });
   });
 });

@@ -142,6 +142,7 @@ export default function AddictionLandingScreen() {
           {subTab === 'toolkit' && (
             <ToolkitPane
               accentColor={addiction.color}
+              addictionId={addiction.id}
               onSelect={setRunningTechnique}
             />
           )}

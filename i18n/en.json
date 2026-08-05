@@ -488,7 +488,26 @@
         "wave_peak": "You're at the top. From here, it only fades.",
         "wave_early_fade": "Feel it passing. The wave is losing its power.",
         "wave_late_fade": "Almost gone. You didn't act on it.",
-        "wave_final": "You rode it out."
+        "wave_final": "You rode it out.",
+        "by_addiction": {
+          "nicotine": {
+            "wave_late_fade": "Almost gone. You didn't light it."
+          },
+          "alcohol": {
+            "wave_near_peak": "This is the strongest pull. It won't get worse.",
+            "wave_early_fade": "Feel it passing. The urge is losing its grip.",
+            "wave_late_fade": "Almost gone. You didn't pour it."
+          },
+          "vape": {
+            "wave_near_peak": "This is the hardest moment. It won't get worse.",
+            "wave_late_fade": "Almost gone. You didn't reach for it."
+          },
+          "pmo": {
+            "wave_near_peak": "This is the hardest moment. It won't get worse.",
+            "wave_early_fade": "Feel it passing. The urge is losing its power.",
+            "wave_late_fade": "Almost gone. You didn't act on it."
+          }
+        }
       }
     }
   },

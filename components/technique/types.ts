@@ -49,6 +49,12 @@ export type SceneProps = {
   haptics?: SceneHaptics;
   /** OS reduced-motion preference, resolved once by the runner. */
   reducedMotion?: boolean;
+  /**
+   * Which addiction the exercise was launched for. Scenes that tune
+   * their copy per urge (Ride the Wave) read it; the rest ignore it.
+   * Null when the launch surface has no addiction context.
+   */
+  addictionId?: string | null;
 };
 
 /**

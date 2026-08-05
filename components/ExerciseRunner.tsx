@@ -251,6 +251,7 @@ export function ExerciseRunner({
               key={`${technique.id}-${resetSeed}`}
               technique={technique}
               accentColor={accentColor}
+              addictionId={addictionId}
               onComplete={handleGuidingComplete}
               onProgress={handleProgress}
             />
@@ -274,11 +275,13 @@ export function ExerciseRunner({
 function GuidingScreen({
   technique,
   accentColor,
+  addictionId,
   onComplete,
   onProgress,
 }: {
   technique: Technique;
   accentColor: string;
+  addictionId: string | null;
   onComplete: () => void;
   onProgress: (fraction: number) => void;
 }) {
@@ -290,6 +293,7 @@ function GuidingScreen({
     <Scene
       technique={technique}
       accentColor={accentColor}
+      addictionId={addictionId}
       onComplete={onComplete}
       onProgress={onProgress}
       haptics={SCENE_HAPTICS}
