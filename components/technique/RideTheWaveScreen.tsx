@@ -111,7 +111,14 @@ function smootherstep(x: number): number {
 function intensity(f: number): number {
   if (f <= PEAK_FRAC) return smootherstep(f / PEAK_FRAC);
   const v = (f - PEAK_FRAC) / (1 - PEAK_FRAC);
-  return END_LEVEL + (1 - END_LEVEL) * Math.pow(1 - v, 1.5);
+  // The decay is driven through a smoothstep of v rather than v itself.
+  // Both halves then meet the peak with ZERO slope, so the crest is a
+  // rounded swell instead of a corner — a raw (1-v)^1.5 leaves the fade
+  // starting at slope -1.5 while the rise arrives at 0, and no amount of
+  // path smoothing can hide that kink. Mid-fade values are unchanged
+  // (smoothstep(0.5) = 0.5), so only the crest and the tail settle.
+  const u = v * v * (3 - 2 * v);
+  return END_LEVEL + (1 - END_LEVEL) * Math.pow(1 - u, 1.5);
 }
 
 // Phase-synced awareness lines, keyed on curve position tv (so they

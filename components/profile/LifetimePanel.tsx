@@ -55,7 +55,6 @@ import {
 
 // ── Palette (gold is Lifetime-only; see the note above) ──
 const GOLD = '#d6ad3d';
-const VIOLET = 'rgb(178,120,220)'; // aurora fill only, nowhere else
 const AMBER = '#e6b866'; // warm counter-tone; the old cyan mixed to
 // green over the gold blob, so the aurora now stays in the gold family
 const HERO_WARM = '#f7f3e8'; // broken white, tuned to sit with gold
@@ -148,36 +147,39 @@ function Hero({ value }: { value: number }) {
   return (
     <View style={styles.hero}>
       <View style={styles.auroraLayer} pointerEvents="none">
-        {/* Render order = z-order: amber (faintest) at the bottom,
-            violet filling the middle, gold dominant on top — all warm,
-            no cyan, so nothing mixes to green. */}
+        {/* One warm family, three very faint layers: a wide wash that
+            spans the hero, a softer mid drift, and a small core behind
+            the number. Combined peak opacity is ~a third of what it
+            was — the old stack (0.28 + 0.45 violet + 0.55) saturated
+            into a muddy oval that fought the navy panel instead of
+            sitting inside it. */}
         <AuroraBlob
-          w={250}
-          h={58}
-          centerPct={0.4}
-          color={AMBER}
-          alpha={0.28}
-          blurPx={16}
+          w={480}
+          h={150}
+          centerPct={0.46}
+          color={GOLD}
+          alpha={0.15}
+          blurPx={34}
           durationMs={13000}
           variant="drift"
         />
         <AuroraBlob
-          w={320}
-          h={80}
+          w={340}
+          h={112}
           centerPct={0.52}
-          color={VIOLET}
-          alpha={0.45}
-          blurPx={20}
+          color={AMBER}
+          alpha={0.12}
+          blurPx={26}
           durationMs={11000}
           variant="skew"
         />
         <AuroraBlob
-          w={380}
-          h={104}
+          w={240}
+          h={82}
           centerPct={0.44}
           color={GOLD}
-          alpha={0.55}
-          blurPx={18}
+          alpha={0.14}
+          blurPx={20}
           durationMs={9000}
           variant="drift"
         />
@@ -291,11 +293,18 @@ function AuroraBlob({
     >
       <Svg width={w} height={h}>
         <Defs>
+          {/* Long, gentle falloff that only reaches zero at the very
+              edge. The old ramp dropped to 20% by 0.58 and died at
+              0.78, which drew a defined core with a visible rim — it
+              read as a smudge sitting on the panel rather than light
+              diffusing into it. */}
           <RadialGradient id={gradId}>
             <Stop offset="0" stopColor={color} stopOpacity={alpha} />
-            <Stop offset="0.32" stopColor={color} stopOpacity={alpha * 0.62} />
-            <Stop offset="0.58" stopColor={color} stopOpacity={alpha * 0.2} />
-            <Stop offset="0.78" stopColor={color} stopOpacity={0} />
+            <Stop offset="0.25" stopColor={color} stopOpacity={alpha * 0.82} />
+            <Stop offset="0.45" stopColor={color} stopOpacity={alpha * 0.56} />
+            <Stop offset="0.64" stopColor={color} stopOpacity={alpha * 0.3} />
+            <Stop offset="0.82" stopColor={color} stopOpacity={alpha * 0.1} />
+            <Stop offset="1" stopColor={color} stopOpacity={0} />
           </RadialGradient>
         </Defs>
         <Ellipse
