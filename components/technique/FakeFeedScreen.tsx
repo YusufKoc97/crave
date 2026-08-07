@@ -28,6 +28,8 @@ import {
   FAKE_FEED_NUMBER_TOTAL_MS,
   contextOpacity,
   countUpValue,
+  entranceOpacity,
+  entranceScale,
 } from './fakeFeedNumber';
 import type { SceneProps } from './types';
 
@@ -256,6 +258,20 @@ const FeedCard = memo(function FeedCard({
   active: boolean;
   reducedMotion: boolean;
 }) {
+  // Card 4 is not a boxed card at all — it takes the whole page, sitting
+  // straight on the shell's atmosphere, so it reads as a moment rather
+  // than one more item in the list.
+  if (card.key === NUMBER_CARD_KEY) {
+    return (
+      <NumberCard
+        height={height}
+        accentColor={accentColor}
+        active={active}
+        reducedMotion={reducedMotion}
+      />
+    );
+  }
+
   // Depletion drains the SURFACE, never the words. The card's own
   // background and border recede toward the navy as the feed runs out —
   // but the copy stays at full strength. On the last card that means the
@@ -284,72 +300,115 @@ const FeedCard = memo(function FeedCard({
           },
         ]}
       >
-        {card.key === NUMBER_CARD_KEY ? (
-          <NumberCard
-            active={active}
-            reducedMotion={reducedMotion}
-            accentColor={accentColor}
-          />
-        ) : (
-          <>
-            <Text style={styles.cardText}>
-              {t(`toolkit.techniques.fake_feed.cards.${card.key}`)}
-            </Text>
+        <Text style={styles.cardText}>
+          {t(`toolkit.techniques.fake_feed.cards.${card.key}`)}
+        </Text>
 
-            {/* The one doomscroll-accent highlight — a short rule that
-                thins as the feed empties. Views only, so nothing
-                rasterises while the user scrolls. */}
-            <View
-              style={[
-                styles.rule,
-                {
-                  backgroundColor: hexAlpha(accentColor, 0.55 * (1 - drain)),
-                  width: 40 * (1 - drain * 0.8),
-                },
-              ]}
-            />
-          </>
-        )}
+        {/* The one doomscroll-accent highlight — a short rule that thins
+            as the feed empties. Views only, so nothing rasterises while
+            the user scrolls. */}
+        <View
+          style={[
+            styles.rule,
+            {
+              backgroundColor: hexAlpha(accentColor, 0.55 * (1 - drain)),
+              width: 40 * (1 - drain * 0.8),
+            },
+          ]}
+        />
       </SurfaceCard>
     </View>
   );
 });
 
 /**
- * Card 4 — "the number". Two figures count up from zero, one after the
- * other, then two context lines fade in to give the numbers a
- * lifetime-scale meaning. The point is the order: the figure lands
- * first, its weight lands second.
+ * Hero pixel size of the numerals. Deliberately far past the display
+ * scale (largest token is 48) — card 4 is the one screen that should
+ * feel oversized. ESTIMATE, tuned by eye, not a measurement.
+ */
+const HERO_SIZE = 84;
+
+/**
+ * One big count-up figure: a glowing numeral over an offset dark twin.
+ * The twin gives it depth (the number reads as lifted off the surface
+ * rather than painted flat), the glow gives it the neon presence the
+ * doomscroll accent is for. Two Text nodes, no SVG — nothing rasterises
+ * while the feed scrolls.
+ */
+function StatNumber({
+  value,
+  accentColor,
+  label,
+}: {
+  value: number;
+  accentColor: string;
+  label: string;
+}) {
+  return (
+    <View style={styles.statBlock}>
+      <View style={styles.heroWrap}>
+        {/* Depth twin, sitting just below and behind. */}
+        <Text
+          style={styles.heroBack}
+          allowFontScaling={false}
+          numberOfLines={1}
+        >
+          ~{value}
+        </Text>
+        <Text
+          style={[
+            styles.heroFront,
+            { color: accentColor, textShadowColor: hexAlpha(accentColor, 0.6) },
+          ]}
+          allowFontScaling={false}
+          numberOfLines={1}
+        >
+          ~{value}
+        </Text>
+      </View>
+      <Text style={styles.numberLabel}>{label}</Text>
+    </View>
+  );
+}
+
+/**
+ * Card 4 — "the number". Two figures count up together from the instant
+ * the card lands (a scale-and-fade pop, not a fade-in), then two context
+ * lines rise once both have settled to give the numbers a lifetime-scale
+ * meaning. It takes the whole page rather than sitting in a boxed card,
+ * so it lands as a moment.
  *
  * The count is driven by a plain rAF loop writing `elapsed` to state,
- * not Reanimated: the values are re-read from the pure helpers each
- * frame, so the maths is the same code the tests exercise, and there is
- * nothing to keep animating once the sequence is done. Two Text nodes
- * for ~4s is cheap.
+ * not Reanimated: entrance, both counts and the context fade are all
+ * re-derived from the same pure helpers each frame, so the maths is the
+ * code the tests exercise and there is nothing left animating once the
+ * sequence is done.
  *
- * Armed by `active`: nothing counts until the card is the centred one,
- * so it never runs while off-screen and it re-runs if the user scrolls
+ * Armed by `active`: nothing runs until the card is the centred one, so
+ * it never fires while off-screen and it replays if the user scrolls
  * away and back. With `reducedMotion` the numbers appear already at
- * their targets and the context is static — no motion at all.
+ * their targets, full size, and the context is static — no motion.
  */
 const NumberCard = memo(function NumberCard({
   active,
   reducedMotion,
   accentColor,
+  height,
 }: {
   active: boolean;
   reducedMotion: boolean;
   accentColor: string;
+  height: number;
 }) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
     if (!active) {
-      setElapsed(0); // reset so a return to the card counts again
+      setElapsed(0); // reset so a return to the card replays it
       return;
     }
     if (reducedMotion) {
-      setElapsed(FAKE_FEED_NUMBER_TOTAL_MS); // straight to final values
+      setElapsed(FAKE_FEED_NUMBER_TOTAL_MS); // straight to final state
       return;
     }
     let raf = 0;
@@ -371,26 +430,39 @@ const NumberCard = memo(function NumberCard({
   const distance = Math.round(countUpValue(elapsed, FAKE_FEED_NUMBER.distance));
   const videos = Math.round(countUpValue(elapsed, FAKE_FEED_NUMBER.videos));
   const ctx = contextOpacity(elapsed);
+  const enter = {
+    opacity: entranceOpacity(elapsed),
+    transform: [{ scale: entranceScale(elapsed) }],
+  };
 
   return (
-    <View style={styles.numberWrap}>
-      <View style={styles.numberBlock}>
-        <Text style={[styles.hero, { color: accentColor }]}>~{distance}</Text>
-        <Text style={styles.numberLabel}>
-          {t('toolkit.techniques.fake_feed.number_card.distance_label')}
-        </Text>
+    <View style={[styles.numberPage, { height }]}>
+      <View style={styles.numbersGroup}>
+        <View style={enter}>
+          <StatNumber
+            value={distance}
+            accentColor={accentColor}
+            label={t('toolkit.techniques.fake_feed.number_card.distance_label')}
+          />
+        </View>
+        <View style={enter}>
+          <StatNumber
+            value={videos}
+            accentColor={accentColor}
+            label={t('toolkit.techniques.fake_feed.number_card.videos_label')}
+          />
+        </View>
       </View>
 
-      <View style={styles.numberBlock}>
-        <Text style={[styles.hero, { color: accentColor }]}>~{videos}</Text>
-        <Text style={styles.numberLabel}>
-          {t('toolkit.techniques.fake_feed.number_card.videos_label')}
-        </Text>
-      </View>
-
-      {/* The meaning, after the figures. Fades in as one block so it
-          reads as a settling-in, not a third number arriving. */}
-      <View style={[styles.contextWrap, { opacity: ctx }]}>
+      {/* The meaning, after the figures. Rises as one block once both
+          numbers have landed — bright and legible, not a footnote. */}
+      <View style={[styles.contextGroup, { opacity: ctx }]}>
+        <View
+          style={[
+            styles.contextDivider,
+            { backgroundColor: hexAlpha(accentColor, 0.5) },
+          ]}
+        />
         <Text style={styles.context}>
           {t('toolkit.techniques.fake_feed.number_card.context_distance')}
         </Text>
@@ -430,33 +502,64 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     marginTop: dsSpacing.xl,
   },
-  numberWrap: { width: '100%', alignItems: 'center' },
-  numberBlock: { alignItems: 'center', marginBottom: dsSpacing.xl },
-  hero: {
+  numberPage: {
+    width: '100%',
+    paddingHorizontal: dsSpacing.x3l,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  numbersGroup: {
+    alignItems: 'center',
+    gap: dsSpacing.x4l,
+  },
+  statBlock: { alignItems: 'center', gap: dsSpacing.sm },
+  heroWrap: { alignItems: 'center', justifyContent: 'center' },
+  heroBack: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
     fontFamily: FONT_STACK,
-    fontSize: dsFont.size.displayXxl,
+    fontSize: HERO_SIZE,
     fontWeight: dsFont.weight.bold,
-    letterSpacing: dsFont.letterSpacing.tight,
+    letterSpacing: -1,
+    color: 'rgba(0, 0, 0, 0.55)',
+    transform: [{ translateY: 6 }],
+    textAlign: 'center',
+  },
+  heroFront: {
+    fontFamily: FONT_STACK,
+    fontSize: HERO_SIZE,
+    fontWeight: dsFont.weight.bold,
+    letterSpacing: -1,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 26,
     textAlign: 'center',
   },
   numberLabel: {
     color: dsColors.textSecondary,
     fontFamily: FONT_STACK,
-    fontSize: dsFont.size.label,
+    fontSize: dsFont.size.bodyLg,
     fontWeight: dsFont.weight.semibold,
-    marginTop: dsSpacing.xs,
+    letterSpacing: dsFont.letterSpacing.tight,
     textAlign: 'center',
   },
-  contextWrap: {
-    marginTop: dsSpacing.lg,
+  contextGroup: {
+    marginTop: dsSpacing.x4l,
     alignItems: 'center',
-    gap: dsSpacing.xs,
+    gap: dsSpacing.sm,
+  },
+  contextDivider: {
+    width: 44,
+    height: 2,
+    borderRadius: 1,
+    marginBottom: dsSpacing.xs,
   },
   context: {
-    color: dsColors.textTertiary,
+    color: dsColors.textSecondary,
     fontFamily: FONT_STACK,
-    fontSize: dsFont.size.label,
-    lineHeight: 20,
+    fontSize: dsFont.size.bodyLg,
+    lineHeight: 24,
     textAlign: 'center',
   },
 });

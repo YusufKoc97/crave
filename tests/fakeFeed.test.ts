@@ -10,6 +10,9 @@ import {
   FAKE_FEED_NUMBER_TOTAL_MS,
   contextOpacity,
   countUpValue,
+  easeOutBack,
+  entranceOpacity,
+  entranceScale,
 } from '@/components/technique/fakeFeedNumber';
 
 /**
@@ -120,12 +123,15 @@ describe('Fake Feed — card 4 count-up', () => {
     expect(countUpValue(mid, distance)).toBeGreaterThan(distance.target * 0.5);
   });
 
-  it('runs the two numbers in sequence, not together', () => {
-    // The video count has not begun while distance is still counting.
-    expect(distance.startMs + distance.durationMs).toBeLessThanOrEqual(
-      videos.startMs
-    );
-    expect(countUpValue(distance.durationMs, videos)).toBe(0);
+  it('runs the two numbers together, both from zero', () => {
+    expect(distance.startMs).toBe(0);
+    expect(videos.startMs).toBe(0);
+    // both are mid-count at the same instant — not a relay
+    const mid = distance.durationMs / 2;
+    for (const spec of [distance, videos]) {
+      expect(countUpValue(mid, spec)).toBeGreaterThan(0);
+      expect(countUpValue(mid, spec)).toBeLessThan(spec.target);
+    }
   });
 
   it('holds the context lines back until both numbers have landed', () => {
@@ -136,5 +142,23 @@ describe('Fake Feed — card 4 count-up', () => {
     expect(FAKE_FEED_NUMBER.contextStartMs).toBeGreaterThanOrEqual(
       videos.startMs + videos.durationMs
     );
+  });
+});
+
+describe('Fake Feed — card 4 entrance', () => {
+  it('easeOutBack starts at 0, ends at 1, and overshoots (the pop)', () => {
+    expect(easeOutBack(0)).toBeCloseTo(0, 5);
+    expect(easeOutBack(1)).toBeCloseTo(1, 5);
+    const peak = Math.max(
+      ...Array.from({ length: 21 }, (_, i) => easeOutBack(i / 20))
+    );
+    expect(peak).toBeGreaterThan(1);
+  });
+
+  it('numbers enter smaller-and-faded, then settle to full size', () => {
+    expect(entranceOpacity(0)).toBe(0);
+    expect(entranceScale(0)).toBeLessThan(1);
+    expect(entranceOpacity(FAKE_FEED_NUMBER_TOTAL_MS)).toBe(1);
+    expect(entranceScale(FAKE_FEED_NUMBER.entranceMs)).toBeCloseTo(1, 5);
   });
 });
