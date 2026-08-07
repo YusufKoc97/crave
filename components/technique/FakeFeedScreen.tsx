@@ -23,7 +23,16 @@ import {
   FAKE_FEED_DEPLETION_START,
   type FakeFeedCard,
 } from './fakeFeedCards';
+import {
+  FAKE_FEED_NUMBER,
+  FAKE_FEED_NUMBER_TOTAL_MS,
+  contextOpacity,
+  countUpValue,
+} from './fakeFeedNumber';
 import type { SceneProps } from './types';
+
+/** The one card that carries a micro-interaction so far (Adım 1). */
+const NUMBER_CARD_KEY = 'number';
 
 /**
  * Fake Feed — a feed that ends.
@@ -87,10 +96,17 @@ export function FakeFeedScreen({
   accentColor,
   onComplete,
   haptics,
+  reducedMotion,
 }: SceneProps) {
   // Height of one page — measured, since the scene is laid out by the
   // runner and paging must match it exactly.
   const [pageH, setPageH] = useState(0);
+
+  // Which card is centred right now. Only used to arm a card's own
+  // micro-interaction the moment it lands (card 4's count-up must not
+  // run while it is still off-screen). Updated once per settle, not per
+  // frame, so it costs one re-render per page change.
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const scrollRef = useRef<ScrollView>(null);
   const indexRef = useRef(0);
@@ -146,6 +162,8 @@ export function FakeFeedScreen({
       if (Math.abs(exact - next) > 0.02) return; // mid-gesture
       if (next === indexRef.current) return;
       indexRef.current = next;
+      // Arm whatever the newly-centred card wants to do on arrival.
+      setActiveIndex(next);
 
       // One quiet haptic as the feed begins to wind down (guardrail 2).
       if (
@@ -200,12 +218,14 @@ export function FakeFeedScreen({
         scrollEventThrottle={250}
       >
         {pageH > 0
-          ? FAKE_FEED_CARDS.map((card) => (
+          ? FAKE_FEED_CARDS.map((card, i) => (
               <FeedCard
                 key={card.key}
                 card={card}
                 height={pageH}
                 accentColor={accentColor}
+                active={i === activeIndex}
+                reducedMotion={reducedMotion ?? false}
               />
             ))
           : null}
@@ -226,10 +246,15 @@ const FeedCard = memo(function FeedCard({
   card,
   height,
   accentColor,
+  active,
+  reducedMotion,
 }: {
   card: FakeFeedCard;
   height: number;
   accentColor: string;
+  /** True while this card is the centred one — arms its interaction. */
+  active: boolean;
+  reducedMotion: boolean;
 }) {
   // Depletion drains the SURFACE, never the words. The card's own
   // background and border recede toward the navy as the feed runs out —
@@ -259,23 +284,120 @@ const FeedCard = memo(function FeedCard({
           },
         ]}
       >
-        <Text style={styles.cardText}>
-          {t(`toolkit.techniques.fake_feed.cards.${card.key}`)}
-        </Text>
+        {card.key === NUMBER_CARD_KEY ? (
+          <NumberCard
+            active={active}
+            reducedMotion={reducedMotion}
+            accentColor={accentColor}
+          />
+        ) : (
+          <>
+            <Text style={styles.cardText}>
+              {t(`toolkit.techniques.fake_feed.cards.${card.key}`)}
+            </Text>
 
-        {/* The one doomscroll-accent highlight — a short rule that thins
-            as the feed empties. Views only, so nothing rasterises while
-            the user scrolls. */}
-        <View
-          style={[
-            styles.rule,
-            {
-              backgroundColor: hexAlpha(accentColor, 0.55 * (1 - drain)),
-              width: 40 * (1 - drain * 0.8),
-            },
-          ]}
-        />
+            {/* The one doomscroll-accent highlight — a short rule that
+                thins as the feed empties. Views only, so nothing
+                rasterises while the user scrolls. */}
+            <View
+              style={[
+                styles.rule,
+                {
+                  backgroundColor: hexAlpha(accentColor, 0.55 * (1 - drain)),
+                  width: 40 * (1 - drain * 0.8),
+                },
+              ]}
+            />
+          </>
+        )}
       </SurfaceCard>
+    </View>
+  );
+});
+
+/**
+ * Card 4 — "the number". Two figures count up from zero, one after the
+ * other, then two context lines fade in to give the numbers a
+ * lifetime-scale meaning. The point is the order: the figure lands
+ * first, its weight lands second.
+ *
+ * The count is driven by a plain rAF loop writing `elapsed` to state,
+ * not Reanimated: the values are re-read from the pure helpers each
+ * frame, so the maths is the same code the tests exercise, and there is
+ * nothing to keep animating once the sequence is done. Two Text nodes
+ * for ~4s is cheap.
+ *
+ * Armed by `active`: nothing counts until the card is the centred one,
+ * so it never runs while off-screen and it re-runs if the user scrolls
+ * away and back. With `reducedMotion` the numbers appear already at
+ * their targets and the context is static — no motion at all.
+ */
+const NumberCard = memo(function NumberCard({
+  active,
+  reducedMotion,
+  accentColor,
+}: {
+  active: boolean;
+  reducedMotion: boolean;
+  accentColor: string;
+}) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    if (!active) {
+      setElapsed(0); // reset so a return to the card counts again
+      return;
+    }
+    if (reducedMotion) {
+      setElapsed(FAKE_FEED_NUMBER_TOTAL_MS); // straight to final values
+      return;
+    }
+    let raf = 0;
+    let t0 = 0;
+    const tick = (ts: number) => {
+      if (!t0) t0 = ts;
+      const e = ts - t0;
+      if (e < FAKE_FEED_NUMBER_TOTAL_MS) {
+        setElapsed(e);
+        raf = requestAnimationFrame(tick);
+      } else {
+        setElapsed(FAKE_FEED_NUMBER_TOTAL_MS);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active, reducedMotion]);
+
+  const distance = Math.round(countUpValue(elapsed, FAKE_FEED_NUMBER.distance));
+  const videos = Math.round(countUpValue(elapsed, FAKE_FEED_NUMBER.videos));
+  const ctx = contextOpacity(elapsed);
+
+  return (
+    <View style={styles.numberWrap}>
+      <View style={styles.numberBlock}>
+        <Text style={[styles.hero, { color: accentColor }]}>~{distance}</Text>
+        <Text style={styles.numberLabel}>
+          {t('toolkit.techniques.fake_feed.number_card.distance_label')}
+        </Text>
+      </View>
+
+      <View style={styles.numberBlock}>
+        <Text style={[styles.hero, { color: accentColor }]}>~{videos}</Text>
+        <Text style={styles.numberLabel}>
+          {t('toolkit.techniques.fake_feed.number_card.videos_label')}
+        </Text>
+      </View>
+
+      {/* The meaning, after the figures. Fades in as one block so it
+          reads as a settling-in, not a third number arriving. */}
+      <View style={[styles.contextWrap, { opacity: ctx }]}>
+        <Text style={styles.context}>
+          {t('toolkit.techniques.fake_feed.number_card.context_distance')}
+        </Text>
+        <Text style={styles.context}>
+          {t('toolkit.techniques.fake_feed.number_card.context_videos')}
+        </Text>
+      </View>
     </View>
   );
 });
@@ -307,5 +429,34 @@ const styles = StyleSheet.create({
     height: 2,
     borderRadius: 1,
     marginTop: dsSpacing.xl,
+  },
+  numberWrap: { width: '100%', alignItems: 'center' },
+  numberBlock: { alignItems: 'center', marginBottom: dsSpacing.xl },
+  hero: {
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.displayXxl,
+    fontWeight: dsFont.weight.bold,
+    letterSpacing: dsFont.letterSpacing.tight,
+    textAlign: 'center',
+  },
+  numberLabel: {
+    color: dsColors.textSecondary,
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.label,
+    fontWeight: dsFont.weight.semibold,
+    marginTop: dsSpacing.xs,
+    textAlign: 'center',
+  },
+  contextWrap: {
+    marginTop: dsSpacing.lg,
+    alignItems: 'center',
+    gap: dsSpacing.xs,
+  },
+  context: {
+    color: dsColors.textTertiary,
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.label,
+    lineHeight: 20,
+    textAlign: 'center',
   },
 });

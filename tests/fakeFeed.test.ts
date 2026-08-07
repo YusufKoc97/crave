@@ -5,6 +5,12 @@ import {
   FAKE_FEED_CARD_COUNT,
   FAKE_FEED_DEPLETION_START,
 } from '@/components/technique/fakeFeedCards';
+import {
+  FAKE_FEED_NUMBER,
+  FAKE_FEED_NUMBER_TOTAL_MS,
+  contextOpacity,
+  countUpValue,
+} from '@/components/technique/fakeFeedNumber';
 
 /**
  * Fake Feed's guardrails are the exercise. The feed is free-scroll (the
@@ -76,5 +82,59 @@ describe('Fake Feed — DEPLETES', () => {
     for (const card of FAKE_FEED_CARDS.slice(0, FAKE_FEED_DEPLETION_START)) {
       expect(card.depletion ?? 0).toBe(0);
     }
+  });
+});
+
+describe('Fake Feed — card 4 count-up', () => {
+  const { distance, videos } = FAKE_FEED_NUMBER;
+
+  it('each number starts at zero and lands exactly on its target', () => {
+    expect(countUpValue(0, distance)).toBe(0);
+    expect(countUpValue(distance.startMs, distance)).toBe(0);
+    expect(countUpValue(distance.startMs + distance.durationMs, distance)).toBe(
+      distance.target
+    );
+    // and never overshoots after it has landed
+    expect(countUpValue(FAKE_FEED_NUMBER_TOTAL_MS, distance)).toBe(
+      distance.target
+    );
+    expect(countUpValue(FAKE_FEED_NUMBER_TOTAL_MS, videos)).toBe(videos.target);
+  });
+
+  it('counts monotonically upward', () => {
+    let prev = -1;
+    for (
+      let e = distance.startMs;
+      e <= distance.startMs + distance.durationMs;
+      e += 50
+    ) {
+      const v = countUpValue(e, distance);
+      expect(v).toBeGreaterThanOrEqual(prev);
+      prev = v;
+    }
+  });
+
+  it('decelerates (ease-out): past halfway by the time-midpoint', () => {
+    const mid = distance.startMs + distance.durationMs / 2;
+    // A linear ramp would sit at 50% here; ease-out is already past it.
+    expect(countUpValue(mid, distance)).toBeGreaterThan(distance.target * 0.5);
+  });
+
+  it('runs the two numbers in sequence, not together', () => {
+    // The video count has not begun while distance is still counting.
+    expect(distance.startMs + distance.durationMs).toBeLessThanOrEqual(
+      videos.startMs
+    );
+    expect(countUpValue(distance.durationMs, videos)).toBe(0);
+  });
+
+  it('holds the context lines back until both numbers have landed', () => {
+    expect(contextOpacity(0)).toBe(0);
+    expect(contextOpacity(FAKE_FEED_NUMBER.contextStartMs)).toBe(0);
+    expect(contextOpacity(FAKE_FEED_NUMBER_TOTAL_MS)).toBe(1);
+    // context only starts fading after the video number is done
+    expect(FAKE_FEED_NUMBER.contextStartMs).toBeGreaterThanOrEqual(
+      videos.startMs + videos.durationMs
+    );
   });
 });

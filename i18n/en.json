@@ -524,6 +524,12 @@
           "winding_down": "This feed is running out.",
           "bottom": "The bottom is just below this. Normally, there isn't one.",
           "end": "Every scroll has an end. Infinite feeds just hide theirs. Now put the phone down."
+        },
+        "number_card": {
+          "distance_label": "meters scrolled today",
+          "videos_label": "short videos, today",
+          "context_distance": "≈ the Statue of Liberty. Every day.",
+          "context_videos": "≈ 15 days of your year, gone to the feed."
         }
       }
     },
