@@ -8,9 +8,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useFrameCallback, useSharedValue } from 'react-native-reanimated';
-import { hexAlpha } from '@/constants/designSystem';
+import {
+  dsColors,
+  dsFont,
+  dsSpacing,
+  hexAlpha,
+} from '@/constants/designSystem';
+import { FONT_STACK } from '@/components/toolkit/carouselStyle';
+import { SurfaceCard } from '@/components/ui/SurfaceCard';
 import { t } from '@/lib/i18n';
 import {
   FAKE_FEED_CARDS,
@@ -299,65 +305,51 @@ const FeedCard = memo(function FeedCard({
   height: number;
   accentColor: string;
 }) {
-  // Depletion drains the card rather than the shell: text and surface
-  // both recede, so the closing stretch reads as a feed running out.
+  // Depletion drains the SURFACE, never the words. The card's own
+  // background and border recede toward the navy as the feed runs out —
+  // but the copy stays at full strength. On the last card that means the
+  // message ("Now put the phone down") reads as a sharp line floating on
+  // an almost-dissolved card, which is both the point of the exercise
+  // and the strongest way to show it winding down. Fading the text too,
+  // as an earlier version did, buried the one line that matters.
   const drain = card.depletion ?? 0;
-  const gradId = `ff_${card.key}`;
 
   return (
     <View style={[styles.page, { height }]}>
-      <View
+      <SurfaceCard
+        variant="elevated"
         style={[
           styles.card,
           {
-            borderColor: hexAlpha(accentColor, 0.22 * (1 - drain * 0.7)),
-            backgroundColor: hexAlpha('#0d1730', 0.72 - drain * 0.22),
-            opacity: 1 - drain * 0.55,
+            // Left slightly translucent even at full strength, so the
+            // shell's nebula reads faintly through every card — the
+            // family's layered depth — then dissolved toward the void as
+            // the feed depletes.
+            backgroundColor: hexAlpha(
+              dsColors.cardSurface,
+              0.92 - drain * 0.55
+            ),
+            borderColor: hexAlpha(dsColors.borderAccent, 1 - drain * 0.8),
           },
         ]}
       >
-        {/* Soft accent bloom behind the copy — the app's atmospheric
-            language, not a bright social-feed surface. */}
-        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
-          <Defs>
-            <RadialGradient id={gradId} cx="0.28" cy="0.2" r="0.85">
-              <Stop
-                offset="0"
-                stopColor={accentColor}
-                stopOpacity={0.16 * (1 - drain)}
-              />
-              <Stop
-                offset="0.55"
-                stopColor={accentColor}
-                stopOpacity={0.05 * (1 - drain)}
-              />
-              <Stop offset="1" stopColor={accentColor} stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-          <Rect
-            x="0"
-            y="0"
-            width="100%"
-            height="100%"
-            fill={`url(#${gradId})`}
-          />
-        </Svg>
-
         <Text style={styles.cardText}>
           {t(`toolkit.techniques.fake_feed.cards.${card.key}`)}
         </Text>
 
-        {/* Hairline that thins out as the feed depletes. */}
+        {/* The one doomscroll-accent highlight — a short rule that thins
+            as the feed empties. Views only, so nothing rasterises while
+            the user scrolls. */}
         <View
           style={[
             styles.rule,
             {
-              backgroundColor: hexAlpha(accentColor, 0.5 * (1 - drain)),
-              width: 44 * (1 - drain * 0.8),
+              backgroundColor: hexAlpha(accentColor, 0.55 * (1 - drain)),
+              width: 40 * (1 - drain * 0.8),
             },
           ]}
         />
-      </View>
+      </SurfaceCard>
     </View>
   );
 });
@@ -368,28 +360,26 @@ const styles = StyleSheet.create({
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 26,
+    paddingHorizontal: dsSpacing.xxl,
   },
   card: {
     width: '100%',
-    borderRadius: 22,
-    borderWidth: 1,
-    paddingVertical: 44,
-    paddingHorizontal: 26,
-    overflow: 'hidden',
+    paddingVertical: dsSpacing.x4l,
+    paddingHorizontal: dsSpacing.xxl,
     alignItems: 'center',
   },
   cardText: {
-    color: '#eaf2ff',
-    fontSize: 22,
-    fontWeight: '500',
-    lineHeight: 32,
-    letterSpacing: 0.2,
+    color: dsColors.textPrimary,
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.displaySm,
+    fontWeight: dsFont.weight.semibold,
+    lineHeight: 30,
+    letterSpacing: dsFont.letterSpacing.tight,
     textAlign: 'center',
   },
   rule: {
     height: 2,
     borderRadius: 1,
-    marginTop: 22,
+    marginTop: dsSpacing.xl,
   },
 });
