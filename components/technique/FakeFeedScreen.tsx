@@ -17,7 +17,6 @@ import {
   hexAlpha,
 } from '@/constants/designSystem';
 import { FONT_STACK } from '@/components/toolkit/carouselStyle';
-import { SurfaceCard } from '@/components/ui/SurfaceCard';
 import { t } from '@/lib/i18n';
 import {
   FAKE_FEED_CARDS,
@@ -34,17 +33,28 @@ import {
   entranceScale,
 } from './fakeFeedNumber';
 import {
-  SCROLL_INVITE_REST,
+  RIPPLE_COUNT,
+  SCROLL_CASCADE_COUNT,
   SLOW_PULSE_REST,
-  scrollInviteFrame,
+  cascadeChevron,
+  rippleRing,
   slowPulseFrame,
 } from './fakeFeedMotion';
 import type { SceneProps } from './types';
 
-/** Cards that carry a micro-interaction so far. */
+/** Cards that carry their own full-screen treatment. */
 const NUMBER_CARD_KEY = 'number';
 const INVITE_CARD_KEY = 'invitation';
 const PULSE_CARD_KEY = 'slow_pulse';
+
+/**
+ * Per-card identity colours. These cards deliberately do NOT all wear the
+ * feed's blue: card 1 is a cool near-white, card 6 a serene teal. The
+ * count-up (card 4) keeps the doomscroll accent it was approved with;
+ * everything else owns its own light.
+ */
+const INVITE_COLOR = '#E3EEFF';
+const PULSE_COLOR = '#3FD8C7';
 
 /**
  * Fake Feed — a feed that ends.
@@ -55,55 +65,33 @@ const PULSE_CARD_KEY = 'slow_pulse';
  * of the exercise is the ending: flows can end. Infinite feeds just hide
  * where theirs would be.
  *
- * Three guardrails shape every decision here. Mimicking a feed is only
- * useful if it never becomes one:
+ * Every card is FULL-BLEED — no boxed surface. Each one owns the whole
+ * page, sitting straight on the shell's atmosphere, so the feed reads as
+ * a series of moments rather than a list of cards.
  *
+ * Guardrails. Mimicking a feed is only useful if it never becomes one:
  *   1. FINITE — exactly {@link FAKE_FEED_CARD_COUNT} cards, then
  *      `onComplete()`. Nothing loops, nothing exists past the last card,
- *      and `bounces` is off so there is no "pull for more" gesture to
- *      discover.
- *   2. NO REWARD — no counters, no streaks, no per-card haptic, nothing
- *      that lands as a hit. A haptic on every card would be exactly the
- *      variable-reward loop the exercise is treating, so there are only
- *      two in the whole run: one when the feed starts winding down, one
+ *      and `bounces` is off so there is no "pull for more" gesture.
+ *   2. NO REWARD — no counters, no streaks, nothing that lands as a hit.
+ *      Only two haptics in the whole run: one as the feed winds down, one
  *      at the end.
- *   3. DEPLETES — the closing cards fade (see `depletion` in
- *      {@link FAKE_FEED_CARDS}) so the feed visibly runs out of energy
- *      instead of stopping mid-stride.
  *
  * FREE SCROLL. The scroll is never gated: all cards are present from the
- * start and the user moves through them at whatever pace they like. An
- * earlier build withheld the next card until the current one had served
- * a dwell (a "pace guard" so a fast scroller couldn't clear the feed in
- * seconds) — but a feed you cannot advance for seven seconds reads as a
- * frozen screen, not a paced one. The finiteness, not a timer, is what
- * makes the point: however fast you scroll, you hit the bottom, and the
- * bottom is the lesson. Reaching the last card ends the exercise.
- *
- * Deliberately does NOT report `onProgress`: the shell's atmosphere
- * blooms with progress, and a feed that gets brighter as it empties
- * would contradict guardrail 3. The atmosphere stays at its ambient
- * baseline and the depletion is carried by the cards themselves.
+ * start and the user moves at their own pace. Finiteness, not a timer, is
+ * the lesson — however fast you scroll, you hit the bottom. Reaching the
+ * last card ends the exercise.
  */
 
 /**
  * How long the closing card holds the screen before the exercise reports
- * done. Not a scroll gate — there is nothing below the last card to
- * scroll to — just a beat so the final line ("Now put the phone down")
- * is read rather than flashed past on the way to the completion screen.
- * Cancelled the instant the user scrolls back up.
+ * done — not a scroll gate, just a beat so the final line is read rather
+ * than flashed past. Cancelled the instant the user scrolls back up.
  *
- * ESTIMATE — a read-time guess, not a measurement; worth a device pass.
+ * ESTIMATE — a read-time guess, not a measurement.
  */
 const END_READ_MS = 1200;
 
-/**
- * `reducedMotion` is intentionally not consumed: this scene has no
- * decorative motion to freeze. The only movement is the user's own
- * scroll, and the cards are static — so the reduced-motion contract is
- * satisfied by construction rather than by a branch. Anything added
- * later that animates on its own must read the prop.
- */
 export function FakeFeedScreen({
   accentColor,
   onComplete,
@@ -114,10 +102,9 @@ export function FakeFeedScreen({
   // runner and paging must match it exactly.
   const [pageH, setPageH] = useState(0);
 
-  // Which card is centred right now. Only used to arm a card's own
-  // micro-interaction the moment it lands (card 4's count-up must not
-  // run while it is still off-screen). Updated once per settle, not per
-  // frame, so it costs one re-render per page change.
+  // Which card is centred right now — arms a card's own animation the
+  // moment it lands (nothing should run while off-screen). One re-render
+  // per page change, not per frame.
   const [activeIndex, setActiveIndex] = useState(0);
 
   const scrollRef = useRef<ScrollView>(null);
@@ -159,13 +146,13 @@ export function FakeFeedScreen({
 
   // Settle handler. Wired to onScroll as well as the two native
   // end-of-gesture events, because react-native-web emits NEITHER
-  // onMomentumScrollEnd nor onScrollEndDrag — without onScroll the two
-  // haptics and the completion beat would never fire on web.
+  // onMomentumScrollEnd nor onScrollEndDrag — without onScroll the
+  // haptics, the per-card arming and the completion beat would never
+  // fire on web.
   //
   // Since onScroll also fires mid-gesture, an offset that is not on a
-  // page boundary is ignored: paging (native snap / CSS scroll-snap)
-  // always comes to rest on one, so an off-boundary sample means the
-  // card is still moving.
+  // page boundary is ignored: paging always comes to rest on one, so an
+  // off-boundary sample means the card is still moving.
   const handleSettle = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       if (pageH <= 0) return;
@@ -216,17 +203,13 @@ export function FakeFeedScreen({
         style={styles.root}
         pagingEnabled
         showsVerticalScrollIndicator={false}
-        // No overscroll: there must be no gesture that hints more
-        // content could arrive (guardrail 1).
+        // No overscroll: no gesture that hints more content could arrive.
         bounces={false}
         overScrollMode="never"
         decelerationRate="fast"
         onMomentumScrollEnd={handleSettle}
         onScrollEndDrag={handleSettle}
         onScroll={handleSettle}
-        // Only the settle matters, and handleSettle discards off-boundary
-        // samples anyway — so there is no reason to ship 60 scroll events
-        // a second to JS mid-swipe.
         scrollEventThrottle={250}
       >
         {pageH > 0
@@ -247,12 +230,9 @@ export function FakeFeedScreen({
 }
 
 /**
- * Memoised so a parent re-render never re-renders ten static cards. All
- * props are primitives or stable module-level card objects, so the
- * shallow compare is exact.
- *
- * There is deliberately NO entrance animation. A card that perceptibly
- * *arrives* is the notification beat guardrail 2 exists to keep out.
+ * Dispatcher. Each card is a full-page treatment of its own; memoised so
+ * a parent re-render never re-renders every card (props are primitives or
+ * stable module-level card objects, so the shallow compare is exact).
  */
 const FeedCard = memo(function FeedCard({
   card,
@@ -264,105 +244,201 @@ const FeedCard = memo(function FeedCard({
   card: FakeFeedCard;
   height: number;
   accentColor: string;
-  /** True while this card is the centred one — arms its interaction. */
+  /** True while this card is the centred one — arms its animation. */
   active: boolean;
   reducedMotion: boolean;
 }) {
-  // Card 4 is not a boxed card at all — it takes the whole page, sitting
-  // straight on the shell's atmosphere, so it reads as a moment rather
-  // than one more item in the list.
-  if (card.key === NUMBER_CARD_KEY) {
-    return (
-      <NumberCard
-        height={height}
-        accentColor={accentColor}
-        active={active}
-        reducedMotion={reducedMotion}
-      />
-    );
+  switch (card.key) {
+    case NUMBER_CARD_KEY:
+      return (
+        <NumberCard
+          height={height}
+          accentColor={accentColor}
+          active={active}
+          reducedMotion={reducedMotion}
+        />
+      );
+    case INVITE_CARD_KEY:
+      return (
+        <ScrollInviteCard
+          height={height}
+          active={active}
+          reducedMotion={reducedMotion}
+        />
+      );
+    case PULSE_CARD_KEY:
+      return (
+        <SlowPulseCard
+          height={height}
+          active={active}
+          reducedMotion={reducedMotion}
+        />
+      );
+    default:
+      return <PlainCard card={card} height={height} />;
   }
+});
 
-  // Depletion drains the SURFACE, never the words. The card's own
-  // background and border recede toward the navy as the feed runs out —
-  // but the copy stays at full strength. On the last card that means the
-  // message ("Now put the phone down") reads as a sharp line floating on
-  // an almost-dissolved card, which is both the point of the exercise
-  // and the strongest way to show it winding down. Fading the text too,
-  // as an earlier version did, buried the one line that matters.
-  const drain = card.depletion ?? 0;
-
+/**
+ * A card that is still just its line of copy — full-bleed, centred on the
+ * page, no box. These get their own treatments in later steps; until
+ * then the words stand on their own on the atmosphere.
+ */
+function PlainCard({ card, height }: { card: FakeFeedCard; height: number }) {
   return (
-    <View style={[styles.page, { height }]}>
-      <SurfaceCard
-        variant="elevated"
-        style={[
-          styles.card,
-          {
-            // Left slightly translucent even at full strength, so the
-            // shell's nebula reads faintly through every card — the
-            // family's layered depth — then dissolved toward the void as
-            // the feed depletes.
-            backgroundColor: hexAlpha(
-              dsColors.cardSurface,
-              0.92 - drain * 0.55
-            ),
-            borderColor: hexAlpha(dsColors.borderAccent, 1 - drain * 0.8),
-          },
-        ]}
-      >
-        {/* Card 6 leads with the pulse, the copy sits under it. */}
-        {card.key === PULSE_CARD_KEY && (
-          <SlowPulse
-            active={active}
-            reducedMotion={reducedMotion}
-            accentColor={accentColor}
-          />
-        )}
+    <View style={[styles.fullPage, { height }]}>
+      <Text style={styles.plainText}>
+        {t(`toolkit.techniques.fake_feed.cards.${card.key}`)}
+      </Text>
+    </View>
+  );
+}
 
-        <Text style={styles.cardText}>
-          {t(`toolkit.techniques.fake_feed.cards.${card.key}`)}
-        </Text>
+/**
+ * Continuous foreground clock for a looping card animation. Ticks (via
+ * rAF, writing `elapsed` to state) only while the card is `active` and
+ * motion is allowed — off-screen cards stop animating, reducedMotion
+ * never starts. Each arming resets to zero.
+ *
+ * rAF rather than Reanimated on purpose: the value is read back into JS
+ * to drive the frame, which keeps the animation the same code the tests
+ * exercise and observable in the web preview.
+ */
+function useLoopElapsed(active: boolean, reducedMotion: boolean): number {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!active || reducedMotion) return;
+    let raf = 0;
+    let t0 = 0;
+    const tick = (ts: number) => {
+      if (!t0) t0 = ts;
+      setElapsed(ts - t0);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active, reducedMotion]);
+  return elapsed;
+}
 
-        {card.key === INVITE_CARD_KEY ? (
-          // Card 1: a chevron that drifts down and fades, inviting the
-          // scroll, in place of the static accent rule.
-          <ScrollInvite
-            active={active}
-            reducedMotion={reducedMotion}
-            accentColor={accentColor}
-          />
-        ) : card.key === PULSE_CARD_KEY ? null : (
-          // The one doomscroll-accent highlight — a short rule that thins
-          // as the feed empties. Views only, so nothing rasterises while
-          // the user scrolls.
+/**
+ * Card 1 — the scroll invitation. Full page: "Scroll down." over a
+ * stream of chevrons that fall down the screen and fade, phase-offset
+ * into a continuous downward cascade that pulls the eye (and thumb) the
+ * way the feed wants to go. Cool near-white, not the feed's blue.
+ * reducedMotion leaves the chevrons as a still, spaced column.
+ */
+const ScrollInviteCard = memo(function ScrollInviteCard({
+  height,
+  active,
+  reducedMotion,
+}: {
+  height: number;
+  active: boolean;
+  reducedMotion: boolean;
+}) {
+  const elapsed = useLoopElapsed(active, reducedMotion);
+  const chevrons = Array.from({ length: SCROLL_CASCADE_COUNT }, (_, i) =>
+    cascadeChevron(reducedMotion ? 0 : elapsed, i)
+  );
+  return (
+    <View style={[styles.fullPage, { height }]}>
+      <Text style={styles.inviteText}>
+        {t('toolkit.techniques.fake_feed.cards.invitation')}
+      </Text>
+      <View style={styles.cascade} pointerEvents="none">
+        {chevrons.map((c, i) => (
           <View
+            key={i}
             style={[
-              styles.rule,
+              styles.cascadeChevron,
+              { opacity: c.opacity, transform: [{ translateY: c.translateY }] },
+            ]}
+          >
+            <ChevronDown size={36} color={INVITE_COLOR} strokeWidth={2.5} />
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+});
+
+/**
+ * Card 6 — the slow pulse. Full page: a serene teal light that breathes
+ * on a deliberately long ~4.5s cycle while rings ripple outward across
+ * the screen on the same breath — far slower than the scroll tempo, so
+ * watching it eases the reflex. NOT a breathing exercise: no instruction,
+ * only a calm light to settle on. Teal, not the feed's blue.
+ * reducedMotion leaves a still glow and static rings.
+ */
+const SlowPulseCard = memo(function SlowPulseCard({
+  height,
+  active,
+  reducedMotion,
+}: {
+  height: number;
+  active: boolean;
+  reducedMotion: boolean;
+}) {
+  const elapsed = useLoopElapsed(active, reducedMotion);
+  const core = reducedMotion ? SLOW_PULSE_REST : slowPulseFrame(elapsed);
+  const rings = Array.from({ length: RIPPLE_COUNT }, (_, i) =>
+    rippleRing(reducedMotion ? 0 : elapsed, i)
+  );
+  return (
+    <View style={[styles.fullPage, { height }]}>
+      <View style={styles.pulseStage} pointerEvents="none">
+        {rings.map((r, i) => (
+          <View
+            key={i}
+            style={[
+              styles.ripple,
               {
-                backgroundColor: hexAlpha(accentColor, 0.55 * (1 - drain)),
-                width: 40 * (1 - drain * 0.8),
+                borderColor: hexAlpha(PULSE_COLOR, 0.9),
+                opacity: r.opacity,
+                transform: [{ scale: r.scale }],
               },
             ]}
           />
-        )}
-      </SurfaceCard>
+        ))}
+        <View
+          style={[
+            styles.pulseHalo,
+            {
+              backgroundColor: hexAlpha(PULSE_COLOR, 0.3),
+              opacity: 0.3 + core.glow * 0.45,
+              transform: [{ scale: core.scale * 1.25 }],
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.pulseCore,
+            {
+              backgroundColor: hexAlpha(PULSE_COLOR, 0.95),
+              opacity: core.opacity,
+              transform: [{ scale: core.scale }],
+            },
+          ]}
+        />
+      </View>
+      <Text style={styles.pulseCopy}>
+        {t('toolkit.techniques.fake_feed.cards.slow_pulse')}
+      </Text>
     </View>
   );
 });
 
 /**
  * Hero pixel size of the numerals. Deliberately far past the display
- * scale (largest token is 48) — card 4 is the one screen that should
- * feel oversized. ESTIMATE, tuned by eye, not a measurement.
+ * scale (largest token is 48). ESTIMATE, tuned by eye.
  */
 const HERO_SIZE = 84;
 
 /**
  * One big count-up figure: a glowing numeral over an offset dark twin.
- * The twin gives it depth (the number reads as lifted off the surface
- * rather than painted flat), the glow gives it the neon presence the
- * doomscroll accent is for. Two Text nodes, no SVG — nothing rasterises
- * while the feed scrolls.
+ * The twin gives it depth; the glow gives it neon presence. Two Text
+ * nodes, no SVG — nothing rasterises while the feed scrolls.
  */
 function StatNumber({
   value,
@@ -376,7 +452,6 @@ function StatNumber({
   return (
     <View style={styles.statBlock}>
       <View style={styles.heroWrap}>
-        {/* Depth twin, sitting just below and behind. */}
         <Text
           style={styles.heroBack}
           allowFontScaling={false}
@@ -401,22 +476,10 @@ function StatNumber({
 }
 
 /**
- * Card 4 — "the number". Two figures count up together from the instant
- * the card lands (a scale-and-fade pop, not a fade-in), then two context
- * lines rise once both have settled to give the numbers a lifetime-scale
- * meaning. It takes the whole page rather than sitting in a boxed card,
- * so it lands as a moment.
- *
- * The count is driven by a plain rAF loop writing `elapsed` to state,
- * not Reanimated: entrance, both counts and the context fade are all
- * re-derived from the same pure helpers each frame, so the maths is the
- * code the tests exercise and there is nothing left animating once the
- * sequence is done.
- *
- * Armed by `active`: nothing runs until the card is the centred one, so
- * it never fires while off-screen and it replays if the user scrolls
- * away and back. With `reducedMotion` the numbers appear already at
- * their targets, full size, and the context is static — no motion.
+ * Card 4 — "the number". Two figures count up together the instant the
+ * card lands (a scale-and-fade pop), then two context lines rise once
+ * both have settled. Full-page, driven by one rAF clock through pure,
+ * tested helpers; reducedMotion shows the finals at full size, no motion.
  */
 const NumberCard = memo(function NumberCard({
   active,
@@ -483,8 +546,6 @@ const NumberCard = memo(function NumberCard({
         </View>
       </View>
 
-      {/* The meaning, after the figures. Rises as one block once both
-          numbers have landed — bright and legible, not a footnote. */}
       <View style={[styles.contextGroup, { opacity: ctx }]}>
         <View
           style={[
@@ -503,163 +564,85 @@ const NumberCard = memo(function NumberCard({
   );
 });
 
-/**
- * Continuous foreground clock for a looping card animation. Ticks (via
- * rAF, writing `elapsed` to state) only while the card is `active` and
- * motion is allowed — a card scrolled off-screen stops animating, and
- * reducedMotion never starts. Each arming resets to zero, so the loop
- * begins cleanly when the card is returned to.
- *
- * The pure frame maths lives in fakeFeedMotion.ts; this just supplies
- * the clock. rAF rather than Reanimated on purpose: the value is read
- * back into JS to drive the frame, which keeps the animation the same
- * code the tests exercise and observable in the web preview.
- */
-function useLoopElapsed(active: boolean, reducedMotion: boolean): number {
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    if (!active || reducedMotion) return;
-    let raf = 0;
-    let t0 = 0;
-    const tick = (ts: number) => {
-      if (!t0) t0 = ts;
-      setElapsed(ts - t0);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [active, reducedMotion]);
-  return elapsed;
-}
-
-/**
- * Card 1's scroll invitation: a chevron under "Scroll down." that drifts
- * down and fades on a calm ~1.7s loop, nudging the reflex the exercise
- * rides. reducedMotion leaves a still chevron in its place.
- */
-const ScrollInvite = memo(function ScrollInvite({
-  active,
-  reducedMotion,
-  accentColor,
-}: {
-  active: boolean;
-  reducedMotion: boolean;
-  accentColor: string;
-}) {
-  const elapsed = useLoopElapsed(active, reducedMotion);
-  const { translateY, opacity } = reducedMotion
-    ? SCROLL_INVITE_REST
-    : scrollInviteFrame(elapsed);
-  return (
-    <View style={styles.invitationWrap} pointerEvents="none">
-      <View style={{ opacity, transform: [{ translateY }] }}>
-        <ChevronDown size={30} color={accentColor} strokeWidth={2.5} />
-      </View>
-    </View>
-  );
-});
-
-/**
- * Card 6's slow pulse: a soft accent light that breathes on a
- * deliberately long ~4.5s cycle — slower than the scroll tempo, so
- * watching it eases the user off the reflex. NOT a breathing exercise:
- * there is no instruction, only a calm light to settle on. A faint halo
- * (blurred on web) behind a brighter core, both riding the same breath.
- * reducedMotion leaves a still glow.
- */
-const SlowPulse = memo(function SlowPulse({
-  active,
-  reducedMotion,
-  accentColor,
-}: {
-  active: boolean;
-  reducedMotion: boolean;
-  accentColor: string;
-}) {
-  const elapsed = useLoopElapsed(active, reducedMotion);
-  const { scale, opacity, glow } = reducedMotion
-    ? SLOW_PULSE_REST
-    : slowPulseFrame(elapsed);
-  return (
-    <View style={styles.pulseWrap} pointerEvents="none">
-      <View
-        style={[
-          styles.pulseHalo,
-          {
-            backgroundColor: hexAlpha(accentColor, 0.22),
-            opacity: 0.35 + glow * 0.4,
-            transform: [{ scale: scale * 1.15 }],
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.pulseCore,
-          {
-            backgroundColor: hexAlpha(accentColor, 0.9),
-            opacity,
-            transform: [{ scale }],
-          },
-        ]}
-      />
-    </View>
-  );
-});
-
 const styles = StyleSheet.create({
   root: { flex: 1, width: '100%' },
-  page: {
+
+  // Shared full-page frame for every card.
+  fullPage: {
     width: '100%',
+    paddingHorizontal: dsSpacing.x3l,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: dsSpacing.xxl,
   },
-  card: {
-    width: '100%',
-    paddingVertical: dsSpacing.x4l,
-    paddingHorizontal: dsSpacing.xxl,
+  plainText: {
+    color: dsColors.textPrimary,
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.displayMd,
+    fontWeight: dsFont.weight.semibold,
+    lineHeight: 38,
+    letterSpacing: dsFont.letterSpacing.tight,
+    textAlign: 'center',
+  },
+
+  // Card 1 — scroll invitation.
+  inviteText: {
+    color: dsColors.textPrimary,
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.displayLg,
+    fontWeight: dsFont.weight.bold,
+    letterSpacing: dsFont.letterSpacing.tight,
+    textAlign: 'center',
+    marginBottom: dsSpacing.x3l,
+  },
+  cascade: {
+    width: 60,
+    height: 140,
     alignItems: 'center',
   },
-  cardText: {
+  cascadeChevron: {
+    position: 'absolute',
+    top: 0,
+  },
+
+  // Card 6 — slow pulse.
+  pulseStage: {
+    width: 300,
+    height: 300,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ripple: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 2,
+  },
+  pulseHalo: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    ...Platform.select({ web: { filter: 'blur(26px)' }, default: {} }),
+  },
+  pulseCore: {
+    position: 'absolute',
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    ...Platform.select({ web: { filter: 'blur(8px)' }, default: {} }),
+  },
+  pulseCopy: {
     color: dsColors.textPrimary,
     fontFamily: FONT_STACK,
     fontSize: dsFont.size.displaySm,
     fontWeight: dsFont.weight.semibold,
-    lineHeight: 30,
     letterSpacing: dsFont.letterSpacing.tight,
     textAlign: 'center',
+    marginTop: dsSpacing.x4l,
   },
-  rule: {
-    height: 2,
-    borderRadius: 1,
-    marginTop: dsSpacing.xl,
-  },
-  invitationWrap: {
-    height: 48,
-    marginTop: dsSpacing.md,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-  },
-  pulseWrap: {
-    width: 160,
-    height: 160,
-    marginBottom: dsSpacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pulseHalo: {
-    position: 'absolute',
-    width: 132,
-    height: 132,
-    borderRadius: 66,
-    ...Platform.select({ web: { filter: 'blur(22px)' }, default: {} }),
-  },
-  pulseCore: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    ...Platform.select({ web: { filter: 'blur(6px)' }, default: {} }),
-  },
+
+  // Card 4 — the number.
   numberPage: {
     width: '100%',
     paddingHorizontal: dsSpacing.x3l,

@@ -15,10 +15,13 @@ import {
   entranceScale,
 } from '@/components/technique/fakeFeedNumber';
 import {
-  SCROLL_INVITE_CYCLE_MS,
+  RIPPLE_COUNT,
+  SCROLL_CASCADE_COUNT,
+  SCROLL_CASCADE_CYCLE_MS,
   SLOW_PULSE_CYCLE_MS,
   SLOW_PULSE_MIN_CYCLE_MS,
-  scrollInviteFrame,
+  cascadeChevron,
+  rippleRing,
   slowPulseFrame,
 } from '@/components/technique/fakeFeedMotion';
 
@@ -170,20 +173,30 @@ describe('Fake Feed — card 4 entrance', () => {
   });
 });
 
-describe('Fake Feed — card 1 scroll invitation', () => {
-  it('drifts the chevron down over the cycle, fading', () => {
-    const start = scrollInviteFrame(0);
-    const mid = scrollInviteFrame(SCROLL_INVITE_CYCLE_MS * 0.5);
-    expect(start.opacity).toBe(0); // begins invisible, no pop
-    expect(mid.translateY).toBeGreaterThan(start.translateY); // moving down
-    expect(mid.opacity).toBeGreaterThan(0); // visible mid-cycle
+describe('Fake Feed — card 1 chevron cascade', () => {
+  it('spreads the chevrons down the travel as a stream, not a stack', () => {
+    // At one instant the chevrons sit at distinct heights (phase-offset),
+    // so they read as a continuous downward stream.
+    const ys = Array.from(
+      { length: SCROLL_CASCADE_COUNT },
+      (_, i) => cascadeChevron(0, i).translateY
+    );
+    expect(new Set(ys.map((y) => Math.round(y))).size).toBeGreaterThan(1);
   });
 
-  it('loops seamlessly — the wrap point matches the start', () => {
-    const start = scrollInviteFrame(0);
-    const wrap = scrollInviteFrame(SCROLL_INVITE_CYCLE_MS);
-    expect(wrap.translateY).toBeCloseTo(start.translateY, 5);
-    expect(wrap.opacity).toBeCloseTo(start.opacity, 5);
+  it('each chevron drifts down over its cycle', () => {
+    const a = cascadeChevron(0, 0);
+    const b = cascadeChevron(SCROLL_CASCADE_CYCLE_MS * 0.4, 0);
+    expect(b.translateY).toBeGreaterThan(a.translateY);
+  });
+
+  it('loops seamlessly — every chevron wraps to its start', () => {
+    for (let i = 0; i < SCROLL_CASCADE_COUNT; i++) {
+      const start = cascadeChevron(0, i);
+      const wrap = cascadeChevron(SCROLL_CASCADE_CYCLE_MS, i);
+      expect(wrap.translateY).toBeCloseTo(start.translateY, 5);
+      expect(wrap.opacity).toBeCloseTo(start.opacity, 5);
+    }
   });
 });
 
@@ -206,5 +219,28 @@ describe('Fake Feed — card 6 slow pulse', () => {
     const wrap = slowPulseFrame(SLOW_PULSE_CYCLE_MS);
     expect(wrap.scale).toBeCloseTo(start.scale, 5);
     expect(wrap.opacity).toBeCloseTo(start.opacity, 5);
+  });
+
+  it('rings ripple outward and fade, on the same slow breath', () => {
+    // A ring is bigger and fainter later in its cycle.
+    const early = rippleRing(SLOW_PULSE_CYCLE_MS * 0.1, 0);
+    const late = rippleRing(SLOW_PULSE_CYCLE_MS * 0.9, 0);
+    expect(late.scale).toBeGreaterThan(early.scale);
+    expect(late.opacity).toBeLessThan(early.opacity);
+    // and they are spread out, not overlapping
+    const scales = Array.from(
+      { length: RIPPLE_COUNT },
+      (_, i) => rippleRing(0, i).scale
+    );
+    expect(new Set(scales.map((s) => s.toFixed(2))).size).toBe(RIPPLE_COUNT);
+  });
+
+  it('rings loop seamlessly', () => {
+    for (let i = 0; i < RIPPLE_COUNT; i++) {
+      const start = rippleRing(0, i);
+      const wrap = rippleRing(SLOW_PULSE_CYCLE_MS, i);
+      expect(wrap.scale).toBeCloseTo(start.scale, 5);
+      expect(wrap.opacity).toBeCloseTo(start.opacity, 5);
+    }
   });
 });
