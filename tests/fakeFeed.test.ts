@@ -19,6 +19,7 @@ import {
   FILL_FAST_MIN,
   FILL_SLOW_MAX,
   FILL_TOTAL_RAD,
+  GHOST_FLOW_SPEED,
   SCROLL_CASCADE_COUNT,
   SCROLL_CASCADE_CYCLE_MS,
   THUMB_CYCLE_MS,
@@ -26,7 +27,7 @@ import {
   emptyLineOpacity,
   fillGain,
   ghostY,
-  thumbSwipe,
+  thumbArc,
 } from '@/components/technique/fakeFeedMotion';
 
 /**
@@ -263,7 +264,7 @@ describe('Fake Feed — card 2 scroll flow', () => {
   });
 
   it('wraps seamlessly — one full period returns to the start', () => {
-    const periodMs = (total / 300) * 1000; // total px / speed
+    const periodMs = (total / GHOST_FLOW_SPEED) * 1000; // total px / speed
     for (let i = 0; i < count; i++) {
       expect(ghostY(periodMs, i, spacing, count)).toBeCloseTo(
         ghostY(0, i, spacing, count),
@@ -273,18 +274,18 @@ describe('Fake Feed — card 2 scroll flow', () => {
   });
 });
 
-describe('Fake Feed — card 3 thumb swipe', () => {
-  it('swipes the fingertip down over the cycle', () => {
-    const a = thumbSwipe(0);
-    const b = thumbSwipe(THUMB_CYCLE_MS * 0.4);
-    expect(b.translateY).toBeGreaterThan(a.translateY);
-    expect(b.scale).toBeLessThanOrEqual(a.scale); // presses in as it goes
+describe('Fake Feed — card 3 thumb arc', () => {
+  it('advances along the arc (bottom → top) over the cycle', () => {
+    expect(thumbArc(0).t).toBeCloseTo(0, 5); // starts at the bottom
+    const mid = thumbArc(THUMB_CYCLE_MS * 0.5).t;
+    expect(mid).toBeGreaterThan(0);
+    expect(mid).toBeLessThan(1);
   });
 
   it('fades in and out (invisible at the ends), so the loop is seamless', () => {
-    expect(thumbSwipe(0).opacity).toBeCloseTo(0, 5);
-    expect(thumbSwipe(THUMB_CYCLE_MS).opacity).toBeCloseTo(0, 5);
-    expect(thumbSwipe(THUMB_CYCLE_MS / 2).opacity).toBeGreaterThan(0.9);
+    expect(thumbArc(0).opacity).toBeCloseTo(0, 5);
+    expect(thumbArc(THUMB_CYCLE_MS).opacity).toBeCloseTo(0, 5);
+    expect(thumbArc(THUMB_CYCLE_MS / 2).opacity).toBeGreaterThan(0.9);
   });
 });
 

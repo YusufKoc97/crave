@@ -515,7 +515,7 @@
         "long_description": "Your thumb wants to scroll. This gives it somewhere safe to go: a short, finite feed. Ten cards, then it stops. No refresh, nothing more to load. The point is the ending — flows can end. Infinite feeds just hide where theirs would be.",
         "cards": {
           "invitation": "Scroll down.",
-          "speed_mirror": "This is how we scroll.",
+          "speed_mirror": "Notice the pull.",
           "thumb": "Notice your thumb.",
           "number": "You scroll about 90 meters a day.",
           "empty_search": "Nothing here. That's the point.",

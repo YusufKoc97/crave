@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { ChevronUp } from 'lucide-react-native';
 import {
   dsColors,
@@ -44,7 +44,7 @@ import {
   fillGain,
   ghostY,
   shortestAngle,
-  thumbSwipe,
+  thumbArc,
 } from './fakeFeedMotion';
 import type { SceneHaptics, SceneProps } from './types';
 
@@ -59,9 +59,45 @@ const THUMB_CARD_KEY = 'thumb';
 /** Card 3's fingertip — a soft cool light, its own understated colour. */
 const THUMB_COLOR = '#D6E2F5';
 
-/** How many blurred content ghosts fly up card 2, and how far apart. */
-const GHOST_COUNT = 6;
-const GHOST_SPACING = 168;
+/**
+ * The right thumb's swipe-up arc, in the lower-right. A quadratic bezier
+ * that starts low near the right edge and sweeps up and inward, bowed
+ * right — the natural path a thumb traces when it pivots from its joint
+ * to flick the feed up. p0 = bottom (start), p2 = top (end), p1 = the
+ * outward control that gives it the curve.
+ */
+const THUMB_ARC = {
+  w: 184,
+  h: 268,
+  p0: [152, 240] as const,
+  p1: [180, 92] as const,
+  p2: [64, 26] as const,
+};
+const THUMB_TIP = 28;
+
+/** Point on a quadratic bezier at t. */
+function bezier(t: number, a: number, b: number, c: number): number {
+  const u = 1 - t;
+  return u * u * a + 2 * u * t * b + t * t * c;
+}
+
+/**
+ * Card 2's ghost feed — DISTINCT blurred posts, not identical blocks.
+ * Identical evenly-spaced skeletons look static even while scrolling
+ * (the eye has nothing to track); varied heights and layouts give it a
+ * reference, so the upward flow reads as a fast scroll rather than a
+ * frozen loading screen.
+ */
+const GHOST_TEMPLATES = [
+  { h: 132, image: true, lines: 2 },
+  { h: 86, image: false, lines: 2 },
+  { h: 158, image: true, lines: 1 },
+  { h: 74, image: false, lines: 1 },
+  { h: 116, image: false, lines: 3 },
+  { h: 104, image: true, lines: 2 },
+] as const;
+const GHOST_COUNT = GHOST_TEMPLATES.length;
+const GHOST_SPACING = 184;
 
 /**
  * Card 1's own light — a cool near-white, not the feed's blue. Card 4
@@ -416,7 +452,7 @@ const ScrollMirrorCard = memo(function ScrollMirrorCard({
   return (
     <View style={[styles.fullPage, { height }]}>
       <View style={styles.mirrorFlow} pointerEvents="none">
-        {Array.from({ length: GHOST_COUNT }, (_, i) => {
+        {GHOST_TEMPLATES.map((tpl, i) => {
           const y = ghostY(
             reducedMotion ? 0 : elapsed,
             i,
@@ -424,11 +460,31 @@ const ScrollMirrorCard = memo(function ScrollMirrorCard({
             GHOST_COUNT
           );
           return (
-            <View key={i} style={[styles.ghost, { top: y - GHOST_SPACING }]}>
-              <View style={styles.ghostAvatar} />
-              <View style={styles.ghostLines}>
-                <View style={[styles.ghostBar, { width: '70%' }]} />
-                <View style={[styles.ghostBar, { width: '45%' }]} />
+            <View
+              key={i}
+              style={[styles.ghost, { top: y - GHOST_SPACING, height: tpl.h }]}
+            >
+              <View style={styles.ghostHeader}>
+                <View style={styles.ghostAvatar} />
+                <View style={styles.ghostHeaderLines}>
+                  <View style={[styles.ghostBar, { width: '52%' }]} />
+                  <View
+                    style={[
+                      styles.ghostBar,
+                      styles.ghostBarThin,
+                      { width: '34%' },
+                    ]}
+                  />
+                </View>
+              </View>
+              {tpl.image && <View style={styles.ghostImage} />}
+              <View style={styles.ghostBody}>
+                {Array.from({ length: tpl.lines }, (_, k) => (
+                  <View
+                    key={k}
+                    style={[styles.ghostBar, { width: `${88 - k * 16}%` }]}
+                  />
+                ))}
               </View>
             </View>
           );
@@ -490,23 +546,44 @@ const ThumbCard = memo(function ThumbCard({
   reducedMotion: boolean;
 }) {
   const elapsed = useLoopElapsed(active, reducedMotion);
-  const { translateY, opacity, scale } = reducedMotion
-    ? THUMB_REST
-    : thumbSwipe(elapsed);
+  const {
+    t: arcT,
+    opacity,
+    scale,
+  } = reducedMotion ? THUMB_REST : thumbArc(elapsed);
+  const { w, h, p0, p1, p2 } = THUMB_ARC;
+  const fx = bezier(arcT, p0[0], p1[0], p2[0]);
+  const fy = bezier(arcT, p0[1], p1[1], p2[1]);
   return (
     <View style={[styles.fullPage, { height }]}>
       <Text style={styles.thumbText}>
         {t('toolkit.techniques.fake_feed.cards.thumb')}
       </Text>
       <View style={styles.thumbZone} pointerEvents="none">
-        <View style={styles.thumbTrack} />
+        <Svg width={w} height={h}>
+          {/* The faint arc — the thumb's path, so the sweep reads as a
+              curved gesture rather than a floating dot. */}
+          <Path
+            d={`M${p0[0]},${p0[1]} Q${p1[0]},${p1[1]} ${p2[0]},${p2[1]}`}
+            stroke={hexAlpha(THUMB_COLOR, 0.14)}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            fill="none"
+          />
+        </Svg>
+        {/* The fingertip, riding the arc from bottom to top. */}
         <View
           style={[
-            styles.thumbForm,
-            { opacity, transform: [{ translateY }, { scale }] },
+            styles.thumbTip,
+            {
+              left: fx - THUMB_TIP / 2,
+              top: fy - THUMB_TIP / 2,
+              opacity,
+              transform: [{ scale }],
+            },
           ]}
         >
-          <View style={styles.thumbHighlight} />
+          <View style={styles.thumbTipCore} />
         </View>
       </View>
     </View>
@@ -1009,26 +1086,36 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: dsSpacing.xxl,
     right: dsSpacing.xxl,
-    height: 132,
     borderRadius: 18,
     backgroundColor: hexAlpha(dsColors.cardSurface, 0.5),
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: dsSpacing.lg,
+    padding: dsSpacing.lg,
+    overflow: 'hidden',
     gap: dsSpacing.md,
   },
-  ghostAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: hexAlpha(dsColors.textSecondary, 0.3),
+  ghostHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: dsSpacing.md,
   },
-  ghostLines: { flex: 1, gap: dsSpacing.sm },
+  ghostHeaderLines: { flex: 1, gap: dsSpacing.sm },
+  ghostAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: hexAlpha(dsColors.textSecondary, 0.28),
+  },
+  ghostImage: {
+    height: 56,
+    borderRadius: 12,
+    backgroundColor: hexAlpha(dsColors.textSecondary, 0.16),
+  },
+  ghostBody: { gap: dsSpacing.sm },
   ghostBar: {
     height: 12,
     borderRadius: 6,
-    backgroundColor: hexAlpha(dsColors.textSecondary, 0.26),
+    backgroundColor: hexAlpha(dsColors.textSecondary, 0.24),
   },
+  ghostBarThin: { height: 9 },
   mirrorVeil: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: hexAlpha(dsColors.bgBase, 0.58),
@@ -1062,42 +1149,32 @@ const styles = StyleSheet.create({
   },
   thumbZone: {
     position: 'absolute',
-    right: 46,
-    bottom: 128,
-    width: 60,
-    height: 172,
-    alignItems: 'center',
+    right: 20,
+    bottom: 92,
+    width: THUMB_ARC.w,
+    height: THUMB_ARC.h,
   },
-  thumbTrack: {
+  thumbTip: {
     position: 'absolute',
-    top: 26,
-    bottom: 24,
-    width: 3,
-    borderRadius: 2,
-    backgroundColor: hexAlpha(THUMB_COLOR, 0.12),
-  },
-  thumbForm: {
-    position: 'absolute',
-    top: 0,
-    width: 44,
-    height: 58,
-    borderRadius: 24,
-    backgroundColor: hexAlpha(THUMB_COLOR, 0.16),
+    width: THUMB_TIP,
+    height: THUMB_TIP,
+    borderRadius: THUMB_TIP / 2,
+    backgroundColor: hexAlpha(THUMB_COLOR, 0.18),
     borderWidth: 1,
-    borderColor: hexAlpha(THUMB_COLOR, 0.4),
+    borderColor: hexAlpha(THUMB_COLOR, 0.45),
     alignItems: 'center',
+    justifyContent: 'center',
     ...Platform.select({
-      web: { boxShadow: `0 0 22px ${hexAlpha(THUMB_COLOR, 0.35)}` },
+      web: { boxShadow: `0 0 20px ${hexAlpha(THUMB_COLOR, 0.4)}` },
       default: {},
     }),
   },
-  thumbHighlight: {
-    marginTop: 11,
-    width: 22,
-    height: 22,
-    borderRadius: 12,
-    backgroundColor: hexAlpha(THUMB_COLOR, 0.5),
-    ...Platform.select({ web: { filter: 'blur(4px)' }, default: {} }),
+  thumbTipCore: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: hexAlpha(THUMB_COLOR, 0.75),
+    ...Platform.select({ web: { filter: 'blur(1px)' }, default: {} }),
   },
   dragText: {
     color: dsColors.textPrimary,
