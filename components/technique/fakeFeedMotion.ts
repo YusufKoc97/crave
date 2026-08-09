@@ -46,9 +46,12 @@ export function cascadeChevron(
 // scroll reflex to make progress. "Slow down" is lived in the thumb, not
 // just written on the screen.
 
-/** Total angular distance of slow dragging needed to fill the ring — a
- *  little over one turn, so a single quick sweep can't finish it. */
-export const FILL_TOTAL_RAD = Math.PI * 2 * 1.25;
+/** Total angular distance of slow dragging needed to fill the ring — one
+ *  full turn. At this ratio the fill tip tracks the finger 1:1 while the
+ *  drag is slow (a longer target made the handle visibly trail the
+ *  finger); a fast sweep still can't finish it, because {@link fillGain}
+ *  refuses the credit, not because the ring is longer than a turn. */
+export const FILL_TOTAL_RAD = Math.PI * 2;
 /** At or under this angular speed (rad/s) the drag counts in full. */
 export const FILL_SLOW_MAX = 2.5;
 /** At or over this angular speed the drag is "too fast" — it slips back. */

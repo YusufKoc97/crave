@@ -225,9 +225,11 @@ describe('Fake Feed — card 6 slow-drag fill', () => {
     expect(g).toBeLessThan(D); // less than full credit
   });
 
-  it('needs more than one full turn of slow dragging to complete', () => {
-    // So a single quick sweep around the ring cannot finish it.
-    expect(FILL_TOTAL_RAD).toBeGreaterThan(2 * Math.PI);
+  it('takes a full turn of slow dragging to complete (fill tracks the finger 1:1)', () => {
+    // One full turn — so at slow speed the fill tip stays under the
+    // finger. A quick sweep still cannot finish it (fillGain refuses the
+    // credit); that is asserted by the fast/slow tests, not the length.
+    expect(FILL_TOTAL_RAD).toBeCloseTo(2 * Math.PI, 5);
   });
 
   it('completes only by accumulating slow moves', () => {

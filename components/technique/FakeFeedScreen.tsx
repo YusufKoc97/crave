@@ -418,6 +418,7 @@ const DragToFillCard = memo(function DragToFillCard({
 }) {
   const [progress, setProgress] = useState(0); // radians accrued
   const [done, setDone] = useState(false);
+  const [burst, setBurst] = useState(0); // 0→1 one-shot completion anim
   const doneRef = useRef(false);
   const stageRef = useRef<View>(null);
   const centerRef = useRef({ x: 0, y: 0 });
@@ -430,6 +431,27 @@ const DragToFillCard = memo(function DragToFillCard({
 
   // Make sure the feed is never left frozen if the card unmounts mid-drag.
   useEffect(() => () => onDragLockRef.current(false), []);
+
+  // Completion celebration: a one-shot ~750ms curve the ring reads off to
+  // pop, flash a shockwave and settle into a steady glow. reducedMotion
+  // jumps straight to the settled state — no burst.
+  useEffect(() => {
+    if (!done) return;
+    if (reducedMotion) {
+      setBurst(1);
+      return;
+    }
+    let raf = 0;
+    let t0 = 0;
+    const tick = (ts: number) => {
+      if (!t0) t0 = ts;
+      const p = Math.min(1, (ts - t0) / 750);
+      setBurst(p);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [done, reducedMotion]);
 
   // Ring centre in window coords, so a touch anywhere can be turned into
   // an angle. Re-measured on layout and at the start of each drag.
@@ -498,6 +520,12 @@ const DragToFillCard = memo(function DragToFillCard({
   const handleX = RING_CX + RING_R * Math.cos(theta);
   const handleY = RING_CX + RING_R * Math.sin(theta);
 
+  // Completion curve → the burst's shockwave and settled glow.
+  const eo = 1 - (1 - burst) * (1 - burst); // easeOut
+  const litStroke = done ? '#CDE8FF' : accentColor; // fill brightens when full
+  const dashOffset = RING_C * (1 - frac);
+  const rot = `rotate(-90 ${RING_CX} ${RING_CX})`;
+
   return (
     <View style={[styles.fullPage, { height }]}>
       <View
@@ -506,16 +534,24 @@ const DragToFillCard = memo(function DragToFillCard({
         style={styles.dragStage}
         {...pan.panHandlers}
       >
-        {done && !reducedMotion && (
-          <View
-            style={[
-              styles.dragGlow,
-              { backgroundColor: hexAlpha(accentColor, 0.5) },
-            ]}
-            pointerEvents="none"
-          />
+        {/* Settled glow behind the ring once it closes. */}
+        {done && (
+          <View style={styles.overlayCenter} pointerEvents="none">
+            <View
+              style={[
+                styles.completeGlow,
+                {
+                  backgroundColor: hexAlpha(accentColor, 0.55),
+                  opacity: 0.22 + 0.5 * eo,
+                  transform: [{ scale: 0.85 + 0.4 * eo }],
+                },
+              ]}
+            />
+          </View>
         )}
+
         <Svg width={RING_SIZE} height={RING_SIZE}>
+          {/* Track. */}
           <Circle
             cx={RING_CX}
             cy={RING_CX}
@@ -524,25 +560,57 @@ const DragToFillCard = memo(function DragToFillCard({
             strokeWidth={RING_STROKE}
             fill="none"
           />
+          {/* Neon halo — a wide, soft stroke under the crisp fill. */}
           <Circle
             cx={RING_CX}
             cy={RING_CX}
             r={RING_R}
-            stroke={accentColor}
+            stroke={hexAlpha(litStroke, 0.28)}
+            strokeWidth={RING_STROKE * 2.6}
+            fill="none"
+            strokeDasharray={RING_C}
+            strokeDashoffset={dashOffset}
+            strokeLinecap="round"
+            transform={rot}
+          />
+          {/* Crisp fill. */}
+          <Circle
+            cx={RING_CX}
+            cy={RING_CX}
+            r={RING_R}
+            stroke={litStroke}
             strokeWidth={RING_STROKE}
             fill="none"
             strokeDasharray={RING_C}
-            strokeDashoffset={RING_C * (1 - frac)}
+            strokeDashoffset={dashOffset}
             strokeLinecap="round"
-            transform={`rotate(-90 ${RING_CX} ${RING_CX})`}
+            transform={rot}
           />
+          {/* Handle — the tip the finger drags; it tracks the fill 1:1. */}
           <Circle
             cx={handleX}
             cy={handleY}
             r={done ? 13 : 11}
-            fill={accentColor}
+            fill={done ? '#FFFFFF' : accentColor}
           />
         </Svg>
+
+        {/* Shockwave — a bright ring that expands out of the circle once
+            and fades, the "done" pop. */}
+        {done && !reducedMotion && (
+          <View style={styles.overlayCenter} pointerEvents="none">
+            <View
+              style={[
+                styles.shockwave,
+                {
+                  borderColor: hexAlpha('#FFFFFF', 0.85 * (1 - eo)),
+                  opacity: 1 - eo,
+                  transform: [{ scale: 1 + 0.8 * eo }],
+                },
+              ]}
+            />
+          </View>
+        )}
       </View>
       <Text style={styles.dragText}>
         {t('toolkit.techniques.fake_feed.cards.slow_pulse')}
@@ -738,12 +806,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: dsSpacing.x4l,
   },
-  dragGlow: {
-    position: 'absolute',
-    width: RING_SIZE * 0.72,
-    height: RING_SIZE * 0.72,
+  overlayCenter: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completeGlow: {
+    width: RING_SIZE * 0.8,
+    height: RING_SIZE * 0.8,
     borderRadius: RING_SIZE,
-    ...Platform.select({ web: { filter: 'blur(34px)' }, default: {} }),
+    ...Platform.select({ web: { filter: 'blur(38px)' }, default: {} }),
+  },
+  shockwave: {
+    width: RING_SIZE * 0.82,
+    height: RING_SIZE * 0.82,
+    borderRadius: RING_SIZE,
+    borderWidth: 3,
   },
   dragText: {
     color: dsColors.textPrimary,
