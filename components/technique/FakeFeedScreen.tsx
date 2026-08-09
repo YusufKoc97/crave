@@ -3,11 +3,13 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { ChevronDown } from 'lucide-react-native';
 import {
   dsColors,
   dsFont,
@@ -31,10 +33,18 @@ import {
   entranceOpacity,
   entranceScale,
 } from './fakeFeedNumber';
+import {
+  SCROLL_INVITE_REST,
+  SLOW_PULSE_REST,
+  scrollInviteFrame,
+  slowPulseFrame,
+} from './fakeFeedMotion';
 import type { SceneProps } from './types';
 
-/** The one card that carries a micro-interaction so far (Adım 1). */
+/** Cards that carry a micro-interaction so far. */
 const NUMBER_CARD_KEY = 'number';
+const INVITE_CARD_KEY = 'invitation';
+const PULSE_CARD_KEY = 'slow_pulse';
 
 /**
  * Fake Feed — a feed that ends.
@@ -300,22 +310,41 @@ const FeedCard = memo(function FeedCard({
           },
         ]}
       >
+        {/* Card 6 leads with the pulse, the copy sits under it. */}
+        {card.key === PULSE_CARD_KEY && (
+          <SlowPulse
+            active={active}
+            reducedMotion={reducedMotion}
+            accentColor={accentColor}
+          />
+        )}
+
         <Text style={styles.cardText}>
           {t(`toolkit.techniques.fake_feed.cards.${card.key}`)}
         </Text>
 
-        {/* The one doomscroll-accent highlight — a short rule that thins
-            as the feed empties. Views only, so nothing rasterises while
-            the user scrolls. */}
-        <View
-          style={[
-            styles.rule,
-            {
-              backgroundColor: hexAlpha(accentColor, 0.55 * (1 - drain)),
-              width: 40 * (1 - drain * 0.8),
-            },
-          ]}
-        />
+        {card.key === INVITE_CARD_KEY ? (
+          // Card 1: a chevron that drifts down and fades, inviting the
+          // scroll, in place of the static accent rule.
+          <ScrollInvite
+            active={active}
+            reducedMotion={reducedMotion}
+            accentColor={accentColor}
+          />
+        ) : card.key === PULSE_CARD_KEY ? null : (
+          // The one doomscroll-accent highlight — a short rule that thins
+          // as the feed empties. Views only, so nothing rasterises while
+          // the user scrolls.
+          <View
+            style={[
+              styles.rule,
+              {
+                backgroundColor: hexAlpha(accentColor, 0.55 * (1 - drain)),
+                width: 40 * (1 - drain * 0.8),
+              },
+            ]}
+          />
+        )}
       </SurfaceCard>
     </View>
   );
@@ -474,6 +503,109 @@ const NumberCard = memo(function NumberCard({
   );
 });
 
+/**
+ * Continuous foreground clock for a looping card animation. Ticks (via
+ * rAF, writing `elapsed` to state) only while the card is `active` and
+ * motion is allowed — a card scrolled off-screen stops animating, and
+ * reducedMotion never starts. Each arming resets to zero, so the loop
+ * begins cleanly when the card is returned to.
+ *
+ * The pure frame maths lives in fakeFeedMotion.ts; this just supplies
+ * the clock. rAF rather than Reanimated on purpose: the value is read
+ * back into JS to drive the frame, which keeps the animation the same
+ * code the tests exercise and observable in the web preview.
+ */
+function useLoopElapsed(active: boolean, reducedMotion: boolean): number {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!active || reducedMotion) return;
+    let raf = 0;
+    let t0 = 0;
+    const tick = (ts: number) => {
+      if (!t0) t0 = ts;
+      setElapsed(ts - t0);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active, reducedMotion]);
+  return elapsed;
+}
+
+/**
+ * Card 1's scroll invitation: a chevron under "Scroll down." that drifts
+ * down and fades on a calm ~1.7s loop, nudging the reflex the exercise
+ * rides. reducedMotion leaves a still chevron in its place.
+ */
+const ScrollInvite = memo(function ScrollInvite({
+  active,
+  reducedMotion,
+  accentColor,
+}: {
+  active: boolean;
+  reducedMotion: boolean;
+  accentColor: string;
+}) {
+  const elapsed = useLoopElapsed(active, reducedMotion);
+  const { translateY, opacity } = reducedMotion
+    ? SCROLL_INVITE_REST
+    : scrollInviteFrame(elapsed);
+  return (
+    <View style={styles.invitationWrap} pointerEvents="none">
+      <View style={{ opacity, transform: [{ translateY }] }}>
+        <ChevronDown size={30} color={accentColor} strokeWidth={2.5} />
+      </View>
+    </View>
+  );
+});
+
+/**
+ * Card 6's slow pulse: a soft accent light that breathes on a
+ * deliberately long ~4.5s cycle — slower than the scroll tempo, so
+ * watching it eases the user off the reflex. NOT a breathing exercise:
+ * there is no instruction, only a calm light to settle on. A faint halo
+ * (blurred on web) behind a brighter core, both riding the same breath.
+ * reducedMotion leaves a still glow.
+ */
+const SlowPulse = memo(function SlowPulse({
+  active,
+  reducedMotion,
+  accentColor,
+}: {
+  active: boolean;
+  reducedMotion: boolean;
+  accentColor: string;
+}) {
+  const elapsed = useLoopElapsed(active, reducedMotion);
+  const { scale, opacity, glow } = reducedMotion
+    ? SLOW_PULSE_REST
+    : slowPulseFrame(elapsed);
+  return (
+    <View style={styles.pulseWrap} pointerEvents="none">
+      <View
+        style={[
+          styles.pulseHalo,
+          {
+            backgroundColor: hexAlpha(accentColor, 0.22),
+            opacity: 0.35 + glow * 0.4,
+            transform: [{ scale: scale * 1.15 }],
+          },
+        ]}
+      />
+      <View
+        style={[
+          styles.pulseCore,
+          {
+            backgroundColor: hexAlpha(accentColor, 0.9),
+            opacity,
+            transform: [{ scale }],
+          },
+        ]}
+      />
+    </View>
+  );
+});
+
 const styles = StyleSheet.create({
   root: { flex: 1, width: '100%' },
   page: {
@@ -501,6 +633,32 @@ const styles = StyleSheet.create({
     height: 2,
     borderRadius: 1,
     marginTop: dsSpacing.xl,
+  },
+  invitationWrap: {
+    height: 48,
+    marginTop: dsSpacing.md,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  pulseWrap: {
+    width: 160,
+    height: 160,
+    marginBottom: dsSpacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pulseHalo: {
+    position: 'absolute',
+    width: 132,
+    height: 132,
+    borderRadius: 66,
+    ...Platform.select({ web: { filter: 'blur(22px)' }, default: {} }),
+  },
+  pulseCore: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    ...Platform.select({ web: { filter: 'blur(6px)' }, default: {} }),
   },
   numberPage: {
     width: '100%',

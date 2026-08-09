@@ -14,6 +14,13 @@ import {
   entranceOpacity,
   entranceScale,
 } from '@/components/technique/fakeFeedNumber';
+import {
+  SCROLL_INVITE_CYCLE_MS,
+  SLOW_PULSE_CYCLE_MS,
+  SLOW_PULSE_MIN_CYCLE_MS,
+  scrollInviteFrame,
+  slowPulseFrame,
+} from '@/components/technique/fakeFeedMotion';
 
 /**
  * Fake Feed's guardrails are the exercise. The feed is free-scroll (the
@@ -160,5 +167,44 @@ describe('Fake Feed — card 4 entrance', () => {
     expect(entranceScale(0)).toBeLessThan(1);
     expect(entranceOpacity(FAKE_FEED_NUMBER_TOTAL_MS)).toBe(1);
     expect(entranceScale(FAKE_FEED_NUMBER.entranceMs)).toBeCloseTo(1, 5);
+  });
+});
+
+describe('Fake Feed — card 1 scroll invitation', () => {
+  it('drifts the chevron down over the cycle, fading', () => {
+    const start = scrollInviteFrame(0);
+    const mid = scrollInviteFrame(SCROLL_INVITE_CYCLE_MS * 0.5);
+    expect(start.opacity).toBe(0); // begins invisible, no pop
+    expect(mid.translateY).toBeGreaterThan(start.translateY); // moving down
+    expect(mid.opacity).toBeGreaterThan(0); // visible mid-cycle
+  });
+
+  it('loops seamlessly — the wrap point matches the start', () => {
+    const start = scrollInviteFrame(0);
+    const wrap = scrollInviteFrame(SCROLL_INVITE_CYCLE_MS);
+    expect(wrap.translateY).toBeCloseTo(start.translateY, 5);
+    expect(wrap.opacity).toBeCloseTo(start.opacity, 5);
+  });
+});
+
+describe('Fake Feed — card 6 slow pulse', () => {
+  it('stays slow: the breath cycle never drops below the floor', () => {
+    // The exercise fails if the pulse speeds up to the scroll tempo.
+    expect(SLOW_PULSE_CYCLE_MS).toBeGreaterThanOrEqual(SLOW_PULSE_MIN_CYCLE_MS);
+    expect(SLOW_PULSE_MIN_CYCLE_MS).toBeGreaterThanOrEqual(4000);
+  });
+
+  it('breathes: smallest/dimmest at the ends, fullest at mid-cycle', () => {
+    const ends = slowPulseFrame(0);
+    const mid = slowPulseFrame(SLOW_PULSE_CYCLE_MS * 0.5);
+    expect(mid.scale).toBeGreaterThan(ends.scale);
+    expect(mid.opacity).toBeGreaterThan(ends.opacity);
+  });
+
+  it('loops seamlessly — the wrap point matches the start', () => {
+    const start = slowPulseFrame(0);
+    const wrap = slowPulseFrame(SLOW_PULSE_CYCLE_MS);
+    expect(wrap.scale).toBeCloseTo(start.scale, 5);
+    expect(wrap.opacity).toBeCloseTo(start.opacity, 5);
   });
 });
