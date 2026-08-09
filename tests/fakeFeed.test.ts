@@ -15,13 +15,16 @@ import {
   entranceScale,
 } from '@/components/technique/fakeFeedNumber';
 import {
+  EMPTY_REVEAL_MS,
   FILL_FAST_MIN,
   FILL_SLOW_MAX,
   FILL_TOTAL_RAD,
   SCROLL_CASCADE_COUNT,
   SCROLL_CASCADE_CYCLE_MS,
   cascadeChevron,
+  emptyLineOpacity,
   fillGain,
+  ghostY,
 } from '@/components/technique/fakeFeedMotion';
 
 /**
@@ -236,5 +239,49 @@ describe('Fake Feed — card 6 slow-drag fill', () => {
     let acc = 0;
     for (let i = 0; i < 40; i++) acc += fillGain(0.25, 300); // 40 slow steps
     expect(acc).toBeGreaterThanOrEqual(FILL_TOTAL_RAD);
+  });
+});
+
+describe('Fake Feed — card 2 scroll flow', () => {
+  const spacing = 168;
+  const count = 6;
+  const total = spacing * count;
+
+  it('scrolls the ghosts up over time', () => {
+    const a = ghostY(0, 0, spacing, count);
+    const b = ghostY(200, 0, spacing, count);
+    expect(b).toBeLessThan(a === 0 ? total : a); // moved up (toward 0/wrap)
+  });
+
+  it('spaces the ghosts evenly, not stacked', () => {
+    const ys = Array.from({ length: count }, (_, i) =>
+      ghostY(0, i, spacing, count)
+    );
+    expect(new Set(ys.map((y) => Math.round(y))).size).toBe(count);
+  });
+
+  it('wraps seamlessly — one full period returns to the start', () => {
+    const periodMs = (total / 300) * 1000; // total px / speed
+    for (let i = 0; i < count; i++) {
+      expect(ghostY(periodMs, i, spacing, count)).toBeCloseTo(
+        ghostY(0, i, spacing, count),
+        3
+      );
+    }
+  });
+});
+
+describe('Fake Feed — card 5 deliberate emptiness', () => {
+  it('shows nothing until the emptiness has been felt', () => {
+    expect(emptyLineOpacity(0)).toBe(0);
+    expect(emptyLineOpacity(EMPTY_REVEAL_MS - 1)).toBe(0);
+    expect(emptyLineOpacity(EMPTY_REVEAL_MS)).toBe(0);
+  });
+
+  it('then fades the line in, slowly, to full', () => {
+    const justAfter = emptyLineOpacity(EMPTY_REVEAL_MS + 300);
+    expect(justAfter).toBeGreaterThan(0);
+    expect(justAfter).toBeLessThan(1); // slow — not instant
+    expect(emptyLineOpacity(EMPTY_REVEAL_MS + 10_000)).toBe(1);
   });
 });

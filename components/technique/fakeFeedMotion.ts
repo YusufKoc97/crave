@@ -82,3 +82,44 @@ export function shortestAngle(a: number, b: number): number {
   while (d < -Math.PI) d += 2 * Math.PI;
   return d;
 }
+
+// ─── Card 2: the collective scroll flow ───
+
+/** Upward speed of the blurred content ghosts — fast, the doomscroll
+ *  tempo seen from outside. px per second. */
+export const GHOST_FLOW_SPEED = 300;
+
+/**
+ * Vertical offset (0..total) of ghost `index` at `elapsedMs`, scrolling
+ * up and wrapping seamlessly, where `total = spacing * count`. The strip
+ * of ghosts reads as an endless fast feed with no beginning or end.
+ */
+export function ghostY(
+  elapsedMs: number,
+  index: number,
+  spacing: number,
+  count: number
+): number {
+  const total = spacing * count;
+  const raw = index * spacing - (elapsedMs / 1000) * GHOST_FLOW_SPEED;
+  return ((raw % total) + total) % total;
+}
+
+// ─── Card 5: the deliberate emptiness ───
+
+/** How long the card holds as pure emptiness before the line appears —
+ *  long enough to feel the silence, not so long it reads as a bug. */
+export const EMPTY_REVEAL_MS = 3400;
+/** How slowly the confirming line fades in once the emptiness has sat. */
+export const EMPTY_FADE_MS = 2400;
+
+/**
+ * Opacity (0..1) of card 5's one faint line at `elapsedMs`: nothing at
+ * all until {@link EMPTY_REVEAL_MS} has passed (real emptiness first),
+ * then a very slow fade so it confirms the void is intentional rather
+ * than announcing itself.
+ */
+export function emptyLineOpacity(elapsedMs: number): number {
+  const t = (elapsedMs - EMPTY_REVEAL_MS) / EMPTY_FADE_MS;
+  return Math.max(0, Math.min(1, t));
+}

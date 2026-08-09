@@ -35,10 +35,13 @@ import {
   entranceScale,
 } from './fakeFeedNumber';
 import {
+  EMPTY_REVEAL_MS,
   FILL_TOTAL_RAD,
   SCROLL_CASCADE_COUNT,
   cascadeChevron,
+  emptyLineOpacity,
   fillGain,
+  ghostY,
   shortestAngle,
 } from './fakeFeedMotion';
 import type { SceneHaptics, SceneProps } from './types';
@@ -47,6 +50,12 @@ import type { SceneHaptics, SceneProps } from './types';
 const NUMBER_CARD_KEY = 'number';
 const INVITE_CARD_KEY = 'invitation';
 const PULSE_CARD_KEY = 'slow_pulse';
+const MIRROR_CARD_KEY = 'speed_mirror';
+const EMPTY_CARD_KEY = 'empty_search';
+
+/** How many blurred content ghosts fly up card 2, and how far apart. */
+const GHOST_COUNT = 6;
+const GHOST_SPACING = 168;
 
 /**
  * Card 1's own light — a cool near-white, not the feed's blue. Card 4
@@ -291,6 +300,22 @@ const FeedCard = memo(function FeedCard({
           onDragLock={onDragLock}
         />
       );
+    case MIRROR_CARD_KEY:
+      return (
+        <ScrollMirrorCard
+          height={height}
+          active={active}
+          reducedMotion={reducedMotion}
+        />
+      );
+    case EMPTY_CARD_KEY:
+      return (
+        <EmptyCard
+          height={height}
+          active={active}
+          reducedMotion={reducedMotion}
+        />
+      );
     default:
       return <PlainCard card={card} height={height} />;
   }
@@ -321,22 +346,116 @@ function PlainCard({ card, height }: { card: FakeFeedCard; height: number }) {
  * to drive the frame, which keeps the animation the same code the tests
  * exercise and observable in the web preview.
  */
-function useLoopElapsed(active: boolean, reducedMotion: boolean): number {
+function useLoopElapsed(
+  active: boolean,
+  reducedMotion: boolean,
+  stopAtMs?: number
+): number {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
-    if (!active || reducedMotion) return;
+    if (!active) {
+      setElapsed(0);
+      return;
+    }
+    if (reducedMotion) {
+      // No motion, but keep the timeline: a card whose reveal is timed
+      // (card 5) still waits, it just doesn't tween. Others read 0.
+      if (stopAtMs != null) setElapsed(stopAtMs);
+      return;
+    }
     let raf = 0;
     let t0 = 0;
     const tick = (ts: number) => {
       if (!t0) t0 = ts;
-      setElapsed(ts - t0);
+      const e = ts - t0;
+      setElapsed(e);
+      if (stopAtMs != null && e >= stopAtMs) return; // one-shot: stop
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [active, reducedMotion]);
+  }, [active, reducedMotion, stopAtMs]);
   return elapsed;
 }
+
+/**
+ * Card 2 — "This is how we scroll." Not the user's data: a generic,
+ * blurred, unreadable stream of content ghosts flying up fast, the
+ * doomscroll tempo seen from the outside. The collective "we" lets the
+ * user recognise their own pace in it. reducedMotion freezes the strip.
+ *
+ * The ghosts are plain rounded shapes (a faint avatar dot + two bars),
+ * blurred on web so they read as "content" without being any content.
+ * On native, where the blur is unavailable, they stay low-contrast and
+ * featureless enough to read as ghosts rather than real posts.
+ */
+const ScrollMirrorCard = memo(function ScrollMirrorCard({
+  height,
+  active,
+  reducedMotion,
+}: {
+  height: number;
+  active: boolean;
+  reducedMotion: boolean;
+}) {
+  const elapsed = useLoopElapsed(active, reducedMotion);
+  return (
+    <View style={[styles.fullPage, { height }]}>
+      <View style={styles.mirrorFlow} pointerEvents="none">
+        {Array.from({ length: GHOST_COUNT }, (_, i) => {
+          const y = ghostY(
+            reducedMotion ? 0 : elapsed,
+            i,
+            GHOST_SPACING,
+            GHOST_COUNT
+          );
+          return (
+            <View key={i} style={[styles.ghost, { top: y - GHOST_SPACING }]}>
+              <View style={styles.ghostAvatar} />
+              <View style={styles.ghostLines}>
+                <View style={[styles.ghostBar, { width: '70%' }]} />
+                <View style={[styles.ghostBar, { width: '45%' }]} />
+              </View>
+            </View>
+          );
+        })}
+      </View>
+      {/* A veil so the stream reads as atmosphere behind the words. */}
+      <View style={styles.mirrorVeil} pointerEvents="none" />
+      <Text style={styles.mirrorText}>
+        {t('toolkit.techniques.fake_feed.cards.speed_mirror')}
+      </Text>
+    </View>
+  );
+});
+
+/**
+ * Card 5 — the deliberate emptiness. Opens as pure void; only after a
+ * few seconds of real silence does one faint line fade in to confirm the
+ * emptiness is the point (not a failed load). The pause before the line
+ * is what makes the void land — and what tells the user it was chosen.
+ * Distinct from card 9's "bottom": this is the absence of what you came
+ * looking for, not the end of the feed.
+ */
+const EmptyCard = memo(function EmptyCard({
+  height,
+  active,
+  reducedMotion,
+}: {
+  height: number;
+  active: boolean;
+  reducedMotion: boolean;
+}) {
+  const elapsed = useLoopElapsed(active, reducedMotion, EMPTY_REVEAL_MS + 2400);
+  const opacity = emptyLineOpacity(elapsed);
+  return (
+    <View style={[styles.fullPage, { height }]}>
+      <Text style={[styles.emptyText, { opacity }]}>
+        {t('toolkit.techniques.fake_feed.cards.empty_search')}
+      </Text>
+    </View>
+  );
+});
 
 /**
  * Card 1 — the scroll invitation. Full page: a stream of chevrons that
@@ -822,6 +941,58 @@ const styles = StyleSheet.create({
     height: RING_SIZE * 0.82,
     borderRadius: RING_SIZE,
     borderWidth: 3,
+  },
+
+  // Card 2 — the collective scroll flow.
+  mirrorFlow: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+    ...Platform.select({ web: { filter: 'blur(7px)' }, default: {} }),
+  },
+  ghost: {
+    position: 'absolute',
+    left: dsSpacing.xxl,
+    right: dsSpacing.xxl,
+    height: 132,
+    borderRadius: 18,
+    backgroundColor: hexAlpha(dsColors.cardSurface, 0.5),
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: dsSpacing.lg,
+    gap: dsSpacing.md,
+  },
+  ghostAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: hexAlpha(dsColors.textSecondary, 0.3),
+  },
+  ghostLines: { flex: 1, gap: dsSpacing.sm },
+  ghostBar: {
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: hexAlpha(dsColors.textSecondary, 0.26),
+  },
+  mirrorVeil: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: hexAlpha(dsColors.bgBase, 0.58),
+  },
+  mirrorText: {
+    color: dsColors.textPrimary,
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.displayLg,
+    fontWeight: dsFont.weight.bold,
+    letterSpacing: dsFont.letterSpacing.tight,
+    textAlign: 'center',
+  },
+
+  // Card 5 — the deliberate emptiness.
+  emptyText: {
+    color: dsColors.textTertiary,
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.body,
+    letterSpacing: dsFont.letterSpacing.tight,
+    textAlign: 'center',
   },
   dragText: {
     color: dsColors.textPrimary,
