@@ -38,11 +38,13 @@ import {
   EMPTY_REVEAL_MS,
   FILL_TOTAL_RAD,
   SCROLL_CASCADE_COUNT,
+  THUMB_REST,
   cascadeChevron,
   emptyLineOpacity,
   fillGain,
   ghostY,
   shortestAngle,
+  thumbSwipe,
 } from './fakeFeedMotion';
 import type { SceneHaptics, SceneProps } from './types';
 
@@ -52,6 +54,10 @@ const INVITE_CARD_KEY = 'invitation';
 const PULSE_CARD_KEY = 'slow_pulse';
 const MIRROR_CARD_KEY = 'speed_mirror';
 const EMPTY_CARD_KEY = 'empty_search';
+const THUMB_CARD_KEY = 'thumb';
+
+/** Card 3's fingertip — a soft cool light, its own understated colour. */
+const THUMB_COLOR = '#D6E2F5';
 
 /** How many blurred content ghosts fly up card 2, and how far apart. */
 const GHOST_COUNT = 6;
@@ -316,6 +322,14 @@ const FeedCard = memo(function FeedCard({
           reducedMotion={reducedMotion}
         />
       );
+    case THUMB_CARD_KEY:
+      return (
+        <ThumbCard
+          height={height}
+          active={active}
+          reducedMotion={reducedMotion}
+        />
+      );
     default:
       return <PlainCard card={card} height={height} />;
   }
@@ -453,6 +467,48 @@ const EmptyCard = memo(function EmptyCard({
       <Text style={[styles.emptyText, { opacity }]}>
         {t('toolkit.techniques.fake_feed.cards.empty_search')}
       </Text>
+    </View>
+  );
+});
+
+/**
+ * Card 3 — "Notice your thumb." The autopilot scroll gesture, made
+ * visible without a literal thumb: a soft, glowing capsule (a stylised
+ * fingertip) drifts down a faint track in the lower-right, pressing in
+ * slightly, fading out at the bottom and repeating on a calm ~2s loop.
+ * Deliberately abstract and understated — a hint of a fingertip, not a
+ * hand — so it belongs to the atmosphere rather than startling. Its own
+ * soft cool light, not the feed's blue. reducedMotion holds it still.
+ */
+const ThumbCard = memo(function ThumbCard({
+  height,
+  active,
+  reducedMotion,
+}: {
+  height: number;
+  active: boolean;
+  reducedMotion: boolean;
+}) {
+  const elapsed = useLoopElapsed(active, reducedMotion);
+  const { translateY, opacity, scale } = reducedMotion
+    ? THUMB_REST
+    : thumbSwipe(elapsed);
+  return (
+    <View style={[styles.fullPage, { height }]}>
+      <Text style={styles.thumbText}>
+        {t('toolkit.techniques.fake_feed.cards.thumb')}
+      </Text>
+      <View style={styles.thumbZone} pointerEvents="none">
+        <View style={styles.thumbTrack} />
+        <View
+          style={[
+            styles.thumbForm,
+            { opacity, transform: [{ translateY }, { scale }] },
+          ]}
+        >
+          <View style={styles.thumbHighlight} />
+        </View>
+      </View>
     </View>
   );
 });
@@ -993,6 +1049,55 @@ const styles = StyleSheet.create({
     fontSize: dsFont.size.body,
     letterSpacing: dsFont.letterSpacing.tight,
     textAlign: 'center',
+  },
+
+  // Card 3 — notice your thumb.
+  thumbText: {
+    color: dsColors.textPrimary,
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.displayMd,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.tight,
+    textAlign: 'center',
+  },
+  thumbZone: {
+    position: 'absolute',
+    right: 46,
+    bottom: 128,
+    width: 60,
+    height: 172,
+    alignItems: 'center',
+  },
+  thumbTrack: {
+    position: 'absolute',
+    top: 26,
+    bottom: 24,
+    width: 3,
+    borderRadius: 2,
+    backgroundColor: hexAlpha(THUMB_COLOR, 0.12),
+  },
+  thumbForm: {
+    position: 'absolute',
+    top: 0,
+    width: 44,
+    height: 58,
+    borderRadius: 24,
+    backgroundColor: hexAlpha(THUMB_COLOR, 0.16),
+    borderWidth: 1,
+    borderColor: hexAlpha(THUMB_COLOR, 0.4),
+    alignItems: 'center',
+    ...Platform.select({
+      web: { boxShadow: `0 0 22px ${hexAlpha(THUMB_COLOR, 0.35)}` },
+      default: {},
+    }),
+  },
+  thumbHighlight: {
+    marginTop: 11,
+    width: 22,
+    height: 22,
+    borderRadius: 12,
+    backgroundColor: hexAlpha(THUMB_COLOR, 0.5),
+    ...Platform.select({ web: { filter: 'blur(4px)' }, default: {} }),
   },
   dragText: {
     color: dsColors.textPrimary,

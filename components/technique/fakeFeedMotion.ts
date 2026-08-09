@@ -105,6 +105,37 @@ export function ghostY(
   return ((raw % total) + total) % total;
 }
 
+// ─── Card 3: notice your thumb ───
+
+/** One down-swipe of the abstract fingertip. Calm, unhurried. */
+export const THUMB_CYCLE_MS = 2000;
+/** How far the fingertip travels down its track, in px. */
+const THUMB_SWIPE = 92;
+
+/**
+ * The abstract fingertip's state at `elapsedMs`: it fades in at the top
+ * of its track, swipes down while pressing in slightly, and fades out at
+ * the bottom, then repeats — the autopilot scroll gesture made visible.
+ * Opacity is a smooth sine so it eases in and out and the loop is
+ * seamless (0 at both ends). NOT a literal thumb: the component draws a
+ * soft capsule, this only moves it.
+ */
+export function thumbSwipe(elapsedMs: number): {
+  translateY: number;
+  opacity: number;
+  scale: number;
+} {
+  const p = (elapsedMs % THUMB_CYCLE_MS) / THUMB_CYCLE_MS;
+  return {
+    translateY: p * THUMB_SWIPE,
+    opacity: Math.sin(Math.PI * p),
+    scale: 1 - 0.06 * p,
+  };
+}
+
+/** Still fingertip for reduced-motion — mid-swipe, present but calm. */
+export const THUMB_REST = thumbSwipe(THUMB_CYCLE_MS / 2);
+
 // ─── Card 5: the deliberate emptiness ───
 
 /** How long the card holds as pure emptiness before the line appears —

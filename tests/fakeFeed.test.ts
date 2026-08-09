@@ -21,10 +21,12 @@ import {
   FILL_TOTAL_RAD,
   SCROLL_CASCADE_COUNT,
   SCROLL_CASCADE_CYCLE_MS,
+  THUMB_CYCLE_MS,
   cascadeChevron,
   emptyLineOpacity,
   fillGain,
   ghostY,
+  thumbSwipe,
 } from '@/components/technique/fakeFeedMotion';
 
 /**
@@ -268,6 +270,21 @@ describe('Fake Feed — card 2 scroll flow', () => {
         3
       );
     }
+  });
+});
+
+describe('Fake Feed — card 3 thumb swipe', () => {
+  it('swipes the fingertip down over the cycle', () => {
+    const a = thumbSwipe(0);
+    const b = thumbSwipe(THUMB_CYCLE_MS * 0.4);
+    expect(b.translateY).toBeGreaterThan(a.translateY);
+    expect(b.scale).toBeLessThanOrEqual(a.scale); // presses in as it goes
+  });
+
+  it('fades in and out (invisible at the ends), so the loop is seamless', () => {
+    expect(thumbSwipe(0).opacity).toBeCloseTo(0, 5);
+    expect(thumbSwipe(THUMB_CYCLE_MS).opacity).toBeCloseTo(0, 5);
+    expect(thumbSwipe(THUMB_CYCLE_MS / 2).opacity).toBeGreaterThan(0.9);
   });
 });
 
