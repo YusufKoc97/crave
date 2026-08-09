@@ -15,14 +15,13 @@ import {
   entranceScale,
 } from '@/components/technique/fakeFeedNumber';
 import {
-  RIPPLE_COUNT,
+  FILL_FAST_MIN,
+  FILL_SLOW_MAX,
+  FILL_TOTAL_RAD,
   SCROLL_CASCADE_COUNT,
   SCROLL_CASCADE_CYCLE_MS,
-  SLOW_PULSE_CYCLE_MS,
-  SLOW_PULSE_MIN_CYCLE_MS,
   cascadeChevron,
-  rippleRing,
-  slowPulseFrame,
+  fillGain,
 } from '@/components/technique/fakeFeedMotion';
 
 /**
@@ -184,10 +183,12 @@ describe('Fake Feed — card 1 chevron cascade', () => {
     expect(new Set(ys.map((y) => Math.round(y))).size).toBeGreaterThan(1);
   });
 
-  it('each chevron drifts down over its cycle', () => {
+  it('each chevron rises (moves up) over its cycle', () => {
+    // Points the thumb toward the swipe-up gesture, so translateY grows
+    // more negative as the cycle advances.
     const a = cascadeChevron(0, 0);
     const b = cascadeChevron(SCROLL_CASCADE_CYCLE_MS * 0.4, 0);
-    expect(b.translateY).toBeGreaterThan(a.translateY);
+    expect(b.translateY).toBeLessThan(a.translateY);
   });
 
   it('loops seamlessly — every chevron wraps to its start', () => {
@@ -200,47 +201,38 @@ describe('Fake Feed — card 1 chevron cascade', () => {
   });
 });
 
-describe('Fake Feed — card 6 slow pulse', () => {
-  it('stays slow: the breath cycle never drops below the floor', () => {
-    // The exercise fails if the pulse speeds up to the scroll tempo.
-    expect(SLOW_PULSE_CYCLE_MS).toBeGreaterThanOrEqual(SLOW_PULSE_MIN_CYCLE_MS);
-    expect(SLOW_PULSE_MIN_CYCLE_MS).toBeGreaterThanOrEqual(4000);
+describe('Fake Feed — card 6 slow-drag fill', () => {
+  const D = 0.3; // a ~0.3 rad move, timed to span slow → fast
+
+  it('a slow drag fills at full credit', () => {
+    // 0.3 rad over 400ms = 0.75 rad/s, well under the slow ceiling.
+    expect(fillGain(D, 400)).toBeCloseTo(D, 5);
+    // direction does not matter — either way of turning fills
+    expect(fillGain(-D, 400)).toBeCloseTo(D, 5);
   });
 
-  it('breathes: smallest/dimmest at the ends, fullest at mid-cycle', () => {
-    const ends = slowPulseFrame(0);
-    const mid = slowPulseFrame(SLOW_PULSE_CYCLE_MS * 0.5);
-    expect(mid.scale).toBeGreaterThan(ends.scale);
-    expect(mid.opacity).toBeGreaterThan(ends.opacity);
+  it('a fast drag does NOT fill — it slips back a little', () => {
+    // 0.3 rad over 20ms = 15 rad/s, well over the fast floor.
+    const g = fillGain(D, 20);
+    expect(g).toBeLessThan(0);
+    expect(g).toBeGreaterThan(-0.2); // a nudge, not a reset
   });
 
-  it('loops seamlessly — the wrap point matches the start', () => {
-    const start = slowPulseFrame(0);
-    const wrap = slowPulseFrame(SLOW_PULSE_CYCLE_MS);
-    expect(wrap.scale).toBeCloseTo(start.scale, 5);
-    expect(wrap.opacity).toBeCloseTo(start.opacity, 5);
+  it('in between, credit scales down with speed (never punishing)', () => {
+    const dt = (D / ((FILL_SLOW_MAX + FILL_FAST_MIN) / 2)) * 1000;
+    const g = fillGain(D, dt);
+    expect(g).toBeGreaterThan(0);
+    expect(g).toBeLessThan(D); // less than full credit
   });
 
-  it('rings ripple outward and fade, on the same slow breath', () => {
-    // A ring is bigger and fainter later in its cycle.
-    const early = rippleRing(SLOW_PULSE_CYCLE_MS * 0.1, 0);
-    const late = rippleRing(SLOW_PULSE_CYCLE_MS * 0.9, 0);
-    expect(late.scale).toBeGreaterThan(early.scale);
-    expect(late.opacity).toBeLessThan(early.opacity);
-    // and they are spread out, not overlapping
-    const scales = Array.from(
-      { length: RIPPLE_COUNT },
-      (_, i) => rippleRing(0, i).scale
-    );
-    expect(new Set(scales.map((s) => s.toFixed(2))).size).toBe(RIPPLE_COUNT);
+  it('needs more than one full turn of slow dragging to complete', () => {
+    // So a single quick sweep around the ring cannot finish it.
+    expect(FILL_TOTAL_RAD).toBeGreaterThan(2 * Math.PI);
   });
 
-  it('rings loop seamlessly', () => {
-    for (let i = 0; i < RIPPLE_COUNT; i++) {
-      const start = rippleRing(0, i);
-      const wrap = rippleRing(SLOW_PULSE_CYCLE_MS, i);
-      expect(wrap.scale).toBeCloseTo(start.scale, 5);
-      expect(wrap.opacity).toBeCloseTo(start.opacity, 5);
-    }
+  it('completes only by accumulating slow moves', () => {
+    let acc = 0;
+    for (let i = 0; i < 40; i++) acc += fillGain(0.25, 300); // 40 slow steps
+    expect(acc).toBeGreaterThanOrEqual(FILL_TOTAL_RAD);
   });
 });

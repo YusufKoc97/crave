@@ -525,6 +525,7 @@
           "bottom": "The bottom is just below this. Normally, there isn't one.",
           "end": "Every scroll has an end. Infinite feeds just hide theirs. Now put the phone down."
         },
+        "pulse_hint": "Drag slowly to fill the circle. Rush it and it won't.",
         "number_card": {
           "distance_label": "meters scrolled today",
           "videos_label": "short videos, today",

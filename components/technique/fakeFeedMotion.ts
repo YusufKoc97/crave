@@ -1,31 +1,29 @@
 /**
- * Fake Feed — the looping card animations (cards 1 and 6), as pure frame
- * math. Kept out of the component so the property that matters for each
- * — card 1 pulls the eye *down*, card 6 stays *slow* — is asserted in
- * tests, not merely intended. Every loop is seamless: the value at
- * `elapsed = 0` and at `elapsed = cycle` line up, so nothing jumps at
- * the wrap.
- *
- * These cards do NOT share the feed's blue: card 1 is a cool near-white
- * downward cascade, card 6 a serene teal breath. Each card owns its own
- * light rather than being tinted to match everything else.
+ * Fake Feed — card 1's cascade and card 6's drag mechanic, as pure math.
+ * Kept out of the components so the properties that matter — card 1 pulls
+ * the eye toward the swipe (up), card 6 only fills when the drag is slow —
+ * are asserted in tests, not merely intended.
  */
 
-// ─── Card 1: downward chevron cascade ───
+// ─── Card 1: upward chevron cascade ───
+//
+// The gesture that advances a vertical paging feed is a swipe UP (the
+// finger drags the next card up into view), so the invitation points UP,
+// not down — a down-arrow was telling the thumb to go the wrong way.
 
-/** One chevron's trip down. Short, so the stream feels alive but calm. */
-export const SCROLL_CASCADE_CYCLE_MS = 1500;
+/** One chevron's rise. Slow and smooth, not a nervous flicker. */
+export const SCROLL_CASCADE_CYCLE_MS = 2400;
 /** How many chevrons are in flight at once, evenly phased into a stream. */
-export const SCROLL_CASCADE_COUNT = 4;
-/** How far each chevron travels down over one cycle, in px. */
-const SCROLL_CASCADE_TRAVEL = 96;
+export const SCROLL_CASCADE_COUNT = 3;
+/** How far each chevron rises over one cycle, in px. */
+const SCROLL_CASCADE_TRAVEL = 108;
 
 /**
  * State of chevron `index` at `elapsedMs`. The chevrons are phase-offset
- * by `index / count` so at any instant they are spread down the travel
- * as a continuous downward stream — a much stronger "keep going down"
- * than a single blip. Each fades in at the top and out toward the
- * bottom.
+ * so at any instant they are spread up the travel as a continuous rising
+ * stream. `translateY` is negative — they move UP, toward the swipe.
+ * Opacity is a smooth sine (0 → 1 → 0), so each one eases in and out and
+ * the loop has no visible seam.
  */
 export function cascadeChevron(
   elapsedMs: number,
@@ -34,60 +32,50 @@ export function cascadeChevron(
   const raw =
     elapsedMs / SCROLL_CASCADE_CYCLE_MS + index / SCROLL_CASCADE_COUNT;
   const p = ((raw % 1) + 1) % 1;
-  const translateY = p * SCROLL_CASCADE_TRAVEL;
-  let opacity: number;
-  if (p < 0.15) opacity = p / 0.15;
-  else if (p > 0.65) opacity = Math.max(0, (1 - p) / 0.35);
-  else opacity = 1;
-  return { translateY, opacity };
+  return {
+    translateY: -p * SCROLL_CASCADE_TRAVEL,
+    opacity: Math.sin(Math.PI * p),
+  };
 }
 
-// ─── Card 6: slow pulse + expanding ripples ───
+// ─── Card 6: slow-drag to fill ───
+//
+// The user drags a handle around a ring to fill it. The catch — the whole
+// point of the card — is that only SLOW motion counts: drag fast and the
+// fill stalls and even slips back a little, so the body has to brake the
+// scroll reflex to make progress. "Slow down" is lived in the thumb, not
+// just written on the screen.
+
+/** Total angular distance of slow dragging needed to fill the ring — a
+ *  little over one turn, so a single quick sweep can't finish it. */
+export const FILL_TOTAL_RAD = Math.PI * 2 * 1.25;
+/** At or under this angular speed (rad/s) the drag counts in full. */
+export const FILL_SLOW_MAX = 2.5;
+/** At or over this angular speed the drag is "too fast" — it slips back. */
+export const FILL_FAST_MIN = 6;
+/** Most a single fast move can undo — the penalty is a nudge, not a reset. */
+const FILL_SLIP_MAX = 0.12;
 
 /**
- * The breath cycle. Deliberately long: the whole point is that it is far
- * slower than the scroll tempo, so watching it pulls the user off the
- * reflex. Speeding it up defeats the exercise — hence the floor and the
- * test that guards it.
+ * How much a drag move of `angleDeltaRad` over `dtMs` adds to the fill,
+ * in radians. Slow → the full sweep counts. Fast → a gentle slip back.
+ * In between → linearly scaled down. Never punishing, just insistent that
+ * the motion be slow.
  */
-export const SLOW_PULSE_CYCLE_MS = 4500;
-/** Floor the cycle must never drop below, or the pulse stops being calm. */
-export const SLOW_PULSE_MIN_CYCLE_MS = 4000;
-
-/**
- * Core state at `elapsedMs`: a smooth grow-and-brighten then
- * shrink-and-dim (raised cosine, eased at both ends, seamless loop).
- */
-export function slowPulseFrame(elapsedMs: number): {
-  scale: number;
-  opacity: number;
-  glow: number;
-} {
-  const p = (elapsedMs % SLOW_PULSE_CYCLE_MS) / SLOW_PULSE_CYCLE_MS;
-  const s = (1 - Math.cos(2 * Math.PI * p)) / 2;
-  return { scale: 0.82 + 0.34 * s, opacity: 0.25 + 0.4 * s, glow: s };
+export function fillGain(angleDeltaRad: number, dtMs: number): number {
+  const dt = Math.max(dtMs, 1) / 1000;
+  const mag = Math.abs(angleDeltaRad);
+  const speed = mag / dt;
+  if (speed <= FILL_SLOW_MAX) return mag;
+  if (speed >= FILL_FAST_MIN) return -Math.min(mag, FILL_SLIP_MAX);
+  const f = 1 - (speed - FILL_SLOW_MAX) / (FILL_FAST_MIN - FILL_SLOW_MAX);
+  return mag * f;
 }
 
-/** Static core for reduced-motion — a resting light, not a beat. */
-export const SLOW_PULSE_REST = { scale: 1, opacity: 0.55, glow: 0.5 };
-
-/** How many rings ripple outward at once, evenly phased. */
-export const RIPPLE_COUNT = 3;
-const RIPPLE_SCALE_MIN = 0.3;
-const RIPPLE_SCALE_MAX = 1.4;
-
-/**
- * Ring `index` at `elapsedMs`: expands from small to large on the same
- * slow breath, fading as it grows, so the pulse reads as calm ripples
- * spreading across the whole screen rather than a dot in a box.
- */
-export function rippleRing(
-  elapsedMs: number,
-  index: number
-): { scale: number; opacity: number } {
-  const raw = elapsedMs / SLOW_PULSE_CYCLE_MS + index / RIPPLE_COUNT;
-  const p = ((raw % 1) + 1) % 1;
-  const scale = RIPPLE_SCALE_MIN + p * (RIPPLE_SCALE_MAX - RIPPLE_SCALE_MIN);
-  const opacity = (1 - p) * 0.45;
-  return { scale, opacity };
+/** Shortest signed angle from `a` to `b`, in (-π, π]. */
+export function shortestAngle(a: number, b: number): number {
+  let d = b - a;
+  while (d > Math.PI) d -= 2 * Math.PI;
+  while (d < -Math.PI) d += 2 * Math.PI;
+  return d;
 }

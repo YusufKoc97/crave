@@ -1,15 +1,17 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  PanResponder,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { ChevronDown } from 'lucide-react-native';
+import Svg, { Circle } from 'react-native-svg';
+import { ChevronUp } from 'lucide-react-native';
 import {
   dsColors,
   dsFont,
@@ -33,14 +35,13 @@ import {
   entranceScale,
 } from './fakeFeedNumber';
 import {
-  RIPPLE_COUNT,
+  FILL_TOTAL_RAD,
   SCROLL_CASCADE_COUNT,
-  SLOW_PULSE_REST,
   cascadeChevron,
-  rippleRing,
-  slowPulseFrame,
+  fillGain,
+  shortestAngle,
 } from './fakeFeedMotion';
-import type { SceneProps } from './types';
+import type { SceneHaptics, SceneProps } from './types';
 
 /** Cards that carry their own full-screen treatment. */
 const NUMBER_CARD_KEY = 'number';
@@ -48,13 +49,11 @@ const INVITE_CARD_KEY = 'invitation';
 const PULSE_CARD_KEY = 'slow_pulse';
 
 /**
- * Per-card identity colours. These cards deliberately do NOT all wear the
- * feed's blue: card 1 is a cool near-white, card 6 a serene teal. The
- * count-up (card 4) keeps the doomscroll accent it was approved with;
- * everything else owns its own light.
+ * Card 1's own light — a cool near-white, not the feed's blue. Card 4
+ * (numbers) and card 6 (the fill ring) wear the doomscroll accent; the
+ * rest own their own colour rather than all matching.
  */
 const INVITE_COLOR = '#E3EEFF';
-const PULSE_COLOR = '#3FD8C7';
 
 /**
  * Fake Feed — a feed that ends.
@@ -73,9 +72,10 @@ const PULSE_COLOR = '#3FD8C7';
  *   1. FINITE — exactly {@link FAKE_FEED_CARD_COUNT} cards, then
  *      `onComplete()`. Nothing loops, nothing exists past the last card,
  *      and `bounces` is off so there is no "pull for more" gesture.
- *   2. NO REWARD — no counters, no streaks, nothing that lands as a hit.
- *      Only two haptics in the whole run: one as the feed winds down, one
- *      at the end.
+ *   2. NO REWARD — no counters, no streaks, nothing that lands as a hit
+ *      per scroll. The only haptics are earned, not sprayed: one as the
+ *      feed winds down, one when card 6's slow-drag ring is completed
+ *      (a mindful action, not a swipe), and one at the end.
  *
  * FREE SCROLL. The scroll is never gated: all cards are present from the
  * start and the user moves at their own pace. Finiteness, not a timer, is
@@ -221,6 +221,7 @@ export function FakeFeedScreen({
                 accentColor={accentColor}
                 active={i === activeIndex}
                 reducedMotion={reducedMotion ?? false}
+                haptics={haptics}
               />
             ))
           : null}
@@ -240,6 +241,7 @@ const FeedCard = memo(function FeedCard({
   accentColor,
   active,
   reducedMotion,
+  haptics,
 }: {
   card: FakeFeedCard;
   height: number;
@@ -247,6 +249,7 @@ const FeedCard = memo(function FeedCard({
   /** True while this card is the centred one — arms its animation. */
   active: boolean;
   reducedMotion: boolean;
+  haptics?: SceneHaptics;
 }) {
   switch (card.key) {
     case NUMBER_CARD_KEY:
@@ -268,10 +271,11 @@ const FeedCard = memo(function FeedCard({
       );
     case PULSE_CARD_KEY:
       return (
-        <SlowPulseCard
+        <DragToFillCard
           height={height}
-          active={active}
+          accentColor={accentColor}
           reducedMotion={reducedMotion}
+          haptics={haptics}
         />
       );
     default:
@@ -322,11 +326,12 @@ function useLoopElapsed(active: boolean, reducedMotion: boolean): number {
 }
 
 /**
- * Card 1 — the scroll invitation. Full page: "Scroll down." over a
- * stream of chevrons that fall down the screen and fade, phase-offset
- * into a continuous downward cascade that pulls the eye (and thumb) the
- * way the feed wants to go. Cool near-white, not the feed's blue.
- * reducedMotion leaves the chevrons as a still, spaced column.
+ * Card 1 — the scroll invitation. Full page: a stream of chevrons that
+ * RISE up the screen and fade, phase-offset into a continuous cascade
+ * that points the thumb the way the feed actually advances (swipe up),
+ * over the "Scroll down." line. Big, slow and smooth — a calm pull, not
+ * a nervous flicker. Cool near-white, not the feed's blue. reducedMotion
+ * leaves the chevrons as a still, spaced column.
  */
 const ScrollInviteCard = memo(function ScrollInviteCard({
   height,
@@ -343,9 +348,6 @@ const ScrollInviteCard = memo(function ScrollInviteCard({
   );
   return (
     <View style={[styles.fullPage, { height }]}>
-      <Text style={styles.inviteText}>
-        {t('toolkit.techniques.fake_feed.cards.invitation')}
-      </Text>
       <View style={styles.cascade} pointerEvents="none">
         {chevrons.map((c, i) => (
           <View
@@ -355,75 +357,167 @@ const ScrollInviteCard = memo(function ScrollInviteCard({
               { opacity: c.opacity, transform: [{ translateY: c.translateY }] },
             ]}
           >
-            <ChevronDown size={36} color={INVITE_COLOR} strokeWidth={2.5} />
+            <ChevronUp size={46} color={INVITE_COLOR} strokeWidth={2.25} />
           </View>
         ))}
       </View>
+      <Text style={styles.inviteText}>
+        {t('toolkit.techniques.fake_feed.cards.invitation')}
+      </Text>
     </View>
   );
 });
 
+// Fill-ring geometry.
+const RING_SIZE = 240;
+const RING_R = 96;
+const RING_CX = RING_SIZE / 2;
+const RING_STROKE = 9;
+const RING_C = 2 * Math.PI * RING_R;
+
 /**
- * Card 6 — the slow pulse. Full page: a serene teal light that breathes
- * on a deliberately long ~4.5s cycle while rings ripple outward across
- * the screen on the same breath — far slower than the scroll tempo, so
- * watching it eases the reflex. NOT a breathing exercise: no instruction,
- * only a calm light to settle on. Teal, not the feed's blue.
- * reducedMotion leaves a still glow and static rings.
+ * Card 6 — "Slow down", made a mechanic instead of a picture. A ring
+ * waits to be filled; the user drags a handle around it, and it only
+ * fills while the drag is SLOW — rush it and the fill stalls and slips
+ * back a touch (see {@link fillGain}). So the instruction is lived in the
+ * thumb: to make progress the body has to brake the scroll reflex. When
+ * the ring closes it glows and gives one earned haptic.
+ *
+ * The feed is free-scroll, so no one is ever trapped here — a user who
+ * can't or won't drag just swipes on to the next card. reducedMotion
+ * keeps the full mechanic (it's a motion preference, not an access need)
+ * and only drops the completion bloom.
+ *
+ * Distinct from card 7 (Hold to pause): this is a drag, that is a press.
  */
-const SlowPulseCard = memo(function SlowPulseCard({
+const DragToFillCard = memo(function DragToFillCard({
   height,
-  active,
+  accentColor,
   reducedMotion,
+  haptics,
 }: {
   height: number;
-  active: boolean;
+  accentColor: string;
   reducedMotion: boolean;
+  haptics?: SceneHaptics;
 }) {
-  const elapsed = useLoopElapsed(active, reducedMotion);
-  const core = reducedMotion ? SLOW_PULSE_REST : slowPulseFrame(elapsed);
-  const rings = Array.from({ length: RIPPLE_COUNT }, (_, i) =>
-    rippleRing(reducedMotion ? 0 : elapsed, i)
+  const [progress, setProgress] = useState(0); // radians accrued
+  const [done, setDone] = useState(false);
+  const doneRef = useRef(false);
+  const stageRef = useRef<View>(null);
+  const centerRef = useRef({ x: 0, y: 0 });
+  const lastAngleRef = useRef(0);
+  const lastTimeRef = useRef(0);
+  const hapticsRef = useRef(haptics);
+  hapticsRef.current = haptics;
+
+  // Ring centre in window coords, so a touch anywhere can be turned into
+  // an angle. Re-measured on layout and at the start of each drag.
+  const measure = useCallback(() => {
+    stageRef.current?.measureInWindow?.((x, y, w, h) => {
+      centerRef.current = { x: x + w / 2, y: y + h / 2 };
+    });
+  }, []);
+
+  const angleAt = useCallback(
+    (pageX: number, pageY: number) =>
+      Math.atan2(pageY - centerRef.current.y, pageX - centerRef.current.x),
+    []
   );
+
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (e) => {
+          measure();
+          lastAngleRef.current = angleAt(
+            e.nativeEvent.pageX,
+            e.nativeEvent.pageY
+          );
+          lastTimeRef.current = Date.now();
+        },
+        onPanResponderMove: (e) => {
+          if (doneRef.current) return;
+          const ang = angleAt(e.nativeEvent.pageX, e.nativeEvent.pageY);
+          const now = Date.now();
+          const gain = fillGain(
+            shortestAngle(lastAngleRef.current, ang),
+            now - lastTimeRef.current
+          );
+          lastAngleRef.current = ang;
+          lastTimeRef.current = now;
+          setProgress((prev) => {
+            const next = Math.max(0, Math.min(FILL_TOTAL_RAD, prev + gain));
+            if (next >= FILL_TOTAL_RAD && !doneRef.current) {
+              doneRef.current = true;
+              setDone(true);
+              hapticsRef.current?.commit();
+            }
+            return next;
+          });
+        },
+      }),
+    [measure, angleAt]
+  );
+
+  const frac = Math.min(1, progress / FILL_TOTAL_RAD);
+  const theta = -Math.PI / 2 + frac * 2 * Math.PI;
+  const handleX = RING_CX + RING_R * Math.cos(theta);
+  const handleY = RING_CX + RING_R * Math.sin(theta);
+
   return (
     <View style={[styles.fullPage, { height }]}>
-      <View style={styles.pulseStage} pointerEvents="none">
-        {rings.map((r, i) => (
+      <View
+        ref={stageRef}
+        onLayout={measure}
+        style={styles.dragStage}
+        {...pan.panHandlers}
+      >
+        {done && !reducedMotion && (
           <View
-            key={i}
             style={[
-              styles.ripple,
-              {
-                borderColor: hexAlpha(PULSE_COLOR, 0.9),
-                opacity: r.opacity,
-                transform: [{ scale: r.scale }],
-              },
+              styles.dragGlow,
+              { backgroundColor: hexAlpha(accentColor, 0.5) },
             ]}
+            pointerEvents="none"
           />
-        ))}
-        <View
-          style={[
-            styles.pulseHalo,
-            {
-              backgroundColor: hexAlpha(PULSE_COLOR, 0.3),
-              opacity: 0.3 + core.glow * 0.45,
-              transform: [{ scale: core.scale * 1.25 }],
-            },
-          ]}
-        />
-        <View
-          style={[
-            styles.pulseCore,
-            {
-              backgroundColor: hexAlpha(PULSE_COLOR, 0.95),
-              opacity: core.opacity,
-              transform: [{ scale: core.scale }],
-            },
-          ]}
-        />
+        )}
+        <Svg width={RING_SIZE} height={RING_SIZE}>
+          <Circle
+            cx={RING_CX}
+            cy={RING_CX}
+            r={RING_R}
+            stroke={hexAlpha(accentColor, 0.16)}
+            strokeWidth={RING_STROKE}
+            fill="none"
+          />
+          <Circle
+            cx={RING_CX}
+            cy={RING_CX}
+            r={RING_R}
+            stroke={accentColor}
+            strokeWidth={RING_STROKE}
+            fill="none"
+            strokeDasharray={RING_C}
+            strokeDashoffset={RING_C * (1 - frac)}
+            strokeLinecap="round"
+            transform={`rotate(-90 ${RING_CX} ${RING_CX})`}
+          />
+          <Circle
+            cx={handleX}
+            cy={handleY}
+            r={done ? 13 : 11}
+            fill={accentColor}
+          />
+        </Svg>
       </View>
-      <Text style={styles.pulseCopy}>
+      <Text style={styles.dragText}>
         {t('toolkit.techniques.fake_feed.cards.slow_pulse')}
+      </Text>
+      <Text style={styles.dragHint}>
+        {t('toolkit.techniques.fake_feed.pulse_hint')}
       </Text>
     </View>
   );
@@ -584,7 +678,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Card 1 — scroll invitation.
+  // Card 1 — scroll invitation (rising chevrons over the copy).
   inviteText: {
     color: dsColors.textPrimary,
     fontFamily: FONT_STACK,
@@ -592,54 +686,50 @@ const styles = StyleSheet.create({
     fontWeight: dsFont.weight.bold,
     letterSpacing: dsFont.letterSpacing.tight,
     textAlign: 'center',
-    marginBottom: dsSpacing.x3l,
   },
   cascade: {
     width: 60,
-    height: 140,
+    height: 150,
+    justifyContent: 'flex-end',
     alignItems: 'center',
+    marginBottom: dsSpacing.x3l,
   },
   cascadeChevron: {
     position: 'absolute',
-    top: 0,
+    bottom: 0,
   },
 
-  // Card 6 — slow pulse.
-  pulseStage: {
-    width: 300,
-    height: 300,
+  // Card 6 — drag-to-fill ring.
+  dragStage: {
+    width: RING_SIZE,
+    height: RING_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: dsSpacing.x4l,
   },
-  ripple: {
+  dragGlow: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 2,
+    width: RING_SIZE * 0.72,
+    height: RING_SIZE * 0.72,
+    borderRadius: RING_SIZE,
+    ...Platform.select({ web: { filter: 'blur(34px)' }, default: {} }),
   },
-  pulseHalo: {
-    position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    ...Platform.select({ web: { filter: 'blur(26px)' }, default: {} }),
-  },
-  pulseCore: {
-    position: 'absolute',
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    ...Platform.select({ web: { filter: 'blur(8px)' }, default: {} }),
-  },
-  pulseCopy: {
+  dragText: {
     color: dsColors.textPrimary,
     fontFamily: FONT_STACK,
     fontSize: dsFont.size.displaySm,
     fontWeight: dsFont.weight.semibold,
     letterSpacing: dsFont.letterSpacing.tight,
     textAlign: 'center',
-    marginTop: dsSpacing.x4l,
+  },
+  dragHint: {
+    color: dsColors.textSecondary,
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.body,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginTop: dsSpacing.sm,
+    maxWidth: 300,
   },
 
   // Card 4 — the number.
