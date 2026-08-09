@@ -107,6 +107,13 @@ export function FakeFeedScreen({
   // per page change, not per frame.
   const [activeIndex, setActiveIndex] = useState(0);
 
+  // Card 6's drag ring locks the feed while a fill is in progress, so
+  // turning the ring doesn't also scroll the page (the two gestures were
+  // fighting). Only the ring area locks it, and only until the finger
+  // lifts — outside the ring, and after completion, the feed scrolls
+  // normally. See DragToFillCard.
+  const [scrollLocked, setScrollLocked] = useState(false);
+
   const scrollRef = useRef<ScrollView>(null);
   const indexRef = useRef(0);
   const completedRef = useRef(false);
@@ -202,6 +209,7 @@ export function FakeFeedScreen({
         onLayout={handleLayout}
         style={styles.root}
         pagingEnabled
+        scrollEnabled={!scrollLocked}
         showsVerticalScrollIndicator={false}
         // No overscroll: no gesture that hints more content could arrive.
         bounces={false}
@@ -222,6 +230,7 @@ export function FakeFeedScreen({
                 active={i === activeIndex}
                 reducedMotion={reducedMotion ?? false}
                 haptics={haptics}
+                onDragLock={setScrollLocked}
               />
             ))
           : null}
@@ -242,6 +251,7 @@ const FeedCard = memo(function FeedCard({
   active,
   reducedMotion,
   haptics,
+  onDragLock,
 }: {
   card: FakeFeedCard;
   height: number;
@@ -250,6 +260,8 @@ const FeedCard = memo(function FeedCard({
   active: boolean;
   reducedMotion: boolean;
   haptics?: SceneHaptics;
+  /** Card 6 uses this to freeze the feed while its ring is being dragged. */
+  onDragLock: (locked: boolean) => void;
 }) {
   switch (card.key) {
     case NUMBER_CARD_KEY:
@@ -276,6 +288,7 @@ const FeedCard = memo(function FeedCard({
           accentColor={accentColor}
           reducedMotion={reducedMotion}
           haptics={haptics}
+          onDragLock={onDragLock}
         />
       );
     default:
@@ -395,11 +408,13 @@ const DragToFillCard = memo(function DragToFillCard({
   accentColor,
   reducedMotion,
   haptics,
+  onDragLock,
 }: {
   height: number;
   accentColor: string;
   reducedMotion: boolean;
   haptics?: SceneHaptics;
+  onDragLock: (locked: boolean) => void;
 }) {
   const [progress, setProgress] = useState(0); // radians accrued
   const [done, setDone] = useState(false);
@@ -410,6 +425,11 @@ const DragToFillCard = memo(function DragToFillCard({
   const lastTimeRef = useRef(0);
   const hapticsRef = useRef(haptics);
   hapticsRef.current = haptics;
+  const onDragLockRef = useRef(onDragLock);
+  onDragLockRef.current = onDragLock;
+
+  // Make sure the feed is never left frozen if the card unmounts mid-drag.
+  useEffect(() => () => onDragLockRef.current(false), []);
 
   // Ring centre in window coords, so a touch anywhere can be turned into
   // an angle. Re-measured on layout and at the start of each drag.
@@ -428,9 +448,17 @@ const DragToFillCard = memo(function DragToFillCard({
   const pan = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
+        // Once the ring is full it no longer claims touches, so the feed
+        // scrolls normally again even with a finger on the ring.
+        onStartShouldSetPanResponder: () => !doneRef.current,
+        onMoveShouldSetPanResponder: () => !doneRef.current,
+        // While a fill is in progress, refuse to hand the gesture to the
+        // parent ScrollView — the drag owns it, so turning the ring can't
+        // also scroll the page.
+        onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => true,
         onPanResponderGrant: (e) => {
+          onDragLockRef.current(true); // freeze the feed for this drag
           measure();
           lastAngleRef.current = angleAt(
             e.nativeEvent.pageX,
@@ -458,6 +486,9 @@ const DragToFillCard = memo(function DragToFillCard({
             return next;
           });
         },
+        // Finger up (or the gesture stolen anyway): let the feed scroll.
+        onPanResponderRelease: () => onDragLockRef.current(false),
+        onPanResponderTerminate: () => onDragLockRef.current(false),
       }),
     [measure, angleAt]
   );
