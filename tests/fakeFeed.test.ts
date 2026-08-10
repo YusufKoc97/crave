@@ -19,14 +19,17 @@ import {
   FILL_FAST_MIN,
   FILL_SLOW_MAX,
   FILL_TOTAL_RAD,
-  GHOST_FLOW_SPEED,
+  REEL_COUNT,
+  REEL_PITCH,
   SCROLL_CASCADE_COUNT,
   SCROLL_CASCADE_CYCLE_MS,
   THUMB_CYCLE_MS,
   cascadeChevron,
   emptyLineOpacity,
   fillGain,
-  ghostY,
+  flickEasing,
+  flickPause,
+  flickTarget,
   thumbArc,
 } from '@/components/technique/fakeFeedMotion';
 
@@ -245,32 +248,37 @@ describe('Fake Feed — card 6 slow-drag fill', () => {
   });
 });
 
-describe('Fake Feed — card 2 scroll flow', () => {
-  const spacing = 168;
-  const count = 6;
-  const total = spacing * count;
-
-  it('scrolls the ghosts up over time', () => {
-    const a = ghostY(0, 0, spacing, count);
-    const b = ghostY(200, 0, spacing, count);
-    expect(b).toBeLessThan(a === 0 ? total : a); // moved up (toward 0/wrap)
-  });
-
-  it('spaces the ghosts evenly, not stacked', () => {
-    const ys = Array.from({ length: count }, (_, i) =>
-      ghostY(0, i, spacing, count)
-    );
-    expect(new Set(ys.map((y) => Math.round(y))).size).toBe(count);
-  });
-
-  it('wraps seamlessly — one full period returns to the start', () => {
-    const periodMs = (total / GHOST_FLOW_SPEED) * 1000; // total px / speed
-    for (let i = 0; i < count; i++) {
-      expect(ghostY(periodMs, i, spacing, count)).toBeCloseTo(
-        ghostY(0, i, spacing, count),
-        3
-      );
+describe('Fake Feed — card 2 reel flick', () => {
+  it('each flick steps the track one pitch further UP', () => {
+    expect(flickTarget(0)).toBeCloseTo(0, 5);
+    expect(flickTarget(1)).toBe(-REEL_PITCH);
+    expect(flickTarget(3)).toBe(-3 * REEL_PITCH);
+    // strictly decreasing (always upward, never the reverse)
+    for (let s = 1; s <= REEL_COUNT; s++) {
+      expect(flickTarget(s)).toBeLessThan(flickTarget(s - 1));
     }
+  });
+
+  it('the seamless-wrap frame sits exactly one copy above the start', () => {
+    // step REEL_COUNT is copy-2 frame 0, pixel-identical to copy-1 frame
+    // 0 (step 0) one copy down — so snapping back shows no jump.
+    expect(flickTarget(REEL_COUNT)).toBe(-REEL_COUNT * REEL_PITCH);
+    expect(flickTarget(REEL_COUNT) % REEL_PITCH).toBeCloseTo(0, 5);
+  });
+
+  it('rests a human amount — short mostly, sometimes a linger', () => {
+    expect(flickPause(0.05, 0, 0.5)).toBe(120); // quick tap
+    const typical = flickPause(0.5, 0.5, 0.5); // 300 + 0.25*1250
+    expect(typical).toBeGreaterThan(120);
+    expect(typical).toBeLessThan(1600);
+    expect(flickPause(0.5, 0.99, 0.01)).toBeGreaterThan(1600); // linger added
+  });
+
+  it('the flick easing is a real ease (0→1, front-loaded)', () => {
+    expect(flickEasing(0)).toBe(0);
+    expect(flickEasing(1)).toBe(1);
+    // ease-out: already past halfway at the time-midpoint
+    expect(flickEasing(0.5)).toBeGreaterThan(0.5);
   });
 });
 

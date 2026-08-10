@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -37,12 +38,16 @@ import {
 import {
   EMPTY_REVEAL_MS,
   FILL_TOTAL_RAD,
+  FLICK_MS,
+  REEL_COUNT,
   SCROLL_CASCADE_COUNT,
   THUMB_REST,
   cascadeChevron,
   emptyLineOpacity,
   fillGain,
-  ghostY,
+  flickEasing,
+  flickPause,
+  flickTarget,
   shortestAngle,
   thumbArc,
 } from './fakeFeedMotion';
@@ -82,22 +87,30 @@ function bezier(t: number, a: number, b: number, c: number): number {
 }
 
 /**
- * Card 2's ghost feed — DISTINCT blurred posts, not identical blocks.
- * Identical evenly-spaced skeletons look static even while scrolling
- * (the eye has nothing to track); varied heights and layouts give it a
- * reference, so the upward flow reads as a fast scroll rather than a
- * frozen loading screen.
+ * Card 2 — "Notice the pull." — is built at the handoff's fixed phone
+ * dimensions and scaled to fit the page. A neon phone outline holds a
+ * clipped screen; inside, blank reel frames flick past.
  */
-const GHOST_TEMPLATES = [
-  { h: 132, image: true, lines: 2 },
-  { h: 86, image: false, lines: 2 },
-  { h: 158, image: true, lines: 1 },
-  { h: 74, image: false, lines: 1 },
-  { h: 116, image: false, lines: 3 },
-  { h: 104, image: true, lines: 2 },
-] as const;
-const GHOST_COUNT = GHOST_TEMPLATES.length;
-const GHOST_SPACING = 184;
+const FRAME_W = 412;
+const FRAME_PAD = 13;
+const SCREEN_W = 386;
+const SCREEN_H = 800;
+const FRAME_OUTER_H = SCREEN_H + FRAME_PAD * 2;
+const REEL_H = 764;
+const REEL_MARGIN = 16;
+
+/** Per-reel grey tints (slightly varied so a flick reads as motion). The
+ *  white border is what must read; these are the fill behind it — lifted
+ *  clear of the near-black screen so each frame is legible. */
+const REEL_TINTS = [
+  '#2c313c',
+  '#292f3b',
+  '#2e333e',
+  '#272d39',
+  '#2c323d',
+  '#2a3040',
+  '#2b303a',
+];
 
 /**
  * Card 1's own light — a cool near-white, not the feed's blue. Card 4
@@ -429,15 +442,33 @@ function useLoopElapsed(
 }
 
 /**
- * Card 2 — "This is how we scroll." Not the user's data: a generic,
- * blurred, unreadable stream of content ghosts flying up fast, the
- * doomscroll tempo seen from the outside. The collective "we" lets the
- * user recognise their own pace in it. reducedMotion freezes the strip.
+ * One blank reel frame — a bordered grey rectangle, no chrome. The 2.5px
+ * white border is what must read against the dark screen; the fill is a
+ * faint, slightly-varied grey so a flick is perceptible.
+ */
+const Reel = memo(function Reel({ index }: { index: number }) {
+  return (
+    <View
+      style={[styles.reel, { backgroundColor: REEL_TINTS[index % REEL_COUNT] }]}
+    />
+  );
+});
+
+/**
+ * Card 2 — "Notice the pull." (design handoff). A phone within the phone:
+ * a neon outline holds a clipped screen where blank reel frames flick
+ * past, one at a time, continuously UP — the current reel exits the top,
+ * the next rises from the bottom (a real thumb-swipe's direction) — in a
+ * stepped, human rhythm (quick taps with the occasional linger), not a
+ * linear crawl. Two identical 7-frame copies are stacked so the wrap from
+ * the last frame back to the first is invisible: at step 7 the track sits
+ * on copy-2 frame 0, pixel-identical to copy-1 frame 0, so resetting to
+ * step 0 with no animation never shows a jump.
  *
- * The ghosts are plain rounded shapes (a faint avatar dot + two bars),
- * blurred on web so they read as "content" without being any content.
- * On native, where the blur is unavailable, they stay low-contrast and
- * featureless enough to read as ghosts rather than real posts.
+ * Driven by an rAF loop that only writes state during the ~400ms flick
+ * (idle, no re-renders, through each human pause) and moves ONLY the
+ * track's transform — the 14 reels are memoised and never re-render.
+ * reducedMotion holds the feed still on the first frame.
  */
 const ScrollMirrorCard = memo(function ScrollMirrorCard({
   height,
@@ -448,53 +479,94 @@ const ScrollMirrorCard = memo(function ScrollMirrorCard({
   active: boolean;
   reducedMotion: boolean;
 }) {
-  const elapsed = useLoopElapsed(active, reducedMotion);
+  const { width: winW } = useWindowDimensions();
+  // Build at the handoff's fixed size, then scale the whole frame to fit.
+  const scale = Math.min(
+    (winW - 24) / FRAME_W,
+    (height - 24) / FRAME_OUTER_H,
+    1
+  );
+
+  const [trackY, setTrackY] = useState(0);
+  const yRef = useRef(0);
+  const stepRef = useRef(0);
+  const phaseRef = useRef<'anim' | 'rest'>('rest');
+  const restUntilRef = useRef(0);
+  const animRef = useRef({ from: 0, to: 0, start: 0 });
+
+  useEffect(() => {
+    if (!active || reducedMotion) return;
+    let raf = 0;
+    const beginFlick = (now: number) => {
+      const next = stepRef.current + 1;
+      if (next > REEL_COUNT) {
+        // Seamless wrap: the current position (copy-2 frame 0) is
+        // identical to copy-1 frame 0, so snap to step 0 with no anim.
+        stepRef.current = 0;
+        yRef.current = 0;
+        setTrackY(0);
+        phaseRef.current = 'rest';
+        restUntilRef.current =
+          now + flickPause(Math.random(), Math.random(), Math.random());
+        return;
+      }
+      stepRef.current = next;
+      animRef.current = {
+        from: yRef.current,
+        to: flickTarget(next),
+        start: now,
+      };
+      phaseRef.current = 'anim';
+    };
+    const tick = (ts: number) => {
+      if (phaseRef.current === 'anim') {
+        const a = animRef.current;
+        const p = Math.min(1, (ts - a.start) / FLICK_MS);
+        const y = a.from + (a.to - a.from) * flickEasing(p);
+        yRef.current = y;
+        setTrackY(y);
+        if (p >= 1) {
+          phaseRef.current = 'rest';
+          restUntilRef.current =
+            ts + flickPause(Math.random(), Math.random(), Math.random());
+        }
+      } else if (ts >= restUntilRef.current) {
+        beginFlick(ts);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active, reducedMotion]);
+
   return (
     <View style={[styles.fullPage, { height }]}>
-      <View style={styles.mirrorFlow} pointerEvents="none">
-        {GHOST_TEMPLATES.map((tpl, i) => {
-          const y = ghostY(
-            reducedMotion ? 0 : elapsed,
-            i,
-            GHOST_SPACING,
-            GHOST_COUNT
-          );
-          return (
-            <View
-              key={i}
-              style={[styles.ghost, { top: y - GHOST_SPACING, height: tpl.h }]}
-            >
-              <View style={styles.ghostHeader}>
-                <View style={styles.ghostAvatar} />
-                <View style={styles.ghostHeaderLines}>
-                  <View style={[styles.ghostBar, { width: '52%' }]} />
-                  <View
-                    style={[
-                      styles.ghostBar,
-                      styles.ghostBarThin,
-                      { width: '34%' },
-                    ]}
-                  />
-                </View>
-              </View>
-              {tpl.image && <View style={styles.ghostImage} />}
-              <View style={styles.ghostBody}>
-                {Array.from({ length: tpl.lines }, (_, k) => (
-                  <View
-                    key={k}
-                    style={[styles.ghostBar, { width: `${88 - k * 16}%` }]}
-                  />
+      <View style={{ transform: [{ scale }] }}>
+        <View style={styles.phoneFrame}>
+          <View style={styles.phoneScreen}>
+            <View style={styles.feedClip} pointerEvents="none">
+              <View
+                style={[
+                  styles.reelTrack,
+                  { transform: [{ translateY: trackY }] },
+                ]}
+              >
+                {Array.from({ length: REEL_COUNT * 2 }, (_, i) => (
+                  <Reel key={i} index={i} />
                 ))}
               </View>
             </View>
-          );
-        })}
+            <View style={styles.fadeTop} pointerEvents="none" />
+            <View style={styles.fadeBottom} pointerEvents="none" />
+            <View style={styles.msgOverlay} pointerEvents="none">
+              <Text style={styles.mirrorText}>
+                {t('toolkit.techniques.fake_feed.cards.speed_mirror')}
+              </Text>
+            </View>
+            <View style={styles.island} pointerEvents="none" />
+          </View>
+        </View>
       </View>
-      {/* A veil so the stream reads as atmosphere behind the words. */}
-      <View style={styles.mirrorVeil} pointerEvents="none" />
-      <Text style={styles.mirrorText}>
-        {t('toolkit.techniques.fake_feed.cards.speed_mirror')}
-      </Text>
     </View>
   );
 });
@@ -1076,57 +1148,111 @@ const styles = StyleSheet.create({
     borderWidth: 3,
   },
 
-  // Card 2 — the collective scroll flow.
-  mirrorFlow: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: 'hidden',
-    ...Platform.select({ web: { filter: 'blur(7px)' }, default: {} }),
+  // Card 2 — the reel-flick feed (a phone within the phone).
+  phoneFrame: {
+    width: FRAME_W,
+    padding: FRAME_PAD,
+    borderRadius: 58,
+    backgroundColor: '#06070c',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    ...Platform.select({
+      web: {
+        boxShadow:
+          '0 0 1px #fff, 0 0 9px rgba(255,255,255,0.8), 0 0 26px rgba(255,255,255,0.5), 0 0 60px rgba(255,255,255,0.28), inset 0 0 14px rgba(255,255,255,0.14)',
+      },
+      default: {},
+    }),
   },
-  ghost: {
+  phoneScreen: {
+    width: SCREEN_W,
+    height: SCREEN_H,
+    borderRadius: 44,
+    overflow: 'hidden',
+    backgroundColor: '#070a14',
+    ...Platform.select({
+      web: {
+        backgroundImage:
+          'radial-gradient(120% 70% at 50% -8%, rgba(66,165,245,0.12), transparent 55%), linear-gradient(180deg,#0a0f1e,#070a14 55%,#05070f)',
+      },
+      default: {},
+    }),
+  },
+  feedClip: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+  reelTrack: { position: 'absolute', top: 0, left: 0, width: SCREEN_W },
+  reel: {
+    height: REEL_H,
+    marginHorizontal: REEL_MARGIN,
+    marginBottom: REEL_MARGIN,
+    borderRadius: 16,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  fadeTop: {
     position: 'absolute',
-    left: dsSpacing.xxl,
-    right: dsSpacing.xxl,
-    borderRadius: 18,
-    backgroundColor: hexAlpha(dsColors.cardSurface, 0.5),
-    padding: dsSpacing.lg,
-    overflow: 'hidden',
-    gap: dsSpacing.md,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 70,
+    ...Platform.select({
+      web: {
+        backgroundImage: 'linear-gradient(180deg,#070a14 30%,transparent)',
+      },
+      default: { backgroundColor: hexAlpha('#070a14', 0.5) },
+    }),
   },
-  ghostHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: dsSpacing.md,
+  fadeBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 120,
+    ...Platform.select({
+      web: { backgroundImage: 'linear-gradient(0deg,#05070f 15%,transparent)' },
+      default: { backgroundColor: hexAlpha('#05070f', 0.5) },
+    }),
   },
-  ghostHeaderLines: { flex: 1, gap: dsSpacing.sm },
-  ghostAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: hexAlpha(dsColors.textSecondary, 0.28),
-  },
-  ghostImage: {
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: hexAlpha(dsColors.textSecondary, 0.16),
-  },
-  ghostBody: { gap: dsSpacing.sm },
-  ghostBar: {
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: hexAlpha(dsColors.textSecondary, 0.24),
-  },
-  ghostBarThin: { height: 9 },
-  mirrorVeil: {
+  msgOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: hexAlpha(dsColors.bgBase, 0.58),
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 34,
+    ...Platform.select({
+      web: {
+        backgroundImage:
+          'radial-gradient(52% 22% at 50% 50%, rgba(5,8,18,0.72), transparent 76%)',
+      },
+      default: {},
+    }),
   },
   mirrorText: {
-    color: dsColors.textPrimary,
+    color: '#EDF3FF',
     fontFamily: FONT_STACK,
-    fontSize: dsFont.size.displayLg,
+    fontSize: 30,
     fontWeight: dsFont.weight.bold,
-    letterSpacing: dsFont.letterSpacing.tight,
+    letterSpacing: -0.4,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.9)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 30,
+  },
+  island: {
+    position: 'absolute',
+    top: 13,
+    left: (SCREEN_W - 112) / 2,
+    width: 112,
+    height: 30,
+    borderRadius: 20,
+    backgroundColor: '#05060a',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.7)',
+    ...Platform.select({
+      web: {
+        boxShadow:
+          '0 0 6px rgba(255,255,255,0.45), inset 0 0 5px rgba(255,255,255,0.12)',
+      },
+      default: {},
+    }),
   },
 
   // Card 5 — the deliberate emptiness.

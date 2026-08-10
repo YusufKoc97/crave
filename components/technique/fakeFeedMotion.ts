@@ -83,27 +83,75 @@ export function shortestAngle(a: number, b: number): number {
   return d;
 }
 
-// ─── Card 2: the collective scroll flow ───
+// ─── Card 2: the reel-flick feed (design handoff) ───
+//
+// A phone-in-a-phone: blank reel frames flick past, one at a time,
+// continuously UP (the current reel exits the top, the next rises from
+// the bottom — the direction a real thumb-swipe scrolls), in a stepped,
+// human rhythm rather than a linear crawl. Per the "Notice the pull."
+// handoff.
 
-/** Upward speed of the blurred content ghosts — fast, the doomscroll
- *  tempo seen from outside. px per second. */
-export const GHOST_FLOW_SPEED = 340;
+/** Reel frames per copy (two identical copies are stacked for the loop). */
+export const REEL_COUNT = 7;
+/** Vertical pitch of one reel: 764 tall + 16 gap. */
+export const REEL_PITCH = 780;
+/** One flick's duration — snappy, so it "lands". */
+export const FLICK_MS = 400;
+
+/** Track offset after `step` flicks: each flick is one pitch further up. */
+export function flickTarget(step: number): number {
+  return -step * REEL_PITCH;
+}
 
 /**
- * Vertical offset (0..total) of ghost `index` at `elapsedMs`, scrolling
- * up and wrapping seamlessly, where `total = spacing * count`. The strip
- * of ghosts reads as an endless fast feed with no beginning or end.
+ * The rest between flicks, in ms — skewed short with the occasional
+ * linger so it feels like a human thumb, not a metronome. Random inputs
+ * are passed in (0..1) so the shape is testable: mostly 120–1550ms, and
+ * ~8% of the time a ~1.1s linger on top.
  */
-export function ghostY(
-  elapsedMs: number,
-  index: number,
-  spacing: number,
-  count: number
-): number {
-  const total = spacing * count;
-  const raw = index * spacing - (elapsedMs / 1000) * GHOST_FLOW_SPEED;
-  return ((raw % total) + total) % total;
+export function flickPause(r1: number, r2: number, r3: number): number {
+  let pause = r1 < 0.15 ? 120 : 300 + r2 * r2 * 1250;
+  if (r3 < 0.08) pause += 1100;
+  return pause;
 }
+
+/**
+ * Cubic-bezier easing y(x) for control points (x1,y1,x2,y2). Newton-
+ * solves x→t then reads y. Used for the flick's (0.16,0.84,0.26,1)
+ * ease-out — the exact curve from the handoff.
+ */
+export function cubicBezierEase(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number
+): (x: number) => number {
+  const cx = 3 * x1;
+  const bx = 3 * (x2 - x1) - cx;
+  const ax = 1 - cx - bx;
+  const cy = 3 * y1;
+  const by = 3 * (y2 - y1) - cy;
+  const ay = 1 - cy - by;
+  const sampleX = (t: number) => ((ax * t + bx) * t + cx) * t;
+  const sampleY = (t: number) => ((ay * t + by) * t + cy) * t;
+  const slopeX = (t: number) => (3 * ax * t + 2 * bx) * t + cx;
+  return (x: number) => {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    let t = x;
+    for (let i = 0; i < 8; i++) {
+      const xt = sampleX(t) - x;
+      if (Math.abs(xt) < 1e-4) break;
+      const d = slopeX(t);
+      if (Math.abs(d) < 1e-6) break;
+      t -= xt / d;
+    }
+    return sampleY(t);
+  };
+}
+
+/** The flick easing itself (the handoff's exact bezier). */
+export const flickEasing = cubicBezierEase(0.16, 0.84, 0.26, 1);
 
 // ─── Card 3: notice your thumb ───
 
