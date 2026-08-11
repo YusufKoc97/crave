@@ -522,7 +522,7 @@
           "slow_pulse": "Slow down with this.",
           "hold": "Nothing here is waiting for you.",
           "winding_down": "This feed is running out.",
-          "bottom": "The bottom is just below this. Normally, there isn't one.",
+          "bottom": "You've reached the bottom. Normally, there isn't one.",
           "end": "Every scroll has an end. Infinite feeds just hide theirs. Now put the phone down."
         },
         "pulse_hint": "Drag slowly to fill the circle. Rush it and it won't.",

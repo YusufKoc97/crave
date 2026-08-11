@@ -21,21 +21,30 @@ import {
   FILL_TOTAL_RAD,
   REEL_COUNT,
   REEL_PITCH,
+  BOTTOM_REVEAL_MS,
+  END_HOLD_MS,
+  END_TEXT_FADE_MS,
   HOLD_DECAY_PER_S,
   HOLD_FILL_MS,
   SCROLL_CASCADE_COUNT,
   SCROLL_CASCADE_CYCLE_MS,
+  SHIVER_MS,
   SKIP_AFTER_MS,
   THUMB_CYCLE_MS,
   THUMB_TRAIL_LEN,
+  WIND_DOWN_MS,
+  bottomMsgOpacity,
   cascadeChevron,
   emptyLineOpacity,
+  endTextOpacity,
   fillGain,
   flickEasing,
   flickPause,
   flickTarget,
   holdStep,
+  shiverOffset,
   thumbSwipe,
+  windDownDrain,
 } from '@/components/technique/fakeFeedMotion';
 
 /**
@@ -360,6 +369,59 @@ describe('Fake Feed — card 7 hold to fade', () => {
 
   it('shares one 20s Skip timing with card 6', () => {
     expect(SKIP_AFTER_MS).toBe(20_000);
+  });
+});
+
+describe('Fake Feed — card 8 winding down', () => {
+  it('drains from full to spent over the wind-down window', () => {
+    expect(windDownDrain(0)).toBeCloseTo(0, 5);
+    expect(windDownDrain(WIND_DOWN_MS)).toBeCloseTo(1, 5);
+    expect(windDownDrain(-500)).toBe(0); // clamps before arrival
+    expect(windDownDrain(WIND_DOWN_MS * 5)).toBe(1); // clamps after
+  });
+
+  it('eases (settles) rather than bleeding out linearly', () => {
+    const mid = windDownDrain(WIND_DOWN_MS / 2);
+    expect(mid).toBeCloseTo(0.5, 5); // symmetric ease-in-out at the midpoint
+    // Slow at the very start (ease-in): less than a linear ramp would give.
+    expect(windDownDrain(WIND_DOWN_MS * 0.1)).toBeLessThan(0.1);
+  });
+});
+
+describe('Fake Feed — card 9 the bottom', () => {
+  it('flinches then settles — the shiver decays to nothing', () => {
+    expect(shiverOffset(0)).toBe(0);
+    expect(shiverOffset(SHIVER_MS)).toBe(0);
+    expect(shiverOffset(-10)).toBe(0);
+    expect(Math.abs(shiverOffset(SHIVER_MS * 0.1))).toBeGreaterThan(0); // moving early
+    // Amplitude decays: a late peak is smaller than an early one.
+    const early = Math.abs(shiverOffset(SHIVER_MS * 0.08));
+    const late = Math.abs(shiverOffset(SHIVER_MS * 0.92));
+    expect(late).toBeLessThan(early);
+  });
+
+  it('fades the bottom line in softly, then holds it', () => {
+    expect(bottomMsgOpacity(0)).toBe(0);
+    expect(bottomMsgOpacity(450)).toBeGreaterThan(0);
+    expect(bottomMsgOpacity(450)).toBeLessThan(1);
+    expect(bottomMsgOpacity(2000)).toBe(1);
+  });
+
+  it('speaks within a few seconds even with no swipes', () => {
+    expect(BOTTOM_REVEAL_MS).toBeLessThanOrEqual(3000);
+  });
+});
+
+describe('Fake Feed — card 10 the end', () => {
+  it('fades the closing line to FULL, readable opacity (not a ghostly half)', () => {
+    expect(endTextOpacity(0)).toBe(0);
+    expect(endTextOpacity(END_TEXT_FADE_MS)).toBe(1);
+    expect(endTextOpacity(END_TEXT_FADE_MS * 10)).toBe(1); // stays fully lit
+  });
+
+  it('holds long enough to read the lesson before auto-completing', () => {
+    expect(END_HOLD_MS).toBeGreaterThanOrEqual(END_TEXT_FADE_MS);
+    expect(END_HOLD_MS).toBe(4000);
   });
 });
 

@@ -307,3 +307,71 @@ export function emptyLineOpacity(elapsedMs: number): number {
   const t = (elapsedMs - EMPTY_REVEAL_MS) / EMPTY_FADE_MS;
   return Math.max(0, Math.min(1, t));
 }
+
+// ─── The closing descent: cards 8 → 9 → 10 ───
+//
+// One continuous fall: the feed loses energy (8), bottoms out into a void
+// the scroll can't escape (9), and ends with the lesson (10). Melancholic
+// but calm — never a scare. The timings below are the shape of that fall.
+
+// ─── Card 8: winding down ───
+
+/** How long the feed takes to drain once card 8 arrives — gradual, not a
+ *  cut. A fixed beat: the depletion is the point. */
+export const WIND_DOWN_MS = 3500;
+/** Where reducedMotion rests the drain: visibly depleted but still legible
+ *  as a feed running out, not a blank card. */
+export const WIND_DOWN_STATIC_DRAIN = 0.55;
+
+/**
+ * How drained the feed is at `elapsedMs`, 0 (full) → 1 (spent). An
+ * ease-in-out-sine so it sags gently and settles rather than bleeding out
+ * linearly — the feed losing its pull, not a progress bar.
+ */
+export function windDownDrain(elapsedMs: number): number {
+  const t = Math.max(0, Math.min(1, elapsedMs / WIND_DOWN_MS));
+  return 0.5 - 0.5 * Math.cos(Math.PI * t);
+}
+
+// ─── Card 9: the bottom ───
+
+/** The bottom speaks after this long even if the user never swipes. */
+export const BOTTOM_REVEAL_MS = 3000;
+/** ...or after this many dead swipes, whichever comes first. */
+export const BOTTOM_REVEAL_ATTEMPTS = 2;
+/** How long the horizon flinches after a dead swipe. */
+export const SHIVER_MS = 620;
+const SHIVER_AMP = 7;
+
+/**
+ * Vertical offset (px) of the horizon line `sinceMs` after a dead swipe:
+ * a few quick oscillations whose amplitude decays to nothing, so the line
+ * flinches at the reflex that hit nothing, then settles. 0 outside the
+ * flinch window.
+ */
+export function shiverOffset(sinceMs: number): number {
+  if (sinceMs <= 0 || sinceMs >= SHIVER_MS) return 0;
+  const p = sinceMs / SHIVER_MS;
+  return SHIVER_AMP * (1 - p) * Math.sin(p * Math.PI * 6);
+}
+
+/** Opacity (0..1) of the bottom line, `sinceRevealMs` after it is revealed
+ *  — a soft, unhurried fade so the bottom is met, not announced. */
+export function bottomMsgOpacity(sinceRevealMs: number): number {
+  return Math.max(0, Math.min(1, sinceRevealMs / 900));
+}
+
+// ─── Card 10: the end ───
+
+/** The closing line fades in over this long — then rests at FULL opacity
+ *  (it is the lesson; it must read cleanly, not sit at a ghostly 50%). */
+export const END_TEXT_FADE_MS = 900;
+/** How long the line holds before the exercise auto-completes. A tap ends
+ *  it sooner; this is the "you can just stop" fallback. */
+export const END_HOLD_MS = 4000;
+
+/** Opacity (0..1) of the closing line at `elapsedMs`: a clean fade in to
+ *  fully readable, and it stays there. */
+export function endTextOpacity(elapsedMs: number): number {
+  return Math.max(0, Math.min(1, elapsedMs / END_TEXT_FADE_MS));
+}

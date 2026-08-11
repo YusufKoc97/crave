@@ -48,21 +48,32 @@ import {
   EMPTY_REVEAL_MS,
   FILL_TOTAL_RAD,
   FLICK_MS,
+  BOTTOM_REVEAL_ATTEMPTS,
+  BOTTOM_REVEAL_MS,
+  END_HOLD_MS,
+  END_TEXT_FADE_MS,
   REEL_COUNT,
   SCROLL_CASCADE_COUNT,
+  SHIVER_MS,
   SKIP_AFTER_MS,
   THUMB_REST,
   THUMB_TRAIL_DASH,
   THUMB_TRAIL_GAP,
+  WIND_DOWN_MS,
+  WIND_DOWN_STATIC_DRAIN,
+  bottomMsgOpacity,
   cascadeChevron,
   emptyLineOpacity,
+  endTextOpacity,
   fillGain,
   flickEasing,
   flickPause,
   flickTarget,
   holdStep,
+  shiverOffset,
   shortestAngle,
   thumbSwipe,
+  windDownDrain,
 } from './fakeFeedMotion';
 import type { SceneHaptics, SceneProps } from './types';
 
@@ -74,6 +85,9 @@ const MIRROR_CARD_KEY = 'speed_mirror';
 const EMPTY_CARD_KEY = 'empty_search';
 const THUMB_CARD_KEY = 'thumb';
 const HOLD_CARD_KEY = 'hold';
+const WINDING_CARD_KEY = 'winding_down';
+const BOTTOM_CARD_KEY = 'bottom';
+const END_CARD_KEY = 'end';
 
 /**
  * Card 3 — "Notice your thumb." — is drawn on a fixed 390×620 design
@@ -168,15 +182,6 @@ const INVITE_COLOR = '#E3EEFF';
  * last card ends the exercise.
  */
 
-/**
- * How long the closing card holds the screen before the exercise reports
- * done — not a scroll gate, just a beat so the final line is read rather
- * than flashed past. Cancelled the instant the user scrolls back up.
- *
- * ESTIMATE — a read-time guess, not a measurement.
- */
-const END_READ_MS = 1200;
-
 export function FakeFeedScreen({
   accentColor,
   onComplete,
@@ -201,11 +206,7 @@ export function FakeFeedScreen({
 
   const scrollRef = useRef<ScrollView>(null);
   const indexRef = useRef(0);
-  const completedRef = useRef(false);
   const depletionTappedRef = useRef(false);
-  // Pending "feed has ended" timer, so scrolling back off the last card
-  // cancels the completion instead of firing it late.
-  const endTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Measured on the ScrollView itself, not on a wrapper: a page must be
   // exactly the scrolling viewport or paging snaps to one height while
@@ -227,14 +228,6 @@ export function FakeFeedScreen({
       animated: false,
     });
   }, [pageH]);
-
-  // Clear any pending completion timer if the scene unmounts mid-beat.
-  useEffect(
-    () => () => {
-      if (endTimerRef.current) clearTimeout(endTimerRef.current);
-    },
-    []
-  );
 
   // Settle handler. Wired to onScroll as well as the two native
   // end-of-gesture events, because react-native-web emits NEITHER
@@ -266,25 +259,13 @@ export function FakeFeedScreen({
         haptics?.tap();
       }
 
-      // Any move cancels a pending end-beat: if the user scrolled back up
-      // off the last card, the feed has not ended after all.
-      if (endTimerRef.current) {
-        clearTimeout(endTimerRef.current);
-        endTimerRef.current = null;
-      }
-
-      // Reaching the last card is the whole exercise: the feed is out of
-      // content. Hold it briefly so the closing line is read, then end.
-      if (next === FAKE_FEED_CARD_COUNT - 1 && !completedRef.current) {
-        endTimerRef.current = setTimeout(() => {
-          if (completedRef.current) return;
-          completedRef.current = true;
-          haptics?.celebrate();
-          onComplete();
-        }, END_READ_MS);
-      }
+      // Reaching the last card no longer auto-ends here: card 10 (EndCard)
+      // owns the closing beat — it reads its line, then completes after a
+      // hold or an early tap. Keeping the timing inside that card lets the
+      // line be read at full opacity for a set time rather than racing a
+      // parent timer.
     },
-    [pageH, haptics, onComplete]
+    [pageH, haptics]
   );
 
   // The shared escape hatch (cards 6 & 7): a tap on the faint "Skip"
@@ -325,6 +306,7 @@ export function FakeFeedScreen({
                 haptics={haptics}
                 onDragLock={setScrollLocked}
                 onAdvance={goNext}
+                onComplete={onComplete}
               />
             ))
           : null}
@@ -347,6 +329,7 @@ const FeedCard = memo(function FeedCard({
   haptics,
   onDragLock,
   onAdvance,
+  onComplete,
 }: {
   card: FakeFeedCard;
   height: number;
@@ -355,10 +338,12 @@ const FeedCard = memo(function FeedCard({
   active: boolean;
   reducedMotion: boolean;
   haptics?: SceneHaptics;
-  /** Cards 6 & 7 use this to freeze the feed while a gesture owns it. */
+  /** Cards 6, 7 & 9 use this to freeze the feed while a gesture owns it. */
   onDragLock: (locked: boolean) => void;
   /** Cards 6 & 7's shared "Skip" — advance one card. */
   onAdvance: () => void;
+  /** Card 10 ends the exercise (hold expiry or an early tap). */
+  onComplete: () => void;
 }) {
   switch (card.key) {
     case NUMBER_CARD_KEY:
@@ -426,6 +411,34 @@ const FeedCard = memo(function FeedCard({
           reducedMotion={reducedMotion}
         />
       );
+    case WINDING_CARD_KEY:
+      return (
+        <WindDownCard
+          height={height}
+          active={active}
+          reducedMotion={reducedMotion}
+        />
+      );
+    case BOTTOM_CARD_KEY:
+      return (
+        <BottomCard
+          height={height}
+          accentColor={accentColor}
+          active={active}
+          reducedMotion={reducedMotion}
+          onDragLock={onDragLock}
+        />
+      );
+    case END_CARD_KEY:
+      return (
+        <EndCard
+          height={height}
+          active={active}
+          reducedMotion={reducedMotion}
+          haptics={haptics}
+          onComplete={onComplete}
+        />
+      );
     default:
       return <PlainCard card={card} height={height} />;
   }
@@ -445,6 +458,251 @@ function PlainCard({ card, height }: { card: FakeFeedCard; height: number }) {
     </View>
   );
 }
+
+/**
+ * Card 8 — "winding down". Not interactive: cards 6 and 7 asked the user
+ * to act; here they just watch. On arrival the ghost feed behind drains
+ * over {@link WIND_DOWN_MS} — it loses its light, its frames lose their
+ * edges, and the column sinks a little: the feed running out of pull, not
+ * cut off. Bridges card 7 (feed put out) to card 9 (the bottom). One
+ * rAF clock, stops at full drain. reducedMotion rests it visibly depleted.
+ */
+const WIND_ROWS = 3;
+const WindDownCard = memo(function WindDownCard({
+  height,
+  active,
+  reducedMotion,
+}: {
+  height: number;
+  active: boolean;
+  reducedMotion: boolean;
+}) {
+  const elapsed = useLoopElapsed(active, reducedMotion, WIND_DOWN_MS);
+  const drain = reducedMotion ? WIND_DOWN_STATIC_DRAIN : windDownDrain(elapsed);
+  const rowH = Math.max(150, Math.round(height * 0.26));
+  const rows = useMemo(
+    () => Array.from({ length: WIND_ROWS * 2 }, (_, i) => i),
+    []
+  );
+  return (
+    <View style={[styles.fullPage, { height }]}>
+      <View style={styles.holdGhostClip} pointerEvents="none">
+        <View
+          style={[
+            styles.windTrack,
+            {
+              opacity: 1 - drain * 0.92,
+              transform: [{ translateY: drain * 26 }],
+            },
+          ]}
+        >
+          {rows.map((i) => (
+            <View
+              key={i}
+              style={[
+                styles.windRow,
+                {
+                  height: rowH,
+                  borderColor: hexAlpha('#FFFFFF', 0.12 * (1 - drain)),
+                  backgroundColor: hexAlpha('#1b2536', 1 - drain * 0.55),
+                },
+              ]}
+            />
+          ))}
+        </View>
+      </View>
+      <Text style={styles.windText}>
+        {t('toolkit.techniques.fake_feed.cards.winding_down')}
+      </Text>
+    </View>
+  );
+});
+
+/**
+ * Card 9 — "the bottom". The feed's content is spent: a single faint
+ * horizon line over a void. The reflex to scroll for more hits nothing —
+ * while the bottom hasn't spoken the feed is frozen, so a down-swipe moves
+ * NOTHING and the horizon only flinches (a decaying shiver) to acknowledge
+ * the dead pull. After a couple of dead swipes, or a few seconds, the line
+ * fades in and the feed unlocks so card 10 is reachable. Calm, not a scare
+ * — a peaceful bottom, and a different emptiness from card 5 ("what you
+ * came for isn't here"). reducedMotion drops the shiver but keeps the dead
+ * scroll and the reveal.
+ */
+const BottomCard = memo(function BottomCard({
+  height,
+  accentColor,
+  active,
+  reducedMotion,
+  onDragLock,
+}: {
+  height: number;
+  accentColor: string;
+  active: boolean;
+  reducedMotion: boolean;
+  onDragLock: (locked: boolean) => void;
+}) {
+  const [shiver, setShiver] = useState(0);
+  const [msgO, setMsgO] = useState(0);
+  const revealedRef = useRef(false);
+  const attemptsRef = useRef(0);
+  const countedRef = useRef(false);
+  const shiverRafRef = useRef(0);
+  const msgRafRef = useRef(0);
+  const onDragLockRef = useRef(onDragLock);
+  onDragLockRef.current = onDragLock;
+
+  const reveal = useCallback(() => {
+    if (revealedRef.current) return;
+    revealedRef.current = true;
+    onDragLockRef.current(false); // release the feed so card 10 is reachable
+    if (reducedMotion) {
+      setMsgO(1);
+      return;
+    }
+    let t0 = 0;
+    const tick = (ts: number) => {
+      if (!t0) t0 = ts;
+      const p = bottomMsgOpacity(ts - t0);
+      setMsgO(p);
+      if (p < 1) msgRafRef.current = requestAnimationFrame(tick);
+    };
+    msgRafRef.current = requestAnimationFrame(tick);
+  }, [reducedMotion]);
+  const revealRef = useRef(reveal);
+  revealRef.current = reveal;
+
+  const shiverNow = useCallback(() => {
+    if (reducedMotion || revealedRef.current) return;
+    cancelAnimationFrame(shiverRafRef.current);
+    let t0 = 0;
+    const tick = (ts: number) => {
+      if (!t0) t0 = ts;
+      const s = ts - t0;
+      setShiver(shiverOffset(s));
+      if (s < SHIVER_MS) shiverRafRef.current = requestAnimationFrame(tick);
+      else setShiver(0);
+    };
+    shiverRafRef.current = requestAnimationFrame(tick);
+  }, [reducedMotion]);
+
+  const registerAttempt = useCallback(() => {
+    if (revealedRef.current) return;
+    attemptsRef.current += 1;
+    shiverNow();
+    if (attemptsRef.current >= BOTTOM_REVEAL_ATTEMPTS) revealRef.current();
+  }, [shiverNow]);
+
+  // Freeze the feed while the bottom hasn't spoken (so the swipe hits
+  // nothing); reveal after the timeout even if the user never swipes.
+  useEffect(() => {
+    if (!active) return;
+    onDragLockRef.current(true);
+    const id = setTimeout(() => revealRef.current(), BOTTOM_REVEAL_MS);
+    return () => {
+      clearTimeout(id);
+      cancelAnimationFrame(shiverRafRef.current);
+      cancelAnimationFrame(msgRafRef.current);
+      onDragLockRef.current(false);
+    };
+  }, [active]);
+
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => !revealedRef.current,
+        onMoveShouldSetPanResponder: (_e, g) =>
+          !revealedRef.current && Math.abs(g.dy) > 6,
+        onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => true,
+        onPanResponderGrant: () => {
+          countedRef.current = false;
+        },
+        onPanResponderMove: (_e, g) => {
+          if (!countedRef.current && Math.abs(g.dy) > 16) {
+            countedRef.current = true;
+            registerAttempt();
+          }
+        },
+      }),
+    [registerAttempt]
+  );
+
+  return (
+    <View style={[styles.fullPage, { height }]} {...pan.panHandlers}>
+      <View style={styles.bottomWrap} pointerEvents="box-none">
+        <View
+          style={[
+            styles.horizonLine,
+            {
+              backgroundColor: hexAlpha(accentColor, 0.5),
+              transform: [{ translateY: shiver }],
+            },
+          ]}
+        />
+        <Text style={[styles.bottomText, { opacity: msgO }]}>
+          {t('toolkit.techniques.fake_feed.cards.bottom')}
+        </Text>
+      </View>
+    </View>
+  );
+});
+
+/**
+ * Card 10 — "the end". The closing line reads at FULL opacity (it is the
+ * lesson, not atmosphere) after a clean fade-in, then the exercise
+ * completes on its own after {@link END_HOLD_MS} — or the instant the user
+ * taps, a "you can just stop now" out. onComplete hands off to the shared
+ * feedback shell. reducedMotion shows the line at once and keeps the hold
+ * and the tap.
+ */
+const EndCard = memo(function EndCard({
+  height,
+  active,
+  reducedMotion,
+  haptics,
+  onComplete,
+}: {
+  height: number;
+  active: boolean;
+  reducedMotion: boolean;
+  haptics?: SceneHaptics;
+  onComplete: () => void;
+}) {
+  const elapsed = useLoopElapsed(active, reducedMotion, END_TEXT_FADE_MS);
+  const textO = reducedMotion ? 1 : endTextOpacity(elapsed);
+  const doneRef = useRef(false);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+  const hapticsRef = useRef(haptics);
+  hapticsRef.current = haptics;
+
+  const finish = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    hapticsRef.current?.celebrate();
+    onCompleteRef.current();
+  }, []);
+
+  // Auto-complete once the line has been read; a tap ends it sooner.
+  useEffect(() => {
+    if (!active) return;
+    const id = setTimeout(finish, END_HOLD_MS);
+    return () => clearTimeout(id);
+  }, [active, finish]);
+
+  return (
+    <Pressable
+      style={[styles.fullPage, { height }]}
+      onPress={finish}
+      accessibilityRole="button"
+    >
+      <Text style={[styles.endText, { opacity: textO }]}>
+        {t('toolkit.techniques.fake_feed.cards.end')}
+      </Text>
+    </Pressable>
+  );
+});
 
 /**
  * Continuous foreground clock for a looping card animation. Ticks (via
@@ -1706,6 +1964,66 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     letterSpacing: dsFont.letterSpacing.tight,
     textAlign: 'center',
+  },
+
+  // Card 8 — winding down (draining ghost feed).
+  windTrack: {
+    position: 'absolute',
+    top: 0,
+    left: 28,
+    right: 28,
+  },
+  windRow: {
+    borderRadius: 24,
+    borderWidth: 2,
+    marginBottom: 20,
+  },
+  windText: {
+    color: dsColors.textPrimary,
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.displayMd,
+    fontWeight: dsFont.weight.semibold,
+    lineHeight: 38,
+    letterSpacing: dsFont.letterSpacing.tight,
+    textAlign: 'center',
+  },
+
+  // Card 9 — the bottom (horizon line + void).
+  bottomWrap: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  horizonLine: {
+    width: '62%',
+    height: 1.5,
+    borderRadius: 1,
+    ...Platform.select({
+      web: { boxShadow: `0 0 18px ${hexAlpha('#42A5F5', 0.45)}` },
+      default: {},
+    }),
+  },
+  bottomText: {
+    color: dsColors.textSecondary,
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.body,
+    lineHeight: 24,
+    letterSpacing: dsFont.letterSpacing.tight,
+    textAlign: 'center',
+    marginTop: dsSpacing.xxl,
+    maxWidth: 300,
+  },
+
+  // Card 10 — the end (the lesson, fully legible).
+  endText: {
+    color: dsColors.textPrimary,
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.displayMd,
+    fontWeight: dsFont.weight.semibold,
+    lineHeight: 40,
+    letterSpacing: dsFont.letterSpacing.tight,
+    textAlign: 'center',
+    maxWidth: 340,
   },
 
   // Card 1 — scroll invitation (rising chevrons over the copy).
