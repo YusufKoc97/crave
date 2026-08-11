@@ -63,8 +63,9 @@ constants/
                           FREE_ACTIVE_LIMIT / PREMIUM_ACTIVE_LIMIT + maxMinutesFor()
   rankLadder.ts        ─ 9-rank i18n wrapper over shared/ranks.ts
   triggerCatalog.ts    ─ Faz 5: 8 common + 79 addiction-specific triggers
-  toolkitCatalog.ts    ─ 5 egzersiz + feedback + techniquesForAddiction()
+  toolkitCatalog.ts    ─ 6 egzersiz + feedback + techniquesForAddiction()
                           (egzersizin hangi bağımlılıklara açık olduğu tek filtre)
+                          ⚠️ v1.0 KAPANDI — yeni egzersiz EKLEME (ASLA YAPMA #11)
   presence.ts          ─ Faz 7: threshold + poll interval + active window
   heatmap.ts           ─ Faz 8a: grid dims, DAY_KEYS, PERIOD_ORDER, 5-color
                           ramp + heatmapColor() + sparse/full thresholds
@@ -125,6 +126,8 @@ components/
     Grounding54321Screen.tsx
     BodyScanScreen.tsx
     RideTheWaveScreen.tsx  ─ 5. egzersiz (madde bağımlılıkları)
+    FakeFeedScreen.tsx     ─ 6. egzersiz (doomscroll) — 10 kartlık sonlu
+                             feed + fakeFeedCards/Motion/Number.ts saf math
     ExerciseAtmosphere.tsx ─ runner'ın SVG gökyüzü/nebula/yıldız katmanı
     sceneRegistry.ts       ─ type → sahne; total Record (eksikse derleme kırılır)
     types.ts               ─ SceneProps kontratı (TechniqueScreenProps alias'ı kaldı)
@@ -802,18 +805,28 @@ Email confirmation Supabase dashboard'dan OFF.
    Test sayısı görsel kanıt değildir.
 10. **Prod DB'de yıkıcı işlemi teşhis etmeden yapma.** Önce canlı duruma
     karşı doğrula — eski bir teşhis bugünkü şemaya uymayabilir.
+11. **Launch öncesi toolkit'e yeni egzersiz EKLEME.** Toolkit genişletmesi
+    **v1.0 için KAPANDI**: 4 evrensel egzersiz (breathing / urge_surfing /
+    grounding_54321 / body_scan) + **Ride the Wave** (nikotin/alkol/vape/pmo)
+    - **Fake Feed** (doomscroll) = 6, bu kadar. Play It Forward, PMO redirect,
+      Cloud Chase, Pour It Out vb. özel egzersizler **BİLİNÇLİ olarak v1.1'e
+      ertelendi** — launch sonrası gerçek kullanıcı verisiyle önceliklendirilecek
+      (hangi bağımlılık, hangi egzersizi gerçekten istiyor). Kullanıcı açıkça
+      "v1.1'i aç / şu egzersizi ekle" demeden yeni sahne/registry girişi/katalog
+      kaydı ekleme.
 
 ## 📋 Bekleyen / Sıradaki İşler
 
-| Önem | İş                                                                                     |
-| ---- | -------------------------------------------------------------------------------------- |
-| 🔴   | **Presence sayacı** — yukarıdaki kök nedene bir karar ver                              |
-| ⭐   | **Ride the Wave dışındaki 4 egzersizin görsel turu** — hâlâ eski iskelette             |
-| ⭐   | **Push notifications** (expo-notifications) — günlük hatırlatma                        |
-| ⭐   | **Apple/Google sign-in** — şu an sadece email/password                                 |
-| ◽   | Comparison verisi gerçek backend'e bağlanacak (şu an `TEMP-COMPARISON-MOCK-DATA`)      |
-| ◽   | Premium gate yazıldı ama mount edilmiyor (`TEMP-PREMIUM-GATE-DISABLED`)                |
-| ◽   | Yaş + rıza kapıları geçici kapalı (`TEMP-AGE-GATE-DISABLED`, `b071c87`) — geri gelecek |
+| Önem | İş                                                                                                                                                                          |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔴   | **Presence sayacı** — yukarıdaki kök nedene bir karar ver                                                                                                                   |
+| ⭐   | **Ride the Wave dışındaki 4 egzersizin görsel turu** — hâlâ eski iskelette                                                                                                  |
+| ⭐   | **Push notifications** (expo-notifications) — günlük hatırlatma                                                                                                             |
+| ⭐   | **Apple/Google sign-in** — şu an sadece email/password                                                                                                                      |
+| ◽   | Comparison verisi gerçek backend'e bağlanacak (şu an `TEMP-COMPARISON-MOCK-DATA`)                                                                                           |
+| ◽   | Premium gate yazıldı ama mount edilmiyor (`TEMP-PREMIUM-GATE-DISABLED`)                                                                                                     |
+| ◽   | Yaş + rıza kapıları geçici kapalı (`TEMP-AGE-GATE-DISABLED`, `b071c87`) — geri gelecek                                                                                      |
+| ⏸️   | **v1.1 — özel egzersizler** (Play It Forward, PMO redirect, Cloud Chase, Pour It Out vb.) — launch sonrası kullanıcı verisiyle önceliklendir; şimdi EKLEME (ASLA YAPMA #11) |
 
 ## 🌐 Repo
 
