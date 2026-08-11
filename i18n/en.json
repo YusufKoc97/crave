@@ -526,6 +526,9 @@
           "end": "Every scroll has an end. Infinite feeds just hide theirs. Now put the phone down."
         },
         "pulse_hint": "Drag slowly to fill the circle. Rush it and it won't.",
+        "hold_hint": "Press and hold. Let the feed fade.",
+        "hold_done": "You're in control of the pause.",
+        "skip": "Skip",
         "number_card": {
           "distance_label": "meters scrolled today",
           "videos_label": "short videos, today",

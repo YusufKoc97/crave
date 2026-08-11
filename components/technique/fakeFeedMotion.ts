@@ -154,31 +154,140 @@ export function cubicBezierEase(
 export const flickEasing = cubicBezierEase(0.16, 0.84, 0.26, 1);
 
 // ─── Card 3: notice your thumb ───
+//
+// The autopilot scroll gesture, drawn as a right-thumb swipe-up arc: a
+// neon comet flows UP a curved track, led by a bright fingertip, with a
+// contact ripple where the thumb "touches down". Then the dot fades and
+// the whole thing resets invisibly — so the user only ever sees an UP
+// swipe. From the "Notice your thumb." handoff; one calm 2.6s loop. The
+// timing (dash-offset sweep, held tip, faded reset) is the handoff's.
 
 /** One swipe-up of the thumb along its arc. Calm, unhurried. */
-export const THUMB_CYCLE_MS = 2000;
+export const THUMB_CYCLE_MS = 2600;
+
+/** Trail dash: a 120px lit comet, 520px gap, offset one 640 pattern. */
+export const THUMB_TRAIL_DASH = 120;
+export const THUMB_TRAIL_GAP = 520;
+export const THUMB_TRAIL_LEN = THUMB_TRAIL_DASH + THUMB_TRAIL_GAP; // 640
 
 /**
- * The thumb's progress along its curved track at `elapsedMs`. `t` runs
- * 0 → 1 = bottom → top (a swipe UP, the gesture that actually advances
- * the feed); the component maps `t` onto a right-thumb bezier arc.
- * Opacity is a smooth sine (0 at both ends) so it fades in low on the
- * arc, brightens through the sweep and fades out at the top, and the
- * loop is seamless. NOT a literal thumb — the component draws a soft
- * fingertip; this only paces it.
+ * Evaluate a keyframed value at loop progress `p` (0..1): piecewise-linear
+ * between `values` at `times`, eased per segment by `splines` (cubic-bezier
+ * control points) when given. This is the one shape behind every channel of
+ * the thumb loop, so the exact handoff timing is asserted, not just coded.
  */
-export function thumbArc(elapsedMs: number): {
-  t: number;
-  opacity: number;
-  scale: number;
-} {
-  const t = (elapsedMs % THUMB_CYCLE_MS) / THUMB_CYCLE_MS;
-  const s = Math.sin(Math.PI * t);
-  return { t, opacity: s, scale: 0.9 + 0.14 * s };
+function keyed(
+  p: number,
+  times: readonly number[],
+  values: readonly number[],
+  splines?: readonly (readonly [number, number, number, number])[]
+): number {
+  if (p <= times[0]) return values[0];
+  for (let i = 0; i < times.length - 1; i++) {
+    if (p <= times[i + 1]) {
+      const span = times[i + 1] - times[i];
+      const local = span <= 0 ? 0 : (p - times[i]) / span;
+      const s = splines?.[i];
+      const e = s ? cubicBezierEase(s[0], s[1], s[2], s[3])(local) : local;
+      return values[i] + (values[i + 1] - values[i]) * e;
+    }
+  }
+  return values[values.length - 1];
 }
 
-/** Still thumb for reduced-motion — mid-arc, present but calm. */
-export const THUMB_REST = thumbArc(THUMB_CYCLE_MS / 2);
+// The sweep's timeline: ease up (0→55%), hold at the top (55→72%), ease
+// the invisible reset back down (72→100%). The middle spline is linear.
+const THUMB_TIME = [0, 0.55, 0.72, 1] as const;
+const THUMB_SPLINES = [
+  [0.4, 0, 0.2, 1],
+  [0, 0, 1, 1],
+  [0.4, 0, 0.2, 1],
+] as const;
+
+export interface ThumbSwipe {
+  /** strokeDashoffset of the comet trail — slides it up, then resets. */
+  trailOffset: number;
+  /** Head position 0..1 along the bezier arc (bottom → top). */
+  dotT: number;
+  /** Bright fingertip opacity — fades in low, out near the top. */
+  dotOpacity: number;
+  /** Contact-ripple radius at the start point. */
+  pulseR: number;
+  /** Contact-ripple opacity — one expand-and-vanish per loop. */
+  pulseOpacity: number;
+}
+
+/**
+ * The thumb loop's full state at `elapsedMs`. The comet and its lead dot
+ * sweep up the arc over the first ~55%, hold briefly, then the dot fades
+ * and everything resets invisibly (the loop never shows a down-swipe). A
+ * ripple pings out where the thumb lands, at the very start of each loop.
+ */
+export function thumbSwipe(elapsedMs: number): ThumbSwipe {
+  const p = (elapsedMs % THUMB_CYCLE_MS) / THUMB_CYCLE_MS;
+  return {
+    trailOffset: keyed(
+      p,
+      THUMB_TIME,
+      [THUMB_TRAIL_LEN, 0, 0, THUMB_TRAIL_LEN],
+      THUMB_SPLINES
+    ),
+    dotT: keyed(p, THUMB_TIME, [0, 1, 1, 0], THUMB_SPLINES),
+    dotOpacity: keyed(p, [0, 0.08, 0.62, 0.72, 1], [0, 1, 1, 0, 0]),
+    pulseR: keyed(p, [0, 0.12, 1], [6, 28, 28]),
+    pulseOpacity: keyed(p, [0, 0.14, 1], [0.95, 0, 0]),
+  };
+}
+
+/** Reduced-motion pose — the fingertip resting mid-arc, present but calm. */
+export const THUMB_REST: ThumbSwipe = {
+  trailOffset: THUMB_TRAIL_LEN * 0.5,
+  dotT: 0.5,
+  dotOpacity: 0.7,
+  pulseR: 6,
+  pulseOpacity: 0,
+};
+
+// ─── Card 7: hold to fade ───
+//
+// The user PRESSES AND HOLDS; while held, one progress value climbs at a
+// fixed rate and everything reads off it — the ring's fill and the feed's
+// remaining light are the same number, so they can never drift apart.
+// Release and the progress slides back down (it doesn't just pause), so
+// the card asks for one continuous pause, not pieces of one.
+
+/** A full, uninterrupted hold: 6 seconds at constant rate. DESIGN
+ *  DECISION — the six-second wait IS the exercise; do not tune. */
+export const HOLD_FILL_MS = 6000;
+/** How fast progress slides back once the finger lifts: 15% per second,
+ *  all the way to zero. A backslide, not a reset — firm but not punitive. */
+export const HOLD_DECAY_PER_S = 0.15;
+
+/**
+ * Advance card 7's single progress value by `dtMs`. Held → climbs at the
+ * constant {@link HOLD_FILL_MS} rate; released → slides back at
+ * {@link HOLD_DECAY_PER_S}. Clamped to [0, 1]. This is the ONE value the
+ * ring fill, the feed's dimming and completion all read — sync by
+ * construction.
+ */
+export function holdStep(
+  progress: number,
+  dtMs: number,
+  holding: boolean
+): number {
+  const dt = Math.max(0, dtMs);
+  const next = holding
+    ? progress + dt / HOLD_FILL_MS
+    : progress - (HOLD_DECAY_PER_S * dt) / 1000;
+  return Math.max(0, Math.min(1, next));
+}
+
+// ─── Cards 6 & 7: the shared escape hatch ───
+
+/** How long an interactive card sits centred before a faint "Skip"
+ *  appears. One constant for BOTH card 6 and card 7 — the escape is the
+ *  same pattern in the same place at the same time, deliberately. */
+export const SKIP_AFTER_MS = 20_000;
 
 // ─── Card 5: the deliberate emptiness ───
 

@@ -21,16 +21,21 @@ import {
   FILL_TOTAL_RAD,
   REEL_COUNT,
   REEL_PITCH,
+  HOLD_DECAY_PER_S,
+  HOLD_FILL_MS,
   SCROLL_CASCADE_COUNT,
   SCROLL_CASCADE_CYCLE_MS,
+  SKIP_AFTER_MS,
   THUMB_CYCLE_MS,
+  THUMB_TRAIL_LEN,
   cascadeChevron,
   emptyLineOpacity,
   fillGain,
   flickEasing,
   flickPause,
   flickTarget,
-  thumbArc,
+  holdStep,
+  thumbSwipe,
 } from '@/components/technique/fakeFeedMotion';
 
 /**
@@ -282,18 +287,79 @@ describe('Fake Feed — card 2 reel flick', () => {
   });
 });
 
-describe('Fake Feed — card 3 thumb arc', () => {
-  it('advances along the arc (bottom → top) over the cycle', () => {
-    expect(thumbArc(0).t).toBeCloseTo(0, 5); // starts at the bottom
-    const mid = thumbArc(THUMB_CYCLE_MS * 0.5).t;
+describe('Fake Feed — card 3 notice your thumb', () => {
+  it('sweeps the comet UP the arc (bottom → top) over the first ~55%', () => {
+    expect(thumbSwipe(0).dotT).toBeCloseTo(0, 5); // starts at the bottom
+    expect(thumbSwipe(THUMB_CYCLE_MS * 0.55).dotT).toBeCloseTo(1, 5); // top
+    const mid = thumbSwipe(THUMB_CYCLE_MS * 0.28).dotT;
     expect(mid).toBeGreaterThan(0);
     expect(mid).toBeLessThan(1);
   });
 
-  it('fades in and out (invisible at the ends), so the loop is seamless', () => {
-    expect(thumbArc(0).opacity).toBeCloseTo(0, 5);
-    expect(thumbArc(THUMB_CYCLE_MS).opacity).toBeCloseTo(0, 5);
-    expect(thumbArc(THUMB_CYCLE_MS / 2).opacity).toBeGreaterThan(0.9);
+  it('only ever shows an up-swipe: the tip is invisible during the reset', () => {
+    expect(thumbSwipe(0).dotOpacity).toBeCloseTo(0, 5); // fades in from off
+    expect(thumbSwipe(THUMB_CYCLE_MS * 0.3).dotOpacity).toBeGreaterThan(0.9);
+    // 72%→100% is the invisible reset back to the bottom.
+    expect(thumbSwipe(THUMB_CYCLE_MS * 0.85).dotOpacity).toBe(0);
+  });
+
+  it('slides the trail up then holds it at the top before resetting', () => {
+    expect(thumbSwipe(0).trailOffset).toBeCloseTo(THUMB_TRAIL_LEN, 5);
+    expect(thumbSwipe(THUMB_CYCLE_MS * 0.55).trailOffset).toBeCloseTo(0, 5);
+    expect(thumbSwipe(THUMB_CYCLE_MS * 0.63).trailOffset).toBeCloseTo(0, 5); // held
+  });
+
+  it('pings a contact ripple that expands and fades at the start of each loop', () => {
+    expect(thumbSwipe(0).pulseOpacity).toBeGreaterThan(0.9);
+    expect(thumbSwipe(0).pulseR).toBeLessThan(10); // small on contact
+    expect(thumbSwipe(THUMB_CYCLE_MS * 0.12).pulseR).toBeCloseTo(28, 5); // expanded
+    expect(thumbSwipe(THUMB_CYCLE_MS * 0.5).pulseOpacity).toBe(0); // gone
+  });
+
+  it('loops seamlessly (one full cycle returns to the start)', () => {
+    expect(thumbSwipe(THUMB_CYCLE_MS).dotT).toBeCloseTo(0, 5);
+    expect(thumbSwipe(THUMB_CYCLE_MS).trailOffset).toBeCloseTo(
+      THUMB_TRAIL_LEN,
+      5
+    );
+  });
+});
+
+describe('Fake Feed — card 7 hold to fade', () => {
+  it('a full, uninterrupted hold takes exactly 6 seconds', () => {
+    expect(HOLD_FILL_MS).toBe(6000); // fixed design decision
+    expect(holdStep(0, HOLD_FILL_MS, true)).toBe(1);
+    expect(holdStep(0, HOLD_FILL_MS - 1, true)).toBeLessThan(1);
+  });
+
+  it('fills at a constant rate while held', () => {
+    expect(holdStep(0, 1500, true)).toBeCloseTo(0.25, 5);
+    expect(holdStep(0.25, 1500, true)).toBeCloseTo(0.5, 5);
+    // Same dt adds the same amount anywhere on the ramp — no easing.
+    const a = holdStep(0.1, 600, true) - 0.1;
+    const b = holdStep(0.8, 600, true) - 0.8;
+    expect(a).toBeCloseTo(b, 10);
+  });
+
+  it('slides back at 15%/s on release, all the way to zero', () => {
+    expect(HOLD_DECAY_PER_S).toBe(0.15);
+    expect(holdStep(1, 1000, false)).toBeCloseTo(0.85, 5);
+    expect(holdStep(0.5, 2000, false)).toBeCloseTo(0.2, 5);
+    expect(holdStep(0.1, 1000, false)).toBe(0); // clamps at empty
+  });
+
+  it('clamps at full and never overshoots', () => {
+    expect(holdStep(0.9, 60_000, true)).toBe(1);
+    expect(holdStep(0, 60_000, false)).toBe(0);
+  });
+
+  it('holding outpaces the backslide, so persistence always wins', () => {
+    const fillPerS = 1000 / HOLD_FILL_MS;
+    expect(fillPerS).toBeGreaterThan(HOLD_DECAY_PER_S);
+  });
+
+  it('shares one 20s Skip timing with card 6', () => {
+    expect(SKIP_AFTER_MS).toBe(20_000);
   });
 });
 

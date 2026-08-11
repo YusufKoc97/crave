@@ -5,13 +5,22 @@ import {
   type NativeSyntheticEvent,
   PanResponder,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  G,
+  LinearGradient,
+  Path,
+  RadialGradient,
+  Stop,
+} from 'react-native-svg';
 import { ChevronUp } from 'lucide-react-native';
 import {
   dsColors,
@@ -41,15 +50,19 @@ import {
   FLICK_MS,
   REEL_COUNT,
   SCROLL_CASCADE_COUNT,
+  SKIP_AFTER_MS,
   THUMB_REST,
+  THUMB_TRAIL_DASH,
+  THUMB_TRAIL_GAP,
   cascadeChevron,
   emptyLineOpacity,
   fillGain,
   flickEasing,
   flickPause,
   flickTarget,
+  holdStep,
   shortestAngle,
-  thumbArc,
+  thumbSwipe,
 } from './fakeFeedMotion';
 import type { SceneHaptics, SceneProps } from './types';
 
@@ -60,30 +73,38 @@ const PULSE_CARD_KEY = 'slow_pulse';
 const MIRROR_CARD_KEY = 'speed_mirror';
 const EMPTY_CARD_KEY = 'empty_search';
 const THUMB_CARD_KEY = 'thumb';
-
-/** Card 3's fingertip — a soft cool light, its own understated colour. */
-const THUMB_COLOR = '#D6E2F5';
+const HOLD_CARD_KEY = 'hold';
 
 /**
- * The right thumb's swipe-up arc, in the lower-right. A quadratic bezier
- * that starts low near the right edge and sweeps up and inward, bowed
- * right — the natural path a thumb traces when it pivots from its joint
- * to flick the feed up. p0 = bottom (start), p2 = top (end), p1 = the
- * outward control that gives it the curve.
+ * Card 3 — "Notice your thumb." — is drawn on a fixed 390×620 design
+ * canvas (the handoff's) and scaled to fill the card. The accent blue is
+ * deliberate here: the swipe gesture is *the* doomscroll reflex, so it
+ * wears the feed's own colour (as card 6's ring does).
  */
-const THUMB_ARC = {
-  w: 184,
-  h: 268,
-  p0: [152, 240] as const,
-  p1: [180, 92] as const,
-  p2: [64, 26] as const,
-};
-const THUMB_TIP = 28;
+const THUMB_ACCENT = '#42A5F5';
+const THUMB_BRIGHT = '#8FCBFF';
 
-/** Point on a quadratic bezier at t. */
-function bezier(t: number, a: number, b: number, c: number): number {
+/**
+ * The right thumb's swipe-up arc: a cubic bezier that starts low
+ * (238,539) and sweeps up and inward to the top-right (335,330), bowed
+ * the way a thumb pivots from its joint to flick the feed up. The dash
+ * comet, the moving fingertip and the faint track all ride this path.
+ */
+const THUMB_PATH = 'M238,539 C206,474 238,384 335,330';
+const THUMB_P = {
+  x: [238, 206, 238, 335] as const,
+  y: [539, 474, 384, 330] as const,
+};
+const THUMB_START = { x: 238, y: 539 };
+const THUMB_DASH: readonly number[] = [THUMB_TRAIL_DASH, THUMB_TRAIL_GAP];
+/** Slight rightward nudge of the whole gesture — a right thumb lives on
+ *  the right side of the screen. In 390-wide design units. */
+const THUMB_NUDGE_X = 18;
+
+/** Scalar cubic bezier at t for control values (a,b,c,d). */
+function cubic(t: number, a: number, b: number, c: number, d: number): number {
   const u = 1 - t;
-  return u * u * a + 2 * u * t * b + t * t * c;
+  return u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d;
 }
 
 /**
@@ -266,6 +287,14 @@ export function FakeFeedScreen({
     [pageH, haptics, onComplete]
   );
 
+  // The shared escape hatch (cards 6 & 7): a tap on the faint "Skip"
+  // advances one card, through the same paging path a swipe would take.
+  const goNext = useCallback(() => {
+    if (pageH <= 0) return;
+    const next = Math.min(FAKE_FEED_CARD_COUNT - 1, indexRef.current + 1);
+    scrollRef.current?.scrollTo({ y: next * pageH, animated: true });
+  }, [pageH]);
+
   return (
     <View style={styles.root}>
       <ScrollView
@@ -295,6 +324,7 @@ export function FakeFeedScreen({
                 reducedMotion={reducedMotion ?? false}
                 haptics={haptics}
                 onDragLock={setScrollLocked}
+                onAdvance={goNext}
               />
             ))
           : null}
@@ -316,6 +346,7 @@ const FeedCard = memo(function FeedCard({
   reducedMotion,
   haptics,
   onDragLock,
+  onAdvance,
 }: {
   card: FakeFeedCard;
   height: number;
@@ -324,8 +355,10 @@ const FeedCard = memo(function FeedCard({
   active: boolean;
   reducedMotion: boolean;
   haptics?: SceneHaptics;
-  /** Card 6 uses this to freeze the feed while its ring is being dragged. */
+  /** Cards 6 & 7 use this to freeze the feed while a gesture owns it. */
   onDragLock: (locked: boolean) => void;
+  /** Cards 6 & 7's shared "Skip" — advance one card. */
+  onAdvance: () => void;
 }) {
   switch (card.key) {
     case NUMBER_CARD_KEY:
@@ -350,9 +383,23 @@ const FeedCard = memo(function FeedCard({
         <DragToFillCard
           height={height}
           accentColor={accentColor}
+          active={active}
           reducedMotion={reducedMotion}
           haptics={haptics}
           onDragLock={onDragLock}
+          onAdvance={onAdvance}
+        />
+      );
+    case HOLD_CARD_KEY:
+      return (
+        <HoldToFadeCard
+          height={height}
+          accentColor={accentColor}
+          active={active}
+          reducedMotion={reducedMotion}
+          haptics={haptics}
+          onDragLock={onDragLock}
+          onAdvance={onAdvance}
         />
       );
     case MIRROR_CARD_KEY:
@@ -480,11 +527,14 @@ const ScrollMirrorCard = memo(function ScrollMirrorCard({
   reducedMotion: boolean;
 }) {
   const { width: winW } = useWindowDimensions();
-  // Build at the handoff's fixed size, then scale the whole frame to fit.
+  // Build at the handoff's fixed size, then scale the whole frame down so
+  // it sits as a smaller phone centred on the page (fullPage centres it),
+  // not a full-bleed screen. The 0.66 cap is the "smaller, in the middle"
+  // look; it still fits width/height on small screens via the two ratios.
   const scale = Math.min(
     (winW - 24) / FRAME_W,
     (height - 24) / FRAME_OUTER_H,
-    1
+    0.66
   );
 
   const [trackY, setTrackY] = useState(0);
@@ -601,12 +651,17 @@ const EmptyCard = memo(function EmptyCard({
 
 /**
  * Card 3 — "Notice your thumb." The autopilot scroll gesture, made
- * visible without a literal thumb: a soft, glowing capsule (a stylised
- * fingertip) drifts down a faint track in the lower-right, pressing in
- * slightly, fading out at the bottom and repeating on a calm ~2s loop.
- * Deliberately abstract and understated — a hint of a fingertip, not a
- * hand — so it belongs to the atmosphere rather than startling. Its own
- * soft cool light, not the feed's blue. reducedMotion holds it still.
+ * visible without a literal thumb: a neon comet flows UP a curved track
+ * in the lower-right (the arc a right thumb traces to flick the feed),
+ * led by a bright fingertip, with a soft ripple where the thumb "lands".
+ * It sweeps up, the tip fades, and the loop resets invisibly — never a
+ * down-swipe. Abstract, not a hand. The feed's own accent blue, because
+ * this IS the doomscroll reflex. reducedMotion holds the comet mid-arc.
+ *
+ * Built on the house rAF+SVG pattern (not Reanimated) to stay consistent
+ * with every other card and web-verifiable; the trail is a real SVG
+ * gradient + dash sweep, and the "glow" is layered wide strokes rather
+ * than a blur filter (cheap on device — see the perf note below).
  */
 const ThumbCard = memo(function ThumbCard({
   height,
@@ -618,45 +673,142 @@ const ThumbCard = memo(function ThumbCard({
   reducedMotion: boolean;
 }) {
   const elapsed = useLoopElapsed(active, reducedMotion);
-  const {
-    t: arcT,
-    opacity,
-    scale,
-  } = reducedMotion ? THUMB_REST : thumbArc(elapsed);
-  const { w, h, p0, p1, p2 } = THUMB_ARC;
-  const fx = bezier(arcT, p0[0], p1[0], p2[0]);
-  const fy = bezier(arcT, p0[1], p1[1], p2[1]);
+  const { trailOffset, dotT, dotOpacity, pulseR, pulseOpacity } = reducedMotion
+    ? THUMB_REST
+    : thumbSwipe(elapsed);
+  const dx = cubic(
+    dotT,
+    THUMB_P.x[0],
+    THUMB_P.x[1],
+    THUMB_P.x[2],
+    THUMB_P.x[3]
+  );
+  const dy = cubic(
+    dotT,
+    THUMB_P.y[0],
+    THUMB_P.y[1],
+    THUMB_P.y[2],
+    THUMB_P.y[3]
+  );
   return (
     <View style={[styles.fullPage, { height }]}>
-      <Text style={styles.thumbText}>
-        {t('toolkit.techniques.fake_feed.cards.thumb')}
-      </Text>
-      <View style={styles.thumbZone} pointerEvents="none">
-        <Svg width={w} height={h}>
-          {/* The faint arc — the thumb's path, so the sweep reads as a
-              curved gesture rather than a floating dot. */}
+      <Svg
+        style={StyleSheet.absoluteFill}
+        viewBox="0 0 390 620"
+        preserveAspectRatio="xMidYMid meet"
+        pointerEvents="none"
+      >
+        <Defs>
+          <LinearGradient
+            id="thumbTrail"
+            x1="238"
+            y1="539"
+            x2="335"
+            y2="330"
+            gradientUnits="userSpaceOnUse"
+          >
+            <Stop offset="0" stopColor={THUMB_ACCENT} stopOpacity={0} />
+            <Stop offset="0.35" stopColor={THUMB_ACCENT} stopOpacity={0.4} />
+            <Stop offset="1" stopColor={THUMB_BRIGHT} stopOpacity={0.95} />
+          </LinearGradient>
+          <RadialGradient
+            id="thumbBloom"
+            cx="236"
+            cy="468"
+            r="146"
+            gradientUnits="userSpaceOnUse"
+          >
+            <Stop offset="0" stopColor={THUMB_ACCENT} stopOpacity={0.16} />
+            <Stop offset="0.62" stopColor={THUMB_ACCENT} stopOpacity={0.06} />
+            <Stop offset="1" stopColor={THUMB_ACCENT} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+
+        {/* The whole gesture nudged slightly right — a right thumb lives
+            on the right side of the screen, so the arc sits there too. */}
+        <G x={THUMB_NUDGE_X}>
+          {/* Ambient bloom, so the arc sits in a pool of light, not on a
+            flat void. Fades fully to transparent well inside the viewBox
+            so it never meets a hard clip edge (that showed as a seam). */}
+          <Circle cx="236" cy="468" r="146" fill="url(#thumbBloom)" />
+
+          {/* The faint static track — the thumb's whole path, always there
+            under the moving comet. */}
           <Path
-            d={`M${p0[0]},${p0[1]} Q${p1[0]},${p1[1]} ${p2[0]},${p2[1]}`}
-            stroke={hexAlpha(THUMB_COLOR, 0.14)}
+            d={THUMB_PATH}
+            stroke={THUMB_ACCENT}
             strokeWidth={2.5}
+            strokeOpacity={0.13}
             strokeLinecap="round"
             fill="none"
           />
-        </Svg>
-        {/* The fingertip, riding the arc from bottom to top. */}
-        <View
-          style={[
-            styles.thumbTip,
-            {
-              left: fx - THUMB_TIP / 2,
-              top: fy - THUMB_TIP / 2,
-              opacity,
-              transform: [{ scale }],
-            },
-          ]}
-        >
-          <View style={styles.thumbTipCore} />
-        </View>
+
+          {/* Fake glow: two wide, faint copies of the comet under the crisp
+            one — a cheap stand-in for a blur filter. */}
+          <Path
+            d={THUMB_PATH}
+            stroke={THUMB_ACCENT}
+            strokeWidth={14}
+            strokeOpacity={0.1}
+            strokeLinecap="round"
+            fill="none"
+            strokeDasharray={THUMB_DASH}
+            strokeDashoffset={trailOffset}
+          />
+          <Path
+            d={THUMB_PATH}
+            stroke={THUMB_ACCENT}
+            strokeWidth={8}
+            strokeOpacity={0.18}
+            strokeLinecap="round"
+            fill="none"
+            strokeDasharray={THUMB_DASH}
+            strokeDashoffset={trailOffset}
+          />
+          {/* The crisp neon comet, on the trail gradient. */}
+          <Path
+            d={THUMB_PATH}
+            stroke="url(#thumbTrail)"
+            strokeWidth={4.5}
+            strokeLinecap="round"
+            fill="none"
+            strokeDasharray={THUMB_DASH}
+            strokeDashoffset={trailOffset}
+          />
+
+          {/* Contact ripple where the thumb touches down each loop. */}
+          <Circle
+            cx={THUMB_START.x}
+            cy={THUMB_START.y}
+            r={pulseR}
+            stroke={THUMB_BRIGHT}
+            strokeWidth={2.2}
+            fill="none"
+            opacity={pulseOpacity}
+          />
+
+          {/* The bright fingertip head: a soft halo + a solid core. */}
+          <Circle
+            cx={dx}
+            cy={dy}
+            r={17}
+            fill={THUMB_ACCENT}
+            opacity={dotOpacity * 0.22}
+          />
+          <Circle
+            cx={dx}
+            cy={dy}
+            r={9}
+            fill={THUMB_BRIGHT}
+            opacity={dotOpacity}
+          />
+        </G>
+      </Svg>
+
+      <View style={styles.thumbTextWrap} pointerEvents="none">
+        <Text style={styles.thumbText}>
+          {t('toolkit.techniques.fake_feed.cards.thumb')}
+        </Text>
       </View>
     </View>
   );
@@ -730,15 +882,19 @@ const RING_C = 2 * Math.PI * RING_R;
 const DragToFillCard = memo(function DragToFillCard({
   height,
   accentColor,
+  active,
   reducedMotion,
   haptics,
   onDragLock,
+  onAdvance,
 }: {
   height: number;
   accentColor: string;
+  active: boolean;
   reducedMotion: boolean;
   haptics?: SceneHaptics;
   onDragLock: (locked: boolean) => void;
+  onAdvance: () => void;
 }) {
   const [progress, setProgress] = useState(0); // radians accrued
   const [done, setDone] = useState(false);
@@ -942,6 +1098,457 @@ const DragToFillCard = memo(function DragToFillCard({
       <Text style={styles.dragHint}>
         {t('toolkit.techniques.fake_feed.pulse_hint')}
       </Text>
+      <SkipHint
+        active={active}
+        reducedMotion={reducedMotion}
+        onSkip={onAdvance}
+      />
+    </View>
+  );
+});
+
+/**
+ * The shared escape hatch for the two interactive cards (6 & 7). After
+ * {@link SKIP_AFTER_MS} of the card sitting centred, a faint "Skip"
+ * fades in at the bottom; tapping it advances one card. Same component,
+ * same timing, same place on both cards — deliberately identical, so a
+ * user who met it once recognises it. (The feed itself is always
+ * free-scroll; this is just the visible way out for anyone stuck.)
+ */
+function SkipHint({
+  active,
+  reducedMotion,
+  onSkip,
+}: {
+  active: boolean;
+  reducedMotion: boolean;
+  onSkip: () => void;
+}) {
+  const [shown, setShown] = useState(false);
+  const [fade, setFade] = useState(0);
+  useEffect(() => {
+    if (!active) {
+      setShown(false);
+      setFade(0);
+      return;
+    }
+    const id = setTimeout(() => setShown(true), SKIP_AFTER_MS);
+    return () => clearTimeout(id);
+  }, [active]);
+  // Soft ~500ms fade-in; reducedMotion just appears.
+  useEffect(() => {
+    if (!shown) return;
+    if (reducedMotion) {
+      setFade(1);
+      return;
+    }
+    let raf = 0;
+    let t0 = 0;
+    const tick = (ts: number) => {
+      if (!t0) t0 = ts;
+      const p = Math.min(1, (ts - t0) / 500);
+      setFade(p);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [shown, reducedMotion]);
+  if (!shown) return null;
+  return (
+    <Pressable
+      onPress={onSkip}
+      style={[styles.skipHint, { opacity: fade }]}
+      hitSlop={14}
+      accessibilityRole="button"
+    >
+      <Text style={styles.skipText}>
+        {t('toolkit.techniques.fake_feed.skip')}
+      </Text>
+    </Pressable>
+  );
+}
+
+// Card 7's ghost feed — the thing the hold extinguishes. Row sizing is
+// relative to the page; drift speed and opacities are ESTIMATES, tuned
+// by eye.
+const HOLD_GHOST_ROWS = 3; // per copy; two copies stack for a seamless wrap
+const HOLD_GHOST_GAP = 20;
+const HOLD_GHOST_BASE_OPACITY = 0.62;
+const HOLD_DRIFT_PX_S = 16; // ghost-feed upward crawl speed (ESTIMATE)
+/** Defensive cap on one rAF step, so a throttled tab can't grant seconds
+ *  of hold (or decay) in a single jump. */
+const HOLD_DT_CLAMP_MS = 500;
+/** Completion beat: shockwave + glow + the message's soft fade, one
+ *  clock. Slightly longer than card 6's 750ms so the line lands gently. */
+const HOLD_CELEBRATE_MS = 1100;
+
+/**
+ * Card 7's ghost feed — faint reel frames crawling up behind the ring,
+ * the thing the hold puts out. It owns its OWN rAF so the continuous
+ * crawl re-renders only itself, never the ring SVG; the parent's progress
+ * updates reach it solely through `frac` (which sets the opacity, its one
+ * tie to the hold). The crawl runs at a constant speed while the card is
+ * centred and the feed is still alight, and stops once the pause completes
+ * (`done`, when it's invisible anyway) or under reducedMotion. The static
+ * rows are memoised so a drift tick only moves the track's transform.
+ */
+const HoldGhostFeed = memo(function HoldGhostFeed({
+  frac,
+  active,
+  reducedMotion,
+  done,
+  ghostH,
+}: {
+  frac: number;
+  active: boolean;
+  reducedMotion: boolean;
+  done: boolean;
+  ghostH: number;
+}) {
+  const wrap = (ghostH + HOLD_GHOST_GAP) * HOLD_GHOST_ROWS;
+  const [drift, setDrift] = useState(0);
+  const driftRef = useRef(0);
+  useEffect(() => {
+    if (!active || reducedMotion || done) return;
+    let raf = 0;
+    let last = 0;
+    const tick = (ts: number) => {
+      if (!last) last = ts;
+      const dt = Math.min(ts - last, HOLD_DT_CLAMP_MS);
+      last = ts;
+      driftRef.current =
+        (driftRef.current + (HOLD_DRIFT_PX_S * dt) / 1000) % wrap;
+      setDrift(driftRef.current);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active, reducedMotion, done, wrap]);
+  const rows = useMemo(
+    () =>
+      Array.from({ length: HOLD_GHOST_ROWS * 2 }, (_, i) => (
+        <View
+          key={i}
+          style={[
+            styles.holdGhostRow,
+            { height: ghostH, marginBottom: HOLD_GHOST_GAP },
+          ]}
+        />
+      )),
+    [ghostH]
+  );
+  return (
+    <View style={styles.holdGhostClip} pointerEvents="none">
+      <View
+        style={[
+          styles.holdGhostTrack,
+          {
+            opacity: HOLD_GHOST_BASE_OPACITY * (1 - frac),
+            transform: [{ translateY: -drift }],
+          },
+        ]}
+      >
+        {rows}
+      </View>
+    </View>
+  );
+});
+
+/**
+ * Card 7 — "Hold to fade". The last interactive card: press and HOLD
+ * (card 6 was a drag — different gesture, different lesson) and the whole
+ * card reads off ONE progress value: the ring fills at a constant rate
+ * (6s of uninterrupted hold, a fixed design decision) while the ghost
+ * feed behind dims by exactly the same number — the user is putting the
+ * feed out with their own finger. Let go and progress slides back at
+ * 15%/s (a backslide, not a pause), so the card asks for one continuous
+ * hold rather than accumulated pieces. At full: the feed is out, the
+ * ring blooms, one earned haptic, and "You're in control of the pause."
+ * fades in.
+ *
+ * Scroll: the hold zone freezes the feed while held (card 6's lesson) —
+ * outside the zone, and after completion, the feed scrolls normally.
+ * Escape: free scroll always, plus the same 20s {@link SkipHint} as
+ * card 6. reducedMotion: the mechanic is unchanged (hold 6s → message);
+ * only the drift, burst and fades are dropped.
+ */
+const HoldToFadeCard = memo(function HoldToFadeCard({
+  height,
+  accentColor,
+  active,
+  reducedMotion,
+  haptics,
+  onDragLock,
+  onAdvance,
+}: {
+  height: number;
+  accentColor: string;
+  active: boolean;
+  reducedMotion: boolean;
+  haptics?: SceneHaptics;
+  onDragLock: (locked: boolean) => void;
+  onAdvance: () => void;
+}) {
+  const [progress, setProgress] = useState(0);
+  const [done, setDone] = useState(false);
+  const [burst, setBurst] = useState(0);
+  const progressRef = useRef(0);
+  const holdingRef = useRef(false);
+  const doneRef = useRef(false);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const rafRef = useRef(0);
+  const runningRef = useRef(false);
+  const lastRef = useRef(0);
+  const hapticsRef = useRef(haptics);
+  hapticsRef.current = haptics;
+  const onDragLockRef = useRef(onDragLock);
+  onDragLockRef.current = onDragLock;
+
+  // Never leave the feed frozen if the card unmounts mid-hold.
+  useEffect(() => () => onDragLockRef.current(false), []);
+
+  // Ghost-feed geometry, relative to the page.
+  const ghostH = Math.max(180, Math.round(height * 0.36));
+
+  // The progress engine — integrates the one value everything reads off
+  // (hold → climb, release → backslide, via the pure {@link holdStep}).
+  // It is start-on-demand and SELF-TERMINATING: it runs only while there
+  // is something to integrate (a hold in progress, or a release still
+  // decaying) and stops the instant there isn't — so an untouched card and
+  // a completed one both cost zero frames, no perpetual no-op rAF. A press
+  // re-arms it via {@link pumpRef}. The crawling ghost feed animates itself
+  // (see HoldGhostFeed), so the only thing that re-renders the ring here is
+  // a real progress change.
+  const pump = useCallback(() => {
+    if (runningRef.current || !activeRef.current || doneRef.current) return;
+    runningRef.current = true;
+    lastRef.current = 0;
+    const tick = (ts: number) => {
+      if (!lastRef.current) lastRef.current = ts;
+      const dt = Math.min(ts - lastRef.current, HOLD_DT_CLAMP_MS);
+      lastRef.current = ts;
+      const p = holdStep(progressRef.current, dt, holdingRef.current);
+      if (p !== progressRef.current) {
+        progressRef.current = p;
+        setProgress(p);
+      }
+      if (p >= 1) {
+        // Completion is terminal: the pause was held, the feed stays out.
+        doneRef.current = true;
+        setDone(true);
+        onDragLockRef.current(false);
+        hapticsRef.current?.commit();
+        runningRef.current = false;
+        return;
+      }
+      // Nothing left to integrate — go idle until the next press re-arms.
+      if (!holdingRef.current && p <= 0) {
+        runningRef.current = false;
+        return;
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }, []);
+  const pumpRef = useRef(pump);
+  pumpRef.current = pump;
+
+  // Cancel the engine when the card leaves centre; re-arm it on return
+  // only if a release-decay was still in flight (so a half-filled ring
+  // keeps sliding back). An idle or completed card starts nothing.
+  useEffect(() => {
+    if (active && !doneRef.current && progressRef.current > 0) pump();
+    return () => {
+      cancelAnimationFrame(rafRef.current);
+      runningRef.current = false;
+    };
+  }, [active, pump]);
+
+  // Completion beat — shockwave, settled glow and the message's fade all
+  // read this one clock. reducedMotion jumps straight to the end state.
+  useEffect(() => {
+    if (!done) return;
+    if (reducedMotion) {
+      setBurst(1);
+      return;
+    }
+    let raf = 0;
+    let t0 = 0;
+    const tick = (ts: number) => {
+      if (!t0) t0 = ts;
+      const p = Math.min(1, (ts - t0) / HOLD_CELEBRATE_MS);
+      setBurst(p);
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [done, reducedMotion]);
+
+  // The hold gesture. Claimed on touch-down anywhere in the stage; the
+  // feed is frozen for exactly as long as the finger is down (card 6's
+  // gesture-conflict lesson), and once the ring is full the stage stops
+  // claiming touches so the card scrolls normally under a resting finger.
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => !doneRef.current,
+        onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => true,
+        onPanResponderGrant: () => {
+          holdingRef.current = true;
+          onDragLockRef.current(true);
+          pumpRef.current(); // wake the (self-terminating) progress engine
+        },
+        onPanResponderRelease: () => {
+          holdingRef.current = false;
+          onDragLockRef.current(false);
+        },
+        onPanResponderTerminate: () => {
+          holdingRef.current = false;
+          onDragLockRef.current(false);
+        },
+      }),
+    []
+  );
+
+  const frac = progress;
+  const eo = 1 - (1 - burst) * (1 - burst); // easeOut
+  // The message's own share of the beat: starts once the pop has landed.
+  const msgO = done
+    ? reducedMotion
+      ? 1
+      : Math.max(0, (burst - 0.3) / 0.7)
+    : 0;
+  const litStroke = done ? '#CDE8FF' : accentColor;
+  const dashOffset = RING_C * (1 - frac);
+  const rot = `rotate(-90 ${RING_CX} ${RING_CX})`;
+
+  return (
+    <View style={[styles.fullPage, { height }]}>
+      {/* The ghost feed — faint reel frames crawling up behind the ring,
+          dimming by (1 - progress) as the hold puts it out. Isolated so
+          its per-frame crawl never re-renders the ring. */}
+      <HoldGhostFeed
+        frac={frac}
+        active={active}
+        reducedMotion={reducedMotion}
+        done={done}
+        ghostH={ghostH}
+      />
+
+      <View style={styles.dragStage} {...pan.panHandlers}>
+        {/* Settled glow once the pause is complete. */}
+        {done && (
+          <View style={styles.overlayCenter} pointerEvents="none">
+            <View
+              style={[
+                styles.completeGlow,
+                {
+                  backgroundColor: hexAlpha(accentColor, 0.55),
+                  opacity: 0.22 + 0.5 * eo,
+                  transform: [{ scale: 0.85 + 0.4 * eo }],
+                },
+              ]}
+            />
+          </View>
+        )}
+
+        <Svg width={RING_SIZE} height={RING_SIZE}>
+          {/* Track. */}
+          <Circle
+            cx={RING_CX}
+            cy={RING_CX}
+            r={RING_R}
+            stroke={hexAlpha(accentColor, 0.16)}
+            strokeWidth={RING_STROKE}
+            fill="none"
+          />
+          {/* The press pad — a soft disc that brightens as the hold
+              accrues. No handle: nothing here is dragged (that was
+              card 6), it is pressed. */}
+          <Circle
+            cx={RING_CX}
+            cy={RING_CX}
+            r={RING_R - 30}
+            fill={hexAlpha(litStroke, 0.1 + 0.24 * frac)}
+          />
+          {/* Neon halo under the crisp fill. */}
+          <Circle
+            cx={RING_CX}
+            cy={RING_CX}
+            r={RING_R}
+            stroke={hexAlpha(litStroke, 0.28)}
+            strokeWidth={RING_STROKE * 2.6}
+            fill="none"
+            strokeDasharray={RING_C}
+            strokeDashoffset={dashOffset}
+            strokeLinecap="round"
+            transform={rot}
+          />
+          {/* Crisp fill — the same number the feed's dimming reads. */}
+          <Circle
+            cx={RING_CX}
+            cy={RING_CX}
+            r={RING_R}
+            stroke={litStroke}
+            strokeWidth={RING_STROKE}
+            fill="none"
+            strokeDasharray={RING_C}
+            strokeDashoffset={dashOffset}
+            strokeLinecap="round"
+            transform={rot}
+          />
+        </Svg>
+
+        {/* Shockwave — the one-shot "done" pop. */}
+        {done && !reducedMotion && (
+          <View style={styles.overlayCenter} pointerEvents="none">
+            <View
+              style={[
+                styles.shockwave,
+                {
+                  borderColor: hexAlpha('#FFFFFF', 0.85 * (1 - eo)),
+                  opacity: 1 - eo,
+                  transform: [{ scale: 1 + 0.8 * eo }],
+                },
+              ]}
+            />
+          </View>
+        )}
+      </View>
+
+      {/* Title + hint give way to the completion line — one crossfade. */}
+      <View style={styles.holdTextWrap}>
+        <View style={{ opacity: 1 - msgO }}>
+          <Text style={styles.dragText}>
+            {t('toolkit.techniques.fake_feed.cards.hold')}
+          </Text>
+          <Text style={styles.dragHint}>
+            {t('toolkit.techniques.fake_feed.hold_hint')}
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.holdDoneWrap,
+            {
+              opacity: msgO,
+              transform: [{ translateY: 10 * (1 - msgO) }],
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Text style={styles.holdDoneText}>
+            {t('toolkit.techniques.fake_feed.hold_done')}
+          </Text>
+        </View>
+      </View>
+
+      <SkipHint
+        active={active}
+        reducedMotion={reducedMotion}
+        onSkip={onAdvance}
+      />
     </View>
   );
 });
@@ -1184,9 +1791,9 @@ const styles = StyleSheet.create({
     height: REEL_H,
     marginHorizontal: REEL_MARGIN,
     marginBottom: REEL_MARGIN,
-    borderRadius: 16,
+    borderRadius: 26,
     borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: 'rgba(255, 255, 255, 0.9)',
   },
   fadeTop: {
     position: 'absolute',
@@ -1273,34 +1880,13 @@ const styles = StyleSheet.create({
     letterSpacing: dsFont.letterSpacing.tight,
     textAlign: 'center',
   },
-  thumbZone: {
+  thumbTextWrap: {
     position: 'absolute',
-    right: 20,
-    bottom: 92,
-    width: THUMB_ARC.w,
-    height: THUMB_ARC.h,
-  },
-  thumbTip: {
-    position: 'absolute',
-    width: THUMB_TIP,
-    height: THUMB_TIP,
-    borderRadius: THUMB_TIP / 2,
-    backgroundColor: hexAlpha(THUMB_COLOR, 0.18),
-    borderWidth: 1,
-    borderColor: hexAlpha(THUMB_COLOR, 0.45),
+    top: '14%',
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    justifyContent: 'center',
-    ...Platform.select({
-      web: { boxShadow: `0 0 20px ${hexAlpha(THUMB_COLOR, 0.4)}` },
-      default: {},
-    }),
-  },
-  thumbTipCore: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: hexAlpha(THUMB_COLOR, 0.75),
-    ...Platform.select({ web: { filter: 'blur(1px)' }, default: {} }),
+    paddingHorizontal: dsSpacing.x3l,
   },
   dragText: {
     color: dsColors.textPrimary,
@@ -1318,6 +1904,62 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: dsSpacing.sm,
     maxWidth: 300,
+  },
+
+  // Card 7 — hold to fade.
+  holdGhostClip: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  holdGhostTrack: {
+    position: 'absolute',
+    top: 0,
+    left: 28,
+    right: 28,
+  },
+  holdGhostRow: {
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
+    backgroundColor: '#141a26',
+  },
+  holdTextWrap: {
+    marginTop: dsSpacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  holdDoneWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  holdDoneText: {
+    color: '#DCEBFF',
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.displaySm,
+    fontWeight: dsFont.weight.semibold,
+    letterSpacing: dsFont.letterSpacing.tight,
+    textAlign: 'center',
+    maxWidth: 320,
+    ...Platform.select({
+      web: { textShadow: `0 0 26px ${hexAlpha('#8FCBFF', 0.55)}` },
+      default: {},
+    }),
+  },
+
+  // Cards 6 & 7 — the shared Skip.
+  skipHint: {
+    position: 'absolute',
+    bottom: 40,
+    alignSelf: 'center',
+    paddingHorizontal: dsSpacing.lg,
+    paddingVertical: dsSpacing.sm,
+  },
+  skipText: {
+    color: hexAlpha('#FFFFFF', 0.45),
+    fontFamily: FONT_STACK,
+    fontSize: dsFont.size.body,
+    letterSpacing: 0.4,
   },
 
   // Card 4 — the number.
