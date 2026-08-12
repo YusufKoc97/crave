@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import {
@@ -110,20 +111,51 @@ export default function HowItWorksScreen() {
             </Text>
           </View>
 
-          <View style={styles.pathTrack}>
-            <View style={styles.pathLine} />
-            <View style={styles.pathDot} />
-          </View>
-
-          <View style={styles.pathNames}>
-            {RANK_LADDER.map((rank, i) => (
-              <Text
-                key={rank.id}
-                style={[styles.pathName, i === 0 && styles.pathNameActive]}
-              >
-                {rank.name}
-              </Text>
-            ))}
+          {/* Milestone timeline — a marker for every rank, labels
+              alternating above / below so all nine read cleanly without
+              wrapping. Base is the lit "you are here" start. */}
+          <View style={styles.milestones}>
+            <View style={styles.milestoneLine} />
+            {RANK_LADDER.map((rank, i) => {
+              const pct = (i / (RANK_LADDER.length - 1)) * 100;
+              const isBase = i === 0;
+              const first = i === 0;
+              const last = i === RANK_LADDER.length - 1;
+              const above = i % 2 === 1;
+              const anchor = first
+                ? styles.mLabelStart
+                : last
+                  ? styles.mLabelEnd
+                  : [styles.mLabelMid, { left: `${pct}%` as const }];
+              return (
+                <Fragment key={rank.id}>
+                  <View
+                    style={[
+                      styles.mDot,
+                      isBase ? styles.mDotBase : styles.mDotIdle,
+                      {
+                        left: `${pct}%` as const,
+                        marginLeft: isBase ? -6 : -3,
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.mLabelWrap,
+                      above ? styles.mLabelAbove : styles.mLabelBelow,
+                      anchor,
+                    ]}
+                  >
+                    <Text
+                      style={[styles.mLabel, isBase && styles.mLabelBase]}
+                      numberOfLines={1}
+                    >
+                      {rank.name}
+                    </Text>
+                  </View>
+                </Fragment>
+              );
+            })}
           </View>
         </View>
 
@@ -145,7 +177,7 @@ const styles = StyleSheet.create({
     paddingBottom: 168,
   },
   heading: {
-    marginTop: dsSpacing.x3l,
+    marginTop: dsSpacing.xl,
     alignItems: 'center',
   },
   eyebrow: {
@@ -245,38 +277,69 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: ACCENT,
   },
-  pathTrack: {
+  milestones: {
     marginTop: dsSpacing.lg,
-    height: 12,
-    justifyContent: 'center',
+    height: 64,
+    position: 'relative',
   },
-  pathLine: {
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: hexAlpha(ACCENT, 0.35),
-  },
-  pathDot: {
+  milestoneLine: {
     position: 'absolute',
     left: 0,
+    right: 0,
+    top: 31,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: hexAlpha(ACCENT, 0.25),
+  },
+  mDot: {
+    position: 'absolute',
+  },
+  mDotBase: {
+    top: 26,
     width: 12,
     height: 12,
     borderRadius: 6,
     backgroundColor: ACCENT,
     boxShadow: `0 0 12px ${hexAlpha(ACCENT, 0.7)}`,
   },
-  pathNames: {
-    marginTop: dsSpacing.md,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    columnGap: dsSpacing.md,
-    rowGap: dsSpacing.xs,
+  mDotIdle: {
+    top: 29,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: dsColors.borderAccent,
   },
-  pathName: {
+  mLabelWrap: {
+    position: 'absolute',
+    height: 14,
+    justifyContent: 'center',
+  },
+  mLabelAbove: {
+    top: 2,
+  },
+  mLabelBelow: {
+    bottom: 2,
+  },
+  mLabelStart: {
+    left: 0,
+    alignItems: 'flex-start',
+  },
+  mLabelEnd: {
+    right: 0,
+    alignItems: 'flex-end',
+  },
+  mLabelMid: {
+    width: 80,
+    marginLeft: -40,
+    alignItems: 'center',
+  },
+  mLabel: {
     fontSize: 10,
     fontWeight: '600',
+    letterSpacing: 0.2,
     color: dsColors.textTertiary,
   },
-  pathNameActive: {
+  mLabelBase: {
     color: ACCENT,
     fontWeight: '800',
   },
