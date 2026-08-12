@@ -78,6 +78,65 @@
     "empty_cta": "Add addiction",
     "add_addiction_a11y": "Add addiction"
   },
+  "onboarding": {
+    "welcome": {
+      "brand": "CRAVE",
+      "eyebrow": "A quieter way through",
+      "title": "Build resistance,\none moment at a time.",
+      "body": "When a craving hits, Crave helps you hold out.",
+      "cta": "Begin"
+    },
+    "how": {
+      "eyebrow": "The resistance loop",
+      "title": "How resistance grows",
+      "body": "A craving is a moment. You can move through it.",
+      "core": "RESIST",
+      "step1": "A craving hits",
+      "step2": "Tap the orb",
+      "step3": "Hold out",
+      "step4": "Earn points",
+      "path_label": "Your path",
+      "path_start": "Starting point",
+      "footer": "Every resisted craving feeds your core.",
+      "cta": "Continue"
+    },
+    "focus": {
+      "eyebrow": "Your first signal",
+      "title": "Choose your first focus",
+      "body": "You can add more later. Start with the craving you want support for now.",
+      "selected_label": "Selected focus",
+      "none_selected": "Pick one to begin",
+      "rank_pill": "Base · 0 pts",
+      "cta": "Track {{name}}",
+      "cta_empty": "Choose a focus"
+    },
+    "age": {
+      "eyebrow": "Focus selected",
+      "title": "Are you 18\nor older?",
+      "body": "Crave is designed for adults.",
+      "yes": "Yes, I'm 18 or older",
+      "no": "No",
+      "consent_title": "I agree to the terms & health-data processing",
+      "consent_body": "I've read the terms and privacy policy, and I give explicit consent for my health-category data (addiction type, urge-resistance sessions, progress stats) to be processed by this app.",
+      "consent_required": "Please confirm consent above to continue.",
+      "cta": "Continue"
+    },
+    "blocked": {
+      "title": "Come back when you're 18.",
+      "body": "Crave is built for adults resisting cravings. Thanks for checking in — we'll be here when the time is right.",
+      "cta": "Close"
+    },
+    "ready": {
+      "eyebrow": "Your next step",
+      "title": "You're all set.",
+      "body": "Your journey starts with the next craving. When it arrives, tap the orb and hold out.",
+      "core_caption": "Resistance is ready",
+      "rank_label": "Current rank",
+      "progress_label": "Progress to First Step",
+      "progress_hint": "100 pts to First Step",
+      "cta": "Enter Crave"
+    }
+  },
   "profile": {
     "my_addictions": "MY ADDICTIONS",
     "add_pill": "Add",

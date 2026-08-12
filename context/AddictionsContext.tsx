@@ -47,6 +47,13 @@ type AddictionsContextValue = {
   atLimit: boolean;
   addAddiction: (id: string) => Promise<void>;
   removeAddiction: (id: string) => Promise<void>;
+  /**
+   * Make `id` the sole active addiction — used by onboarding's "choose
+   * your first focus". Replaces the first-launch default seed (and any
+   * other active ids) so the user lands tracking exactly what they
+   * picked, even under the free-tier limit of 1.
+   */
+  setExclusiveAddiction: (id: string) => Promise<void>;
 };
 
 const AddictionsContext = createContext<AddictionsContextValue | undefined>(
@@ -229,6 +236,48 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
     [activeIds, user]
   );
 
+  const setExclusiveAddiction = useCallback(
+    async (id: string) => {
+      const snapshot = activeIds;
+      const next = new Set<string>([id]);
+      setActiveIds(next);
+
+      // Reconcile the server first (when authed) so a failure rolls the
+      // UI back before anything hits disk. Deactivate every previously
+      // active id except the pick, then activate the pick.
+      if (user) {
+        try {
+          await Promise.all([
+            ...Array.from(snapshot)
+              .filter((x) => x !== id)
+              .map((x) =>
+                deactivateUserAddiction(user.id, x).catch(() => undefined)
+              ),
+            activateUserAddiction(user.id, id),
+          ]);
+        } catch {
+          setActiveIds(snapshot);
+          throw new Error('Could not save your choice. Check your connection.');
+        }
+      }
+
+      // Persist locally. The mirror effect is guarded on `user`, so for
+      // the pre-auth first-launch path (the app currently boots without
+      // auth) this explicit write is what reaches disk. Marking the seed
+      // flag stops the four default addictions from ever seeding over the
+      // user's deliberate pick on the next cold launch.
+      try {
+        await AsyncStorage.multiSet([
+          [STORAGE_KEY_ACTIVE, JSON.stringify([id])],
+          [DEFAULTS_SEEDED_KEY, '1'],
+        ]);
+      } catch (e) {
+        console.warn('setExclusiveAddiction local write failed', e);
+      }
+    },
+    [activeIds, user]
+  );
+
   const addictions = useMemo(
     () =>
       ADDICTION_CATALOG.filter((entry) => activeIds.has(entry.id)).map(
@@ -246,6 +295,7 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
         atLimit,
         addAddiction,
         removeAddiction,
+        setExclusiveAddiction,
       }}
     >
       {children}

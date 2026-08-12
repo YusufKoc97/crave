@@ -7,24 +7,21 @@ import { getUsername } from '@/lib/profile';
 import { DEV_SKIP_AUTH } from '@/lib/devBypass';
 import { colors } from '@/constants/theme';
 
-// TEMP-AGE-GATE-DISABLED — 2026-07-25
-// The 18+ age gate (`app/(onboarding)/index.tsx`) and the KVKK consent
-// step (`app/(onboarding)/consent.tsx`) are intentionally unreachable:
-// `isOnboardingCompleted()` is false on a fresh install, so every launch
-// used to land on "Yaş Doğrulama" with no way past it while the rest of
-// the app is half-built.
+// Onboarding ENABLED — 2026-08-12
+// First launch now runs the 5-screen onboarding flow in
+// `app/(onboarding)` (welcome → how-it-works → choose-focus → age-check
+// → ready). The 18+ age check lives INSIDE that flow (screen 4, with the
+// KVKK health-data consent folded in), so the old standalone
+// TEMP-AGE-GATE-DISABLED short-circuit is gone.
 //
-// Both screen files are LEFT IN PLACE on purpose — age verification is
-// coming back, but deliberately placed inside the real onboarding flow
-// once that flow is designed. Nothing here should be deleted.
+// Auth + username are still intentionally bypassed: the sibling
+// TEMP-AUTH-GATE-DISABLED flag in `app/(tabs)/_layout.tsx` stops /(tabs)
+// from bouncing out to sign-in, and this gate skips the auth + username
+// rungs of the ladder below. Those phases return with real auth.
 //
-// Restoring is a one-line flip: set this to `false` and the original
-// onboarding → auth → username → tabs ladder below runs untouched.
-// Grep TEMP-AGE-GATE-DISABLED for every knob involved.
-//
-// Unlike DEV_SKIP_AUTH this is NOT guarded by __DEV__ or an env var, so
-// it short-circuits release / preview builds on a real device too.
-const LAUNCH_STRAIGHT_TO_HOME = true;
+// Flipping this to `false` restores the full onboarding → auth →
+// username → tabs ladder below untouched.
+const RUN_ONBOARDING_ONLY = true;
 
 /**
  * Root entry point. Decides where to send the user based on:
@@ -80,10 +77,21 @@ export default function Index() {
     };
   }, [user]);
 
-  // TEMP-AGE-GATE-DISABLED — go straight to the home tabs (orb). Placed
-  // after every hook (Rules of Hooks) but before the loading gate so
-  // there's no splash-spinner flash on the way through.
-  if (LAUNCH_STRAIGHT_TO_HOME) {
+  // Onboarding-only gate: run the first-launch onboarding flow, then land
+  // on the home tabs (orb). Auth + username are skipped (see header note).
+  // Placed after every hook (Rules of Hooks). We wait for the onboarding
+  // read to resolve so there's no flash of the wrong destination.
+  if (RUN_ONBOARDING_ONLY) {
+    if (onboardingDone === null) {
+      return (
+        <View style={styles.loader}>
+          <ActivityIndicator color={colors.blue} size="large" />
+        </View>
+      );
+    }
+    if (!onboardingDone) {
+      return <Redirect href="/(onboarding)" />;
+    }
     return <Redirect href="/(tabs)" />;
   }
 

@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Alert,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -25,40 +24,14 @@ import type { Addiction } from '@/constants/addictions';
 import { maxMinutesFor } from '@/constants/addictions';
 import { dsColors } from '@/constants/designSystem';
 import { useAddictions } from '@/context/AddictionsContext';
-import { NeonRing } from '@/components/NeonRing';
+import { ResistanceOrb, RESISTANCE_ORB_SIZE } from '@/components/ResistanceOrb';
 import { lucideIconFor } from '@/components/info/iconMap';
 import { t } from '@/lib/i18n';
 
-// Web-only `animation` shorthand — RN's StyleSheet has no equivalent, but
-// react-native-web passes unrecognised style props straight through to the
-// underlying DOM node. Cast to `any` so TS doesn't choke on the non-RN key.
-// On native these objects are still passed but ignored.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const BREATH_STYLE_INNER: any = Platform.select({
-  web: { animation: 'crave-breath-inner 4400ms ease-in-out infinite' },
-  default: {},
-});
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const BREATH_STYLE_MID: any = Platform.select({
-  web: { animation: 'crave-breath-mid 4400ms ease-in-out infinite' },
-  default: {},
-});
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const BREATH_STYLE_OUTER: any = Platform.select({
-  web: { animation: 'crave-breath-outer 4400ms ease-in-out infinite' },
-  default: {},
-});
-// Main RESIST orb breath — same 4.4s cycle as the discs so the whole
-// composition shares one cadence, but a much gentler amplitude
-// (1.000 ↔ 1.008) since the orb is the focal element; anything larger
-// would distract from RESIST.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const BREATH_STYLE_ORB: any = Platform.select({
-  web: { animation: 'crave-breath-orb 4400ms ease-in-out infinite' },
-  default: {},
-});
-
-const ORB_SIZE = 168;
+// The orb's fan-out "selecting" scale — the RESIST core shrinks to half
+// size so the tracked-addiction icons have room to bloom around it. Lives
+// here (not in ResistanceOrb) because it's an animation trigger the home
+// screen owns; ResistanceOrb only renders whatever scale it's handed.
 const ORB_SELECTING_SCALE = 0.5;
 /** Distance from screen bottom to the persistent "+" button.
  *  Tab bar pill sits at ~26px bottom + ~56px height = ~82px
@@ -67,11 +40,6 @@ const PLUS_BOTTOM = 104;
 
 const ICON_SIZE = 62;
 const ICON_R = 134;
-
-const SMALL_ORB = ORB_SIZE * ORB_SELECTING_SCALE; // 84
-const RING_INNER = SMALL_ORB + 8; // 92 — hugs the small orb
-const RING_OUTER = SMALL_ORB + 24; // 108 — slightly further out
-const INNER_GLOW_SIZE = SMALL_ORB - 12; // 72 — inside the orb behind text
 
 type Phase = 'idle' | 'selecting';
 
@@ -87,52 +55,6 @@ export default function HomeScreen() {
   const innerGlowOpacity = useSharedValue(0);
   const innerGlowPulse = useSharedValue(0);
   const progress = useSharedValue(0);
-
-  // Slow ambient "breath" — three concentric discs scale ever-so-slightly
-  // in and out on a continuous loop so the screen feels alive instead of
-  // printed. Implementation goes through CSS @keyframes injected into the
-  // document on web; on native this useEffect is a no-op and the discs
-  // render static (Reanimated/Animated paths both failed to drive a
-  // mount-time loop in the RN Web bundle for this layout, so CSS is the
-  // pragmatic answer for the platform that actually matters today).
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-    const id = 'crave-ambient-breath-keyframes';
-    if (document.getElementById(id)) return;
-    const el = document.createElement('style');
-    el.id = id;
-    el.textContent = `
-      @keyframes crave-breath-inner {
-        0%, 100% { transform: scale(1); }
-        50%      { transform: scale(1.030); }
-      }
-      @keyframes crave-breath-mid {
-        /* Slight counter-phase + smaller amplitude so the layers don't
-           move in lockstep — the eye reads it as organic, not a
-           uniform pulsation. */
-        0%, 100% { transform: scale(1.012); }
-        50%      { transform: scale(1.000); }
-      }
-      @keyframes crave-breath-outer {
-        0%, 100% { transform: scale(1); }
-        50%      { transform: scale(1.010); }
-      }
-      @keyframes crave-breath-orb {
-        /* Same phase as the inner disc so the focal element and its
-           closest frame share one breath. Amplitude is ~3.5x smaller
-           than the inner disc — gentle enough that the eye reads
-           "alive" without the orb itself feeling busy. */
-        0%, 100% { transform: scale(1); }
-        50%      { transform: scale(1.008); }
-      }
-    `;
-    document.head.appendChild(el);
-    return () => {
-      // Leave the stylesheet behind on unmount — adding & removing
-      // <style> on every nav causes a frame flash. The keyframes are
-      // cheap.
-    };
-  }, []);
 
   const total = addictions.length;
 
@@ -266,152 +188,28 @@ export default function HomeScreen() {
     );
   };
 
-  const orbStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: orbScale.value }],
-  }));
-
-  const orbTextStyle = useAnimatedStyle(() => ({
-    opacity: orbTextOpacity.value,
-  }));
-
-  const ringsStyle = useAnimatedStyle(() => ({
-    opacity: ringsOpacity.value,
-  }));
-
-  const innerGlowStyle = useAnimatedStyle(() => ({
-    opacity: innerGlowOpacity.value * (0.55 + innerGlowPulse.value * 0.45),
-    transform: [{ scale: 0.92 + innerGlowPulse.value * 0.12 }],
-  }));
-
   const centerX = width / 2;
   const centerY = height / 2 - 30;
 
   return (
     <View style={styles.root}>
-      {/* Foggy radial atmosphere — single 1×1 anchor painted by a stack
-          of overlapping outer boxShadow rings, falling in opacity from
-          the center outward. The two outermost rings carry faint neon
-          brand-blue so the page bg meets the central area through a
-          soft blue mist instead of a flat black void. This sits BEHIND
-          the three ambient discs below; it doesn't replace them. */}
-      <View
-        pointerEvents="none"
-        style={[
-          styles.ambientHalo,
-          { left: centerX - 0.5, top: centerY - 0.5 },
-        ]}
+      {/* The RESIST core + its ambient atmosphere. The home screen owns
+          the shared values and the enter/exit animation triggers; this
+          component only renders them. Same component the onboarding flow
+          mounts, so the two orbs are pixel-identical. */}
+      <ResistanceOrb
+        onPress={onOrbPress}
+        orbScale={orbScale}
+        orbTextOpacity={orbTextOpacity}
+        ringsOpacity={ringsOpacity}
+        innerGlowOpacity={innerGlowOpacity}
+        innerGlowPulse={innerGlowPulse}
+        style={{
+          position: 'absolute',
+          left: centerX - RESISTANCE_ORB_SIZE / 2,
+          top: centerY - RESISTANCE_ORB_SIZE / 2,
+        }}
       />
-
-      {/* Three concentric ambient discs around the orb. Web bundle gets
-          the CSS @keyframes breath above (innermost most pronounced,
-          outermost barely moves); native renders them static. */}
-      <View
-        pointerEvents="none"
-        style={[
-          styles.ambient,
-          styles.ambientOuter,
-          { left: centerX - 210, top: centerY - 210 },
-          BREATH_STYLE_OUTER,
-        ]}
-      />
-      <View
-        pointerEvents="none"
-        style={[
-          styles.ambient,
-          styles.ambientMid,
-          { left: centerX - 155, top: centerY - 155 },
-          BREATH_STYLE_MID,
-        ]}
-      />
-      <View
-        pointerEvents="none"
-        style={[
-          styles.ambient,
-          styles.ambientInner,
-          { left: centerX - 110, top: centerY - 110 },
-          BREATH_STYLE_INNER,
-        ]}
-      />
-
-      <View
-        style={[
-          styles.centerStack,
-          { top: centerY - ORB_SIZE / 2, left: centerX - ORB_SIZE / 2 },
-        ]}
-      >
-        {/* Inner pulsing glow inside the small orb */}
-        <Animated.View
-          style={[
-            styles.innerGlow,
-            {
-              left: (ORB_SIZE - INNER_GLOW_SIZE) / 2,
-              top: (ORB_SIZE - INNER_GLOW_SIZE) / 2,
-            },
-            innerGlowStyle,
-          ]}
-          pointerEvents="none"
-        />
-
-        <Animated.View style={[styles.orbWrap, orbStyle]}>
-          <Pressable
-            onPress={onOrbPress}
-            style={[styles.orb, BREATH_STYLE_ORB]}
-          >
-            <Animated.Text style={[styles.orbText, orbTextStyle]}>
-              RESIST
-            </Animated.Text>
-          </Pressable>
-        </Animated.View>
-
-        {/* Outer neon ring — bigger, slower, CW, hugs the small orb */}
-        <Animated.View
-          style={[
-            styles.ringSlot,
-            {
-              width: RING_OUTER,
-              height: RING_OUTER,
-              left: (ORB_SIZE - RING_OUTER) / 2,
-              top: (ORB_SIZE - RING_OUTER) / 2,
-            },
-            ringsStyle,
-          ]}
-          pointerEvents="none"
-        >
-          <NeonRing
-            size={RING_OUTER}
-            strokeWidth={1.4}
-            color="#7DC3FF"
-            direction="cw"
-            duration={4200}
-            trackOpacity={0.16}
-          />
-        </Animated.View>
-
-        {/* Inner neon ring — tighter, faster, CCW, also hugs the orb (so the
-            two layers spin in opposite directions just outside RESIST) */}
-        <Animated.View
-          style={[
-            styles.ringSlot,
-            {
-              width: RING_INNER,
-              height: RING_INNER,
-              left: (ORB_SIZE - RING_INNER) / 2,
-              top: (ORB_SIZE - RING_INNER) / 2,
-            },
-            ringsStyle,
-          ]}
-          pointerEvents="none"
-        >
-          <NeonRing
-            size={RING_INNER}
-            strokeWidth={1.2}
-            color="#93C5FD"
-            direction="ccw"
-            duration={3000}
-            trackOpacity={0.22}
-          />
-        </Animated.View>
-      </View>
 
       {phase === 'selecting' && (
         <View
@@ -619,115 +417,6 @@ const styles = StyleSheet.create({
     // Shared navy base across Home / Info / Profile so the floating tab
     // pill never sits on a seam between two different darks.
     backgroundColor: dsColors.bgBase,
-  },
-  ambient: {
-    position: 'absolute',
-    borderRadius: 9999,
-  },
-  // Each disc rises out of the shared navy base rather than the old
-  // near-black root. Their lift over that base is deliberately smaller
-  // than a straight port would give: at full contrast the three discs
-  // stacked into a bright dome that made this tab read lighter than
-  // Info and Profile — the exact seam the unified background exists
-  // to remove.
-  // The step BETWEEN discs matters as much as their absolute value:
-  // these are hard-edged circles, so any sizeable jump shows up as a
-  // visible ring rather than a falloff. Steps are kept small enough
-  // that the three read as one dome.
-  ambientOuter: {
-    width: 420,
-    height: 420,
-    backgroundColor: '#0A1426',
-  },
-  ambientMid: {
-    width: 310,
-    height: 310,
-    backgroundColor: '#0B172C',
-  },
-  ambientInner: {
-    width: 220,
-    height: 220,
-    backgroundColor: '#0D1C36',
-  },
-  ambientHalo: {
-    // A 1×1 anchor at the center; the visible atmosphere is entirely
-    // painted by the stacked boxShadow below. Each ring is wider than
-    // the last (via spread), with falling opacity, so the falloff is
-    // perceptually continuous — no banding, no hard disc edges. The
-    // inner rings carry deep blue surfaces; the two outermost rings
-    // diffuse into faint brand-blue (#3B82F6) so the page bg meets the
-    // halo through a soft neon mist instead of a flat black void.
-    //
-    // Web-only effect — boxShadow with multiple stops is RN Web's only
-    // way to fake a radial gradient. Native iOS/Android render the
-    // first (innermost) shadow and ignore the rest, which still looks
-    // better than the three flat discs we had before.
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    borderRadius: 0.5,
-    backgroundColor: 'transparent',
-    shadowColor: '#0D1E35',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    shadowRadius: 80,
-    boxShadow: [
-      // Inner dense core — replaces what the old ambientInner disc did.
-      '0 0 50px 70px rgba(15, 36, 66, 0.65)',
-      // First fade — replaces ambientMid.
-      '0 0 90px 110px rgba(12, 30, 56, 0.45)',
-      // Second fade — replaces ambientOuter, slightly bluer.
-      '0 0 140px 150px rgba(10, 26, 50, 0.32)',
-      // Atmospheric extension — pulls the halo well beyond the icon ring.
-      '0 0 200px 190px rgba(14, 30, 56, 0.18)',
-      // Neon brand-blue diffuse — the "buğulu mavi" hint the page bg
-      // was missing. Faint enough to read as atmosphere, not a ring.
-      '0 0 280px 220px rgba(59, 130, 246, 0.08)',
-      // Far-edge soft neon — feathers into the page bg so the boundary
-      // between halo and the navy base is imperceptible.
-      '0 0 380px 260px rgba(96, 165, 250, 0.04)',
-    ].join(', '),
-  },
-  centerStack: {
-    position: 'absolute',
-    width: ORB_SIZE,
-    height: ORB_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  innerGlow: {
-    position: 'absolute',
-    width: INNER_GLOW_SIZE,
-    height: INNER_GLOW_SIZE,
-    borderRadius: INNER_GLOW_SIZE / 2,
-    backgroundColor: 'rgba(59, 130, 246, 0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.22)',
-  },
-  ringSlot: {
-    position: 'absolute',
-  },
-  orbWrap: {
-    width: ORB_SIZE,
-    height: ORB_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  orb: {
-    width: ORB_SIZE,
-    height: ORB_SIZE,
-    borderRadius: ORB_SIZE / 2,
-    backgroundColor: '#08111E',
-    borderWidth: 1,
-    borderColor: '#3B5070',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  orbText: {
-    color: '#7BA8C8',
-    fontSize: 14,
-    fontWeight: '300',
-    letterSpacing: 8,
   },
   iconLayer: {
     position: 'absolute',
