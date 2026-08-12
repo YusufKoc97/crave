@@ -30,14 +30,20 @@ export default function WelcomeScreen() {
       <View style={styles.main}>
         <Text style={styles.brand}>{t('onboarding.welcome.brand')}</Text>
 
-        <View style={styles.orbWrap}>
-          <ResistanceOrb />
-        </View>
+        {/* Orb + copy centered as one group in the space below the
+            wordmark, so the orb sits mid-screen rather than pinned high. */}
+        <View style={styles.group}>
+          <View style={styles.orbWrap}>
+            <ResistanceOrb />
+          </View>
 
-        <View style={styles.text}>
-          <Text style={styles.eyebrow}>{t('onboarding.welcome.eyebrow')}</Text>
-          <Text style={styles.title}>{t('onboarding.welcome.title')}</Text>
-          <Text style={styles.body}>{t('onboarding.welcome.body')}</Text>
+          <View style={styles.text}>
+            <Text style={styles.eyebrow}>
+              {t('onboarding.welcome.eyebrow')}
+            </Text>
+            <Text style={styles.title}>{t('onboarding.welcome.title')}</Text>
+            <Text style={styles.body}>{t('onboarding.welcome.body')}</Text>
+          </View>
         </View>
       </View>
 
@@ -54,7 +60,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingHorizontal: 28,
-    paddingBottom: 168,
+    paddingBottom: 150,
   },
   brand: {
     marginTop: dsSpacing.xl,
@@ -66,13 +72,18 @@ const styles = StyleSheet.create({
     // and would otherwise paint over the wordmark.
     zIndex: 2,
   },
+  group: {
+    flex: 1,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   orbWrap: {
-    marginTop: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   text: {
-    marginTop: 84,
+    marginTop: 72,
     alignItems: 'center',
     maxWidth: 336,
   },

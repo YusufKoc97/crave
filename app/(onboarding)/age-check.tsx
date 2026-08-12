@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowRight, Check, Minus } from 'lucide-react-native';
+import { Check } from 'lucide-react-native';
 import { ADDICTION_CATALOG, toAddiction } from '@/constants/addictions';
 import {
   ObBackdrop,
+  ObButton,
   ObFooter,
   ObHeader,
   ObProgress,
@@ -104,50 +105,21 @@ export default function AgeCheckScreen() {
             {t('onboarding.age.consent_required')}
           </Text>
         )}
-
-        <View style={styles.choices}>
-          <Pressable
-            onPress={onYes}
-            accessibilityRole="button"
-            style={[
-              styles.choice,
-              consent ? styles.choiceYes : styles.choiceYesIdle,
-            ]}
-          >
-            <Text
-              style={[
-                styles.choiceText,
-                {
-                  color: consent
-                    ? dsColors.textPrimary
-                    : dsColors.textSecondary,
-                },
-              ]}
-            >
-              {t('onboarding.age.yes')}
-            </Text>
-            <View style={[styles.choiceIcon, consent && styles.choiceIconOn]}>
-              <ArrowRight
-                size={17}
-                color={consent ? ACCENT : dsColors.textTertiary}
-                strokeWidth={2.2}
-              />
-            </View>
-          </Pressable>
-
-          <Pressable
-            onPress={onNo}
-            accessibilityRole="button"
-            style={styles.choiceNo}
-          >
-            <Text style={styles.choiceNoText}>{t('onboarding.age.no')}</Text>
-            <Minus size={17} color={dsColors.textTertiary} strokeWidth={2.2} />
-          </Pressable>
-        </View>
       </View>
 
+      {/* Advance lives in the footer like every other step — a clear
+          primary CTA plus a quiet "under 18" escape hatch below it. */}
       <ObFooter>
         <ObProgress index={3} />
+        <ObButton label={t('onboarding.age.yes')} onPress={onYes} />
+        <Pressable
+          onPress={onNo}
+          accessibilityRole="button"
+          style={styles.noLink}
+          hitSlop={8}
+        >
+          <Text style={styles.noLinkText}>{t('onboarding.age.no_under')}</Text>
+        </Pressable>
       </ObFooter>
     </ObBackdrop>
   );
@@ -160,7 +132,7 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
   heading: {
-    marginTop: 90,
+    marginTop: 56,
     alignItems: 'center',
   },
   eyebrow: {
@@ -247,59 +219,15 @@ const styles = StyleSheet.create({
     color: dsColors.dangerGlow,
     textAlign: 'center',
   },
-  choices: {
-    marginTop: dsSpacing.xl,
-    gap: dsSpacing.md,
+  noLink: {
+    marginTop: dsSpacing.lg,
+    alignSelf: 'center',
+    paddingVertical: dsSpacing.xs,
   },
-  choice: {
-    minHeight: 68,
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: dsSpacing.xl,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  choiceYes: {
-    borderColor: hexAlpha(ACCENT, 0.65),
-    backgroundColor: hexAlpha(dsColors.cardSurfaceElevated, 0.6),
-    boxShadow: `0 0 24px ${hexAlpha(ACCENT, 0.1)}`,
-  },
-  choiceYesIdle: {
-    borderColor: dsColors.borderSubtle,
-    backgroundColor: hexAlpha(dsColors.cardSurface, 0.5),
-  },
-  choiceText: {
-    fontSize: dsFont.size.body,
-    fontWeight: '700',
-  },
-  choiceIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: dsColors.borderSubtle,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  choiceIconOn: {
-    borderColor: hexAlpha(ACCENT, 0.5),
-    backgroundColor: hexAlpha(ACCENT, 0.1),
-  },
-  choiceNo: {
-    minHeight: 60,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: dsColors.borderSubtle,
-    backgroundColor: hexAlpha(dsColors.bgBase, 0.45),
-    paddingHorizontal: dsSpacing.xl,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  choiceNoText: {
-    fontSize: dsFont.size.body,
+  noLinkText: {
+    fontSize: dsFont.size.label,
     fontWeight: '600',
-    color: dsColors.textSecondary,
+    letterSpacing: 0.2,
+    color: dsColors.textTertiary,
   },
 });

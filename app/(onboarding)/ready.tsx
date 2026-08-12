@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     paddingBottom: 130,
   },
   chip: {
-    marginTop: dsSpacing.lg,
+    marginTop: dsSpacing.x3l,
     flexDirection: 'row',
     alignItems: 'center',
     gap: dsSpacing.sm,
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     color: dsColors.textSecondary,
   },
   orbWrap: {
-    marginTop: dsSpacing.md,
+    marginTop: dsSpacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -116,6 +116,7 @@
       "body": "Crave is designed for adults.",
       "yes": "Yes, I'm 18 or older",
       "no": "No",
+      "no_under": "No, I'm under 18",
       "consent_title": "I agree to the terms & health-data processing",
       "consent_body": "I've read the terms and privacy policy, and I give explicit consent for my health-category data (addiction type, urge-resistance sessions, progress stats) to be processed by this app.",
       "consent_required": "Please confirm consent above to continue.",
