@@ -10,7 +10,8 @@ import {
   MAX_SCORED_MINUTES,
   MAX_SESSION_MINUTES,
   nextMomentum,
-  nextStreak,
+  streakAfterGiveIn,
+  streakAfterResist,
   weeklyResistCounts,
 } from '@/lib/scoring';
 
@@ -179,45 +180,31 @@ describe('nextMomentum', () => {
   });
 });
 
-describe('nextStreak', () => {
-  it('same day: no bump', () => {
-    expect(
-      nextStreak({
-        lastResistDay: '2026-01-01',
-        today: '2026-01-01',
-        currentStreak: 5,
-      })
-    ).toBe(5);
+describe('streakAfterResist', () => {
+  it('each resist extends the run by 1 (event-based, not day-based)', () => {
+    expect(streakAfterResist(0)).toBe(1);
+    expect(streakAfterResist(14)).toBe(15);
+  });
+});
+
+describe('streakAfterGiveIn', () => {
+  it('free user resets fully to 0', () => {
+    expect(streakAfterGiveIn(15, false)).toBe(0);
+    expect(streakAfterGiveIn(1, false)).toBe(0);
   });
 
-  it('exactly one day later: +1', () => {
-    expect(
-      nextStreak({
-        lastResistDay: '2026-01-01',
-        today: '2026-01-02',
-        currentStreak: 5,
-      })
-    ).toBe(6);
+  it('premium user keeps half, rounded down (Streak Protection)', () => {
+    expect(streakAfterGiveIn(15, true)).toBe(7);
+    expect(streakAfterGiveIn(10, true)).toBe(5);
   });
 
-  it('gap of 2+: reset to 1', () => {
-    expect(
-      nextStreak({
-        lastResistDay: '2026-01-01',
-        today: '2026-01-05',
-        currentStreak: 10,
-      })
-    ).toBe(1);
+  it('premium edge: streak 1 halves to 0, same as a reset — no special-casing', () => {
+    expect(streakAfterGiveIn(1, true)).toBe(0);
   });
 
-  it('no previous resist: start at 1', () => {
-    expect(
-      nextStreak({
-        lastResistDay: null,
-        today: '2026-01-01',
-        currentStreak: 0,
-      })
-    ).toBe(1);
+  it('streak 0 stays 0 for both tiers', () => {
+    expect(streakAfterGiveIn(0, false)).toBe(0);
+    expect(streakAfterGiveIn(0, true)).toBe(0);
   });
 });
 

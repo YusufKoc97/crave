@@ -44,8 +44,9 @@ import {
   MAX_DAILY_POINTS_PER_ADDICTION,
   MAX_SESSION_MINUTES,
   nextMomentum,
-  nextStreak,
   RATE_LIMIT_MAX_PER_HOUR,
+  streakAfterGiveIn,
+  streakAfterResist,
   type Outcome,
 } from '../../../shared/scoring.ts';
 import { isKnownAddiction } from '../../../shared/catalog.ts';
@@ -478,11 +479,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ─── Momentum + streak ───
   const { data: profile } = await svc
     .from('profiles')
-    .select('momentum, streak')
+    .select('momentum, streak, is_premium')
     .eq('id', userId)
     .single();
   const currentMomentum = profile?.momentum ?? 50;
   const currentStreak = profile?.streak ?? 0;
+  // Server-authoritative premium flag. The client useIsPremium() hook
+  // is not visible in this runtime; RevenueCat's webhook flips this
+  // column later and the streak-protection branch below picks it up.
+  const isPremium = profile?.is_premium ?? false;
 
   let updatedMomentum = currentMomentum;
   let updatedStreak = currentStreak;
@@ -493,29 +498,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
       durationSeconds,
       sensitivity,
     });
-
-    const { data: lastResist } = await svc
-      .from('craving_sessions')
-      .select('created_at')
-      .eq('user_id', userId)
-      .eq('outcome', 'resisted')
-      .eq('status', 'resolved')
-      .neq('id', sessionId) // exclude the row we just wrote
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const lastResistDay = lastResist
-      ? localDayKey(Date.parse(lastResist.created_at))
-      : null;
-    updatedStreak = nextStreak({
-      lastResistDay,
-      today: localDayKey(endedAtMs),
-      currentStreak,
-    });
+    // Event-based streak: each resist extends the consecutive-resist
+    // run by 1. Calendar days are irrelevant — a craving-free day
+    // neither advances nor breaks it, and multiple resists in one day
+    // each count.
+    updatedStreak = streakAfterResist(currentStreak);
 
     await svc
       .from('profiles')
       .update({ momentum: updatedMomentum, streak: updatedStreak })
+      .eq('id', userId);
+  } else {
+    // 'failed' (gave in) breaks the run. Free → 0; premium keeps half
+    // (Streak Protection). Momentum is intentionally left untouched on
+    // a slip — only the streak reflects the outcome.
+    updatedStreak = streakAfterGiveIn(currentStreak, isPremium);
+
+    await svc
+      .from('profiles')
+      .update({ streak: updatedStreak })
       .eq('id', userId);
   }
 
@@ -532,6 +533,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     total_score: totalRow?.total_score ?? newScore,
     momentum: updatedMomentum,
     streak: updatedStreak,
+    previous_streak: currentStreak,
+    // True only when a give-in was softened by premium Streak Protection
+    // (streak halved) instead of a full reset — lets the client show
+    // "streak dropped to X" rather than "streak reset to 0".
+    streak_protected: outcome === 'failed' && isPremium,
     newly_unlocked_ranks: newlyUnlocked,
   });
 });

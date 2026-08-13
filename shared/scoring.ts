@@ -165,18 +165,35 @@ export function daysBetween(from: string, to: string): number {
 }
 
 /**
- * "Consecutive days with >=1 resist" streak, computed forward from a
- * prior state. See lib/scoring.ts for the client-side history callers
- * still using this shape.
+ * Streak model: a "consecutive-resist run". It counts how many cravings
+ * you have resisted in a row — NOT calendar days. A craving-free day
+ * neither advances nor breaks it, and multiple resists in one day each
+ * count. The run is broken only by giving in (see streakAfterGiveIn).
+ *
+ * This replaces the old day-based streak, which reset to 1 on any
+ * missed calendar day — i.e. it punished a user for a day with no
+ * craving, the opposite of what a recovery streak should reward.
  */
-export function nextStreak(args: {
-  lastResistDay: string | null;
-  today: string;
-  currentStreak: number;
-}): number {
-  if (args.lastResistDay === args.today) return args.currentStreak;
-  if (args.lastResistDay && daysBetween(args.lastResistDay, args.today) === 1) {
-    return args.currentStreak + 1;
-  }
-  return 1;
+export function streakAfterResist(currentStreak: number): number {
+  return currentStreak + 1;
+}
+
+/**
+ * A 'failed' (gave-in) outcome breaks the consecutive-resist run.
+ *
+ * Free users reset fully to 0. Premium users keep HALF, rounded down —
+ * the "Streak Protection" perk: a slip still costs something real (so
+ * the number stays honest) but is softened rather than wiped. A streak
+ * of 1 halves to 0, identical to a reset — no special-casing.
+ *
+ * KNOWN OPEN QUESTION: protection is unlimited-use for now. If users
+ * lean on it constantly the streak loses meaning; revisit a monthly cap
+ * (e.g. 1-2 protections/month) once there is real usage data.
+ */
+export function streakAfterGiveIn(
+  currentStreak: number,
+  isPremium: boolean
+): number {
+  if (currentStreak <= 0) return 0;
+  return isPremium ? Math.floor(currentStreak / 2) : 0;
 }
