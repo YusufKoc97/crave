@@ -194,7 +194,9 @@
     "resist": "I Resisted",
     "failed": "I Failed",
     "points_earned": "points earned",
-    "finish": "Finish"
+    "finish": "Finish",
+    "streak_protected_title": "Streak protected",
+    "streak_protected_body": "Your streak held instead of resetting."
   },
   "trigger_capture": {
     "resist_title": "Nice work — one more thing",

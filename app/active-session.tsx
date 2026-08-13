@@ -27,6 +27,8 @@ import {
 } from '@/lib/activeSession';
 import { hapticCelebrate, hapticCommit } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
+import { useIsPremium } from '@/lib/premium';
+import { streakAfterGiveIn } from '@/lib/scoring';
 import type { Outcome } from '@/shared/scoring';
 import { RankUnlockModal } from '@/components/RankUnlockModal';
 import { useAddictionScores } from '@/context/AddictionScoresContext';
@@ -146,8 +148,9 @@ export default function ActiveSession() {
   );
   const cycleSeconds = Math.max(60, maxMinutes * 60);
 
-  const { recordSession } = useSessions();
+  const { recordSession, streak } = useSessions();
   const { user } = useAuth();
+  const isPremium = useIsPremium();
   // Client-generated session UUID. Persistent for the life of this
   // craving — used as craving_sessions.id (PK) when resolve-craving
   // does the atomic INSERT. Resumed sessions carry the previous
@@ -167,6 +170,14 @@ export default function ActiveSession() {
   const [shareBanner, setShareBanner] = useState<{ points: number } | null>(
     null
   );
+  // Premium-only "Streak Protection" reassurance after a give-in: the
+  // run was halved instead of reset, so we show what it held (from → to)
+  // rather than bowing out silently. Free users never see this — a slip
+  // in recovery shouldn't be met with "you reset to 0". Null = not shown.
+  const [protectionBanner, setProtectionBanner] = useState<{
+    from: number;
+    to: number;
+  } | null>(null);
   // Rank ids returned by resolve-craving as newly unlocked. Fed into
   // RankUnlockModal which cycles through them one at a time; empty
   // list = modal closed.
@@ -535,11 +546,27 @@ export default function ActiveSession() {
       setShareBanner({ points: estimatedPoints });
       return;
     }
+    // Give-in. Premium users whose streak was actually protected (a
+    // non-zero run halved to something still non-zero) get a brief
+    // reassurance; everyone else bows out silently, unchanged. Computed
+    // optimistically here with the same fn the server runs, because
+    // goHome() would otherwise fire before the resolve response lands.
+    const keptStreak = streakAfterGiveIn(streak, isPremium);
+    if (isPremium && keptStreak > 0) {
+      hapticCommit();
+      setProtectionBanner({ from: streak, to: keptStreak });
+      return;
+    }
     goHome();
   };
 
   const dismissAfterShareDecision = () => {
     setShareBanner(null);
+    goHome();
+  };
+
+  const dismissProtectionBanner = () => {
+    setProtectionBanner(null);
     goHome();
   };
 
@@ -697,6 +724,32 @@ export default function ActiveSession() {
               <Pressable
                 style={[styles.dismissBtn]}
                 onPress={dismissAfterShareDecision}
+              >
+                <Text style={styles.dismissText}>{t('active.finish')}</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : protectionBanner ? (
+          // Premium Streak Protection: the run was halved, not wiped.
+          // Shows what it held so the paid perk is felt at the moment
+          // it matters. Free tier never reaches this branch.
+          <View style={styles.shareBanner}>
+            <Text style={styles.shareTitle}>
+              <Text style={{ color: dsColors.accentBlue }}>
+                {t('active.streak_protected_title')}
+              </Text>
+            </Text>
+            <Text style={styles.protectionSub}>
+              {t('active.streak_protected_body')}
+              {'  '}
+              <Text style={styles.protectionNums}>
+                {protectionBanner.from} → {protectionBanner.to}
+              </Text>
+            </Text>
+            <View style={styles.shareBtnRow}>
+              <Pressable
+                style={[styles.dismissBtn]}
+                onPress={dismissProtectionBanner}
               >
                 <Text style={styles.dismissText}>{t('active.finish')}</Text>
               </Pressable>
@@ -1068,6 +1121,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  protectionSub: {
+    marginTop: 6,
+    color: dsColors.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  protectionNums: {
+    color: dsColors.accentBlue,
+    fontWeight: '800',
   },
   shareBtnRow: {
     flexDirection: 'row',
