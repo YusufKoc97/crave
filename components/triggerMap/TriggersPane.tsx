@@ -196,31 +196,44 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
               index={1}
             />
           </View>
-          <View style={styles.section}>
-            <TriggerDistribution
-              triggers={data.triggers}
-              addictionId={addiction.id}
-              periodLabel={t(`trigger_map.period.${period}`)}
-              index={2}
-            />
-          </View>
+          {/* Premium gate: the trigger DISTRIBUTION (the "why") is the
+              paid interpretation layer. Free users keep the heatmap +
+              peak hours (the "when") clear above, and see this one
+              blurred with an unlock CTA. Insight cards stay free in v1
+              — gating them too would need reordering the pane (they
+              intentionally mount at the top) and would put a paywall
+              card first, a poor first impression. */}
+          {isPremium ? (
+            <View style={styles.section}>
+              <TriggerDistribution
+                triggers={data.triggers}
+                addictionId={addiction.id}
+                periodLabel={t(`trigger_map.period.${period}`)}
+                index={2}
+              />
+            </View>
+          ) : (
+            <FreeTierGate>
+              <View style={styles.section}>
+                <TriggerDistribution
+                  triggers={data.triggers}
+                  addictionId={addiction.id}
+                  periodLabel={t(`trigger_map.period.${period}`)}
+                  index={2}
+                />
+              </View>
+            </FreeTierGate>
+          )}
         </>
       )}
     </View>
   );
 
-  // TEMP-PREMIUM-GATE-DISABLED — 2026-07-18
-  // Trigger-map paywall is intentionally lifted for design & code
-  // iteration on this tab. Real gate MUST be restored before ship;
-  // restore by wrapping `content` in <FreeTierGate> and gating on
-  // `useIsPremium()` the same way every other paywalled surface
-  // will. Grep for TEMP-PREMIUM-GATE-DISABLED to find every knob
-  // that needs flipping back. Do not delete the FreeTierGate import
-  // or `isPremium` binding — leaving them in place keeps the diff
-  // to a one-line JSX swap when we come back.
-  void isPremium;
-  void FreeTierGate;
-
+  // Premium gate is LIVE (2026-08-14): the trigger DISTRIBUTION section
+  // above is gated on `useIsPremium()` via <FreeTierGate>. Everyone is
+  // free today (useIsPremium() hardcoded false), so pre-launch this
+  // simply means the distribution renders blurred with an unlock CTA
+  // that is a no-op until the paywall milestone injects onUpgrade.
   return (
     <TriggersAccentProvider accent={accent}>
       <View style={styles.root}>
