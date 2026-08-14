@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Lock } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
+import { useIsPremium } from '@/lib/premium';
+import { useComparison } from '@/lib/comparison';
 import { dsSectionHeaderStyle, dsSpacing } from '@/constants/designSystem';
 import { ComparisonAurora } from './ComparisonAurora';
 import { PulseCard } from './PulseCard';
@@ -13,9 +15,40 @@ import { LaunchState } from './LaunchState';
 import { LowDataBanner } from './LowDataState';
 import { FreeGate } from './FreeGate';
 import { compColors, compHexAlpha } from './comparisonTheme';
-// TEMP-COMPARISON-MOCK-DATA — remove import + call in ComparisonPane
-// when the real `comparison-data` Edge Function lands.
+import { toComparisonData } from './mapResult';
+import type { ComparisonData } from './__mockData';
+// TEMP-COMPARISON-MOCK-DATA — mock powers ONLY the __DEV__ state
+// cycler (design preview of full/launch/lowdata/free without seeding a
+// live cohort). Production always renders real `comparison-data`
+// output; when the dev chip is off (REAL), mock is never called.
 import { mockComparisonFor, type ComparisonState } from './__mockData';
+
+/**
+ * Honest zeroed fallback while the real query is loading or the
+ * function is unreachable — NEVER the mock's fabricated community
+ * numbers. Renders the Launch panel with a 0 count ("community
+ * forming"); distribution/standing/patterns don't paint in launch.
+ */
+const EMPTY_LAUNCH: ComparisonData = {
+  state: 'launch',
+  pulse: {
+    peopleThisWeek: 0,
+    cravingsResisted: 0,
+    topTrigger: { label: t('comparison.pulse_no_trigger'), percent: 0 },
+    ticker: [],
+  },
+  distribution: [],
+  standing: { percentPos: 0, tone: 'low' },
+  patterns: {
+    clock: { startHour: 0, endHour: 3, sharePct: 0 },
+    wave: { techniqueLabel: t('comparison.pulse_no_trigger'), successPct: 0 },
+    bar: {
+      values: [0, 0, 0, 0, 0, 0, 0],
+      hardestDayIdx: 0,
+      labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+    },
+  },
+};
 
 /**
  * Modül 4 root panel — the "gözlemevi" (observatory).
@@ -52,29 +85,101 @@ type Props = {
 };
 
 export function ComparisonPane({ addiction }: Props) {
-  const [state, setState] = useState<ComparisonState>('full');
-  const data = mockComparisonFor(state);
+  const isPremium = useIsPremium();
+  const query = useComparison(addiction.id);
 
-  // Full / Free / LowData all render the Distribution grid;
-  // Launch swaps the grid for the LaunchState marketing panel.
-  // Free will one day wrap FULL content in `<FreeGate>` — see
-  // TEMP-PREMIUM-GATE-DISABLED marker below.
-  const isLowData = state === 'lowdata';
-  const isLaunch = state === 'launch';
+  // Dev-only state cycler: null = REAL (live query), otherwise a
+  // forced mock state for previewing layouts without a seeded cohort.
+  const [devState, setDevState] = useState<ComparisonState | null>(null);
 
-  // Standing hero renders only when we have both community
-  // aggregates AND enough personal data — i.e. FULL / FREE only.
-  const showStanding = state === 'full' || state === 'free';
-  // Community Patterns render on FULL + FREE (LowData + Launch
-  // hide them to keep the story consistent).
-  const showPatterns = state === 'full' || state === 'free';
+  // Real aggregate → render shape. Falls back to the honest zeroed
+  // launch panel (never the mock's fake numbers) while loading / on
+  // error. The __DEV__ chip can override with a mock state.
+  const real = query.data ? toComparisonData(query.data, addiction.id) : null;
+  const data: ComparisonData =
+    __DEV__ && devState ? mockComparisonFor(devState) : (real ?? EMPTY_LAUNCH);
 
-  // TEMP-PREMIUM-GATE-DISABLED — Comparison Free-tier gate is
-  // intentionally NOT mounted yet. `FreeGate` is imported so
-  // linting doesn't drop the reference and so the eventual swap
-  // is one JSX line. When paywall lands, wrap the downstream
-  // `content` in <FreeGate addiction={} onUpgrade={...}>.
-  void FreeGate;
+  // Premium overlay is a CLIENT concern, layered on top of the
+  // backend's honesty state: a non-premium user's FULL view renders as
+  // FREE (Pulse + Standing free; Distribution + Patterns gated).
+  // launch / lowdata have no premium content to gate, so they pass
+  // through untouched. In dev, a forced chip state previews verbatim.
+  const forcedPreview = __DEV__ && !!devState;
+  const effectiveState: ComparisonState = forcedPreview
+    ? data.state
+    : !isPremium && data.state === 'full'
+      ? 'free'
+      : data.state;
+
+  const isLowData = effectiveState === 'lowdata';
+  const isLaunch = effectiveState === 'launch';
+  const isFree = effectiveState === 'free';
+  const isFull = effectiveState === 'full';
+
+  // ── Composable blocks (order differs between FULL and FREE) ──
+  const distributionBlock = (
+    <>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionKicker}>
+          {t('comparison.you_vs_community')}
+        </Text>
+        <View style={styles.sectionRule} />
+      </View>
+
+      {isLowData ? (
+        <LowDataBanner addiction={addiction} done={4} total={6} />
+      ) : null}
+
+      <View style={styles.stack}>
+        {data.distribution.map((metric, i) => (
+          <DistributionCard
+            key={metric.key}
+            metric={metric}
+            addiction={addiction}
+            index={i}
+            ghost={isLowData}
+          />
+        ))}
+      </View>
+    </>
+  );
+
+  const standingBlock = (
+    <View style={{ marginTop: 20 }}>
+      <StandingCard addiction={addiction} data={data.standing} />
+    </View>
+  );
+
+  const patternsBlock = (
+    <>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionKicker}>
+          {t('comparison.community_patterns')}
+        </Text>
+        <View style={styles.sectionRule} />
+      </View>
+      <View style={styles.stack}>
+        <PatternCard
+          kind="clock"
+          data={data.patterns}
+          addiction={addiction}
+          index={0}
+        />
+        <PatternCard
+          kind="wave"
+          data={data.patterns}
+          addiction={addiction}
+          index={1}
+        />
+        <PatternCard
+          kind="bar"
+          data={data.patterns}
+          addiction={addiction}
+          index={2}
+        />
+      </View>
+    </>
+  );
 
   return (
     <View style={styles.root}>
@@ -92,8 +197,8 @@ export function ComparisonPane({ addiction }: Props) {
         {/* Dev-only state cycler chip — never renders in prod. */}
         {__DEV__ ? (
           <DevStateChip
-            state={state}
-            onCycle={() => setState(cycleState(state))}
+            state={devState}
+            onCycle={() => setDevState(cycleDevState(devState))}
             accentColor={addiction.color}
           />
         ) : null}
@@ -108,69 +213,28 @@ export function ComparisonPane({ addiction }: Props) {
               count={data.pulse.peopleThisWeek}
             />
           </View>
-        ) : (
+        ) : isFree ? (
+          // FREE funnel: Standing teaser stays crisp (the free hook —
+          // "you're in the top X%"), then the deep-dive (Distribution
+          // + Patterns) sits under ONE gate with a single CTA.
           <>
-            {/* Section 2: You vs. Community */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionKicker}>
-                {t('comparison.you_vs_community')}
-              </Text>
-              <View style={styles.sectionRule} />
+            {standingBlock}
+            <View style={{ marginTop: 20 }}>
+              <FreeGate addiction={addiction}>
+                {distributionBlock}
+                {patternsBlock}
+              </FreeGate>
             </View>
-
-            {isLowData ? (
-              <LowDataBanner addiction={addiction} done={4} total={6} />
-            ) : null}
-
-            <View style={styles.stack}>
-              {data.distribution.map((metric, i) => (
-                <DistributionCard
-                  key={metric.key}
-                  metric={metric}
-                  addiction={addiction}
-                  index={i}
-                  ghost={isLowData}
-                />
-              ))}
-            </View>
-
-            {showStanding ? (
-              <View style={{ marginTop: 20 }}>
-                <StandingCard addiction={addiction} data={data.standing} />
-              </View>
-            ) : null}
-
-            {showPatterns ? (
-              <>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionKicker}>
-                    {t('comparison.community_patterns')}
-                  </Text>
-                  <View style={styles.sectionRule} />
-                </View>
-                <View style={styles.stack}>
-                  <PatternCard
-                    kind="clock"
-                    data={data.patterns}
-                    addiction={addiction}
-                    index={0}
-                  />
-                  <PatternCard
-                    kind="wave"
-                    data={data.patterns}
-                    addiction={addiction}
-                    index={1}
-                  />
-                  <PatternCard
-                    kind="bar"
-                    data={data.patterns}
-                    addiction={addiction}
-                    index={2}
-                  />
-                </View>
-              </>
-            ) : null}
           </>
+        ) : isFull ? (
+          <>
+            {distributionBlock}
+            {standingBlock}
+            {patternsBlock}
+          </>
+        ) : (
+          // lowdata: ghosted distribution only (no standing/patterns).
+          distributionBlock
         )}
 
         {/* Anonymous footer — visible on every state. */}
@@ -187,16 +251,20 @@ export function ComparisonPane({ addiction }: Props) {
 
 // ─────────────────── Dev-only state chip ───────────────────
 
-const STATE_ORDER: readonly ComparisonState[] = [
+// null = REAL (live query); the rest force a mock preview state.
+const DEV_ORDER: readonly (ComparisonState | null)[] = [
+  null,
   'full',
   'launch',
   'lowdata',
   'free',
 ] as const;
 
-function cycleState(current: ComparisonState): ComparisonState {
-  const i = STATE_ORDER.indexOf(current);
-  return STATE_ORDER[(i + 1) % STATE_ORDER.length];
+function cycleDevState(
+  current: ComparisonState | null
+): ComparisonState | null {
+  const i = DEV_ORDER.indexOf(current);
+  return DEV_ORDER[(i + 1) % DEV_ORDER.length];
 }
 
 const STATE_LABEL: Record<ComparisonState, string> = {
@@ -211,10 +279,11 @@ function DevStateChip({
   onCycle,
   accentColor,
 }: {
-  state: ComparisonState;
+  state: ComparisonState | null;
   onCycle: () => void;
   accentColor: string;
 }) {
+  const label = state ? STATE_LABEL[state] : 'REAL';
   return (
     <Pressable
       onPress={onCycle}
@@ -226,10 +295,10 @@ function DevStateChip({
         },
       ]}
       accessibilityRole="button"
-      accessibilityLabel={`Cycle comparison state (currently ${STATE_LABEL[state]})`}
+      accessibilityLabel={`Cycle comparison state (currently ${label})`}
     >
       <Text style={[styles.devChipText, { color: compColors.textSecondary }]}>
-        ◑ {STATE_LABEL[state]}
+        ◑ {label}
       </Text>
     </Pressable>
   );

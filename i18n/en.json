@@ -430,7 +430,14 @@
     "free_title": "See where you stand",
     "free_body": "Compare your progress with everyone resisting {{addiction}} — anonymously.",
     "free_cta": "Unlock with Premium",
-    "anonymous_footer": "All comparisons are anonymous"
+    "anonymous_footer": "All comparisons are anonymous",
+    "pulse_no_trigger": "—",
+    "ticker_resisted": "{{count}} cravings resisted this week",
+    "ticker_people": "{{count}} people showed up this week",
+    "ticker_trigger": "{{trigger}} led the cravings this week",
+    "delta_fewer": "{{count}} fewer",
+    "delta_more": "{{count}} more",
+    "delta_same": "same as average"
   },
   "journey": {
     "your_rank": "YOUR RANK",
