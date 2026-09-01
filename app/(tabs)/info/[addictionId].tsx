@@ -34,6 +34,7 @@ import {
 } from '@/constants/designSystem';
 import type { Technique } from '@/constants/toolkitCatalog';
 import { t } from '@/lib/i18n';
+import { openPaywall } from '@/lib/paywall';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 type SubTab = 'journey' | 'toolkit' | 'triggers' | 'comparison';
@@ -257,12 +258,11 @@ function JourneyPane({ addiction }: { addiction: Addiction }) {
         addiction={addiction}
         onStart={async () => {
           if (atLimit) {
-            // Free-tier limit hit — bounce to the standard removal
-            // Alert so the user knows what to do.
-            Alert.alert(
-              t('errors.addiction_limit_reached'),
-              t('errors.addiction_limit_reached')
-            );
+            // Free-tier limit hit — route to the paywall, same as the
+            // add-addiction picker and the Info list. (The old code
+            // popped an Alert whose title AND body were the identical
+            // string, and offered no way to actually upgrade.)
+            openPaywall('addiction_limit');
             return;
           }
           try {

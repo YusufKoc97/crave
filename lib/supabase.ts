@@ -32,6 +32,15 @@ export type Database = {
           onboarding_completed: boolean;
           momentum: number;
           streak: number;
+          // Server-truth premium entitlement (migration 012). Flipped by
+          // the RevenueCat webhook; read by useIsPremium() + Edge gates.
+          is_premium: boolean;
+          // Streak Protection monthly-cap counter (migration 013).
+          // Written only by resolve-craving. `period` is the 'YYYY-MM'
+          // the count belongs to (null = never used); `used` is how many
+          // protections fired that month.
+          streak_protection_period: string | null;
+          streak_protection_used: number;
           created_at: string;
         };
         Insert: {
@@ -40,12 +49,18 @@ export type Database = {
           onboarding_completed?: boolean;
           momentum?: number;
           streak?: number;
+          is_premium?: boolean;
+          streak_protection_period?: string | null;
+          streak_protection_used?: number;
         };
         Update: {
           username?: string | null;
           onboarding_completed?: boolean;
           momentum?: number;
           streak?: number;
+          is_premium?: boolean;
+          streak_protection_period?: string | null;
+          streak_protection_used?: number;
         };
         Relationships: [];
       };

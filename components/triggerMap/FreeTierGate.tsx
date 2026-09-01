@@ -19,13 +19,10 @@ import { useTriggersAccent } from './triggersAccent';
  * gradient dep) — the boxShadow + border alpha stack does the
  * "aurora" work.
  *
- * The CTA is a no-op today; wired through `onUpgrade` so the
- * paywall milestone only needs to inject a handler.
- *
- * NOTE: This component is currently NOT mounted (see
- * TEMP-PREMIUM-GATE-DISABLED in TriggersPane). Design polished
- * ahead of the paywall milestone so restoring the gate is a
- * single JSX swap.
+ * MOUNTED & LIVE (2026-08-14): TriggersPane wraps the trigger
+ * DISTRIBUTION section in this gate for every non-premium user.
+ * The CTA is still a no-op — `onUpgrade` is not passed yet, so the
+ * paywall milestone only needs to inject a handler here.
  */
 
 type Props = {

@@ -10,6 +10,8 @@ import { useUserStats } from '@/lib/userStats';
 import { overallRankFromTotalPoints } from '@/lib/overallRank';
 import { CoreHero } from '@/components/profile/CoreHero';
 import { LifetimePanel } from '@/components/profile/LifetimePanel';
+import { StreakMapPanel } from '@/components/profile/StreakMapPanel';
+import { DevSeedBadge } from '@/components/profile/DevSeedBadge';
 import { FeedingRow } from '@/components/profile/FeedingRow';
 import {
   DeleteDialog,
@@ -187,6 +189,7 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <DevSeedBadge />
         <CoreHero
           handle={handle}
           rankName={overall.current.name}
@@ -204,6 +207,8 @@ export default function ProfileScreen() {
           longestStreakDays={stats.longestStreakDays}
           successRate={stats.successRate}
         />
+
+        <StreakMapPanel />
 
         {sortedTracked.length > 0 ? (
           <>

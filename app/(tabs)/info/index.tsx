@@ -8,6 +8,7 @@ import {
 } from '@/constants/addictions';
 import { useAddictions } from '@/context/AddictionsContext';
 import { useAddictionScores } from '@/context/AddictionScoresContext';
+import { openPaywall } from '@/lib/paywall';
 import { AddictionCard } from '@/components/info/AddictionCard';
 import { rankEmblemColor } from '@/components/ranks/RankEmblem';
 import {
@@ -62,7 +63,10 @@ export default function InfoScreen() {
 
   const onStartTracking = async (addictionId: string, name: string) => {
     if (atLimit) {
-      Alert.alert(t('errors.addiction_limit_reached'));
+      // Free ceiling reached — send the intent to the paywall (same as
+      // the add-addiction picker's locked tokens), not an Alert that is
+      // a silent no-op on web and a dead end everywhere.
+      openPaywall('addiction_limit');
       return;
     }
     try {

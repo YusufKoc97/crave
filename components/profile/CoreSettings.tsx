@@ -17,6 +17,8 @@ import {
 } from 'lucide-react-native';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 import { t } from '@/lib/i18n';
+import { openPaywall } from '@/lib/paywall';
+import { useIsPremium } from '@/lib/premium';
 import {
   coreDanger,
   coreDivider,
@@ -88,46 +90,41 @@ export function SettingsRow({
 }
 
 /**
- * Working skeleton for the settings rows. `Alert.alert` is a silent
- * no-op on web, which is why "none of the buttons did anything" —
- * every row now opens a real in-app sheet in the app's own surface
- * language. The sheets are deliberately skeletons: the paywall and
- * the language switch get their real designs later, but the plumbing
- * (open, close, select) already works.
+ * Upgrade row → the real paywall.
+ *
+ * This used to open a "Coming soon" skeleton sheet (there was no
+ * paywall to point at). Now it funnels through `openPaywall('profile')`
+ * — the single entry point every gate CTA shares (`lib/paywall.ts`) —
+ * so the profile upsell and the in-context gates all land on the same
+ * screen. The LanguageRow below still uses the SettingsSheet skeleton.
+ *
+ * For a user who is ALREADY premium there is nothing to upsell, so the
+ * row becomes a static "Premium active" confirmation instead — no
+ * onPress (hence no chevron, no paywall). Pitching premium to someone
+ * who already paid reads as a bug.
  */
 export function PremiumRow() {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
+  const isPremium = useIsPremium();
+  if (isPremium) {
+    return (
       <SettingsRow
-        icon={<Sparkles size={18} color={neon(0.95)} strokeWidth={2} />}
-        label={t('profile.upgrade_premium')}
+        icon={<Check size={18} color={neon(0.95)} strokeWidth={2.4} />}
+        label={t('profile.premium_active')}
         labelColor={neon(0.95)}
         wash
-        onPress={() => setOpen(true)}
         showDivider
       />
-      {open && (
-        <SettingsSheet
-          title={t('profile.premium_sheet_title')}
-          onClose={() => setOpen(false)}
-        >
-          <View style={styles.soonChip}>
-            <Text style={styles.soonChipText}>{t('profile.coming_soon')}</Text>
-          </View>
-          {[
-            t('profile.premium_feature_insights'),
-            t('profile.premium_feature_addictions'),
-            t('profile.premium_feature_themes'),
-          ].map((feature) => (
-            <View key={feature} style={styles.featureRow}>
-              <Sparkles size={14} color={neon(0.85)} strokeWidth={2} />
-              <Text style={styles.featureText}>{feature}</Text>
-            </View>
-          ))}
-        </SettingsSheet>
-      )}
-    </>
+    );
+  }
+  return (
+    <SettingsRow
+      icon={<Sparkles size={18} color={neon(0.95)} strokeWidth={2} />}
+      label={t('profile.upgrade_premium')}
+      labelColor={neon(0.95)}
+      wash
+      onPress={() => openPaywall('profile')}
+      showDivider
+    />
   );
 }
 

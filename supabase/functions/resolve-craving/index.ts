@@ -47,6 +47,7 @@ import {
   RATE_LIMIT_MAX_PER_HOUR,
   streakAfterGiveIn,
   streakAfterResist,
+  STREAK_PROTECTION_MONTHLY_CAP,
   type Outcome,
 } from '../../../shared/scoring.ts';
 import { isKnownAddiction } from '../../../shared/catalog.ts';
@@ -479,7 +480,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ─── Momentum + streak ───
   const { data: profile } = await svc
     .from('profiles')
-    .select('momentum, streak, is_premium')
+    .select(
+      'momentum, streak, is_premium, streak_protection_period, streak_protection_used'
+    )
     .eq('id', userId)
     .single();
   const currentMomentum = profile?.momentum ?? 50;
@@ -491,6 +494,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   let updatedMomentum = currentMomentum;
   let updatedStreak = currentStreak;
+  // Set true only when this specific slip was actually softened by a
+  // premium protection (used in the response so the client can show
+  // "streak dropped to X" instead of "reset to 0").
+  let protectionApplied = false;
 
   if (outcome === 'resisted') {
     updatedMomentum = nextMomentum({
@@ -509,15 +516,43 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .update({ momentum: updatedMomentum, streak: updatedStreak })
       .eq('id', userId);
   } else {
-    // 'failed' (gave in) breaks the run. Free → 0; premium keeps half
-    // (Streak Protection). Momentum is intentionally left untouched on
-    // a slip — only the streak reflects the outcome.
-    updatedStreak = streakAfterGiveIn(currentStreak, isPremium);
+    // 'failed' (gave in) breaks the run. Without protection → 0.
+    //
+    // Streak Protection (premium) softens a slip to half the streak,
+    // but only up to STREAK_PROTECTION_MONTHLY_CAP times per calendar
+    // month — unlimited softening would drain the streak of meaning.
+    // The counter lives on the profile row; a change of month resets it
+    // implicitly (we compare the stored period to the current one rather
+    // than running a scheduled reset). Momentum is left untouched on a
+    // slip — only the streak reflects the outcome.
+    const currentPeriod = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
+    const storedPeriod = profile?.streak_protection_period ?? null;
+    const usedThisPeriod =
+      storedPeriod === currentPeriod
+        ? (profile?.streak_protection_used ?? 0)
+        : 0;
 
-    await svc
-      .from('profiles')
-      .update({ streak: updatedStreak })
-      .eq('id', userId);
+    // A protection is only meaningful when there's actually a run to
+    // save (streak > 0), so a slip at streak 0 never consumes a monthly
+    // allowance.
+    protectionApplied =
+      isPremium &&
+      currentStreak > 0 &&
+      usedThisPeriod < STREAK_PROTECTION_MONTHLY_CAP;
+
+    updatedStreak = streakAfterGiveIn(currentStreak, protectionApplied);
+
+    const update: {
+      streak: number;
+      streak_protection_period?: string;
+      streak_protection_used?: number;
+    } = { streak: updatedStreak };
+    if (protectionApplied) {
+      update.streak_protection_period = currentPeriod;
+      update.streak_protection_used = usedThisPeriod + 1;
+    }
+
+    await svc.from('profiles').update(update).eq('id', userId);
   }
 
   const { data: totalRow } = await svc
@@ -536,8 +571,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     previous_streak: currentStreak,
     // True only when a give-in was softened by premium Streak Protection
     // (streak halved) instead of a full reset — lets the client show
-    // "streak dropped to X" rather than "streak reset to 0".
-    streak_protected: outcome === 'failed' && isPremium,
+    // "streak dropped to X" rather than "streak reset to 0". False once
+    // the monthly cap is spent, even for a premium user.
+    streak_protected: protectionApplied,
     newly_unlocked_ranks: newlyUnlocked,
   });
 });

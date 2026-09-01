@@ -4,6 +4,7 @@ import { Lock } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
 import { useIsPremium } from '@/lib/premium';
+import { openPaywall } from '@/lib/paywall';
 import { useComparison } from '@/lib/comparison';
 import { dsSectionHeaderStyle, dsSpacing } from '@/constants/designSystem';
 import { ComparisonAurora } from './ComparisonAurora';
@@ -74,10 +75,13 @@ const EMPTY_LAUNCH: ComparisonData = {
  * dataset for the selected chip state. When the Edge Function
  * lands, replace that single call with the query result.
  *
- * Free-tier gate is DEFINED (see `FreeGate.tsx`) but not mounted
- * because paywalling all downstream module surfaces is deferred
- * to a dedicated Premium milestone. TEMP-PREMIUM-GATE-DISABLED —
- * one-line JSX swap in `renderStateContent` will restore it.
+ * Free-tier gate is LIVE: a non-premium user whose backend state
+ * is `full` is downgraded to `free` (see `effectiveState` below),
+ * which mounts `<FreeGate>` over Distribution + Patterns while the
+ * Pulse + Standing hooks stay crisp. The one piece still unbuilt is
+ * the CTA destination — `onUpgrade` is not yet passed, so the
+ * "Unlock with Premium" button is a no-op until the paywall screen
+ * lands. Wiring that handler is the only remaining step here.
  */
 
 type Props = {
@@ -220,7 +224,10 @@ export function ComparisonPane({ addiction }: Props) {
           <>
             {standingBlock}
             <View style={{ marginTop: 20 }}>
-              <FreeGate addiction={addiction}>
+              <FreeGate
+                addiction={addiction}
+                onUpgrade={() => openPaywall('comparison')}
+              >
                 {distributionBlock}
                 {patternsBlock}
               </FreeGate>

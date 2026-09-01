@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
@@ -21,6 +22,20 @@ type AuthContextValue = {
    * `session: null` and bounces back, requiring a manual reload.
    */
   applySession: (session: Session | null) => void;
+  /**
+   * Server-truth premium entitlement (`profiles.is_premium`). The
+   * client UI gate `useIsPremium()` (lib/premium.ts) reads this. It is
+   * fetched here — the topmost provider — so every consumer, including
+   * AddictionsProvider (which sits ABOVE SessionsProvider and so can't
+   * read entitlement from there), sees the same value.
+   *
+   * Defaults false; flips true once the profile row is read. Until the
+   * RevenueCat webhook is wired, the column is set out-of-band (manually
+   * for testing, later by the webhook) — the client just reflects it.
+   */
+  isPremium: boolean;
+  /** Re-read `is_premium` — call after a purchase/restore completes. */
+  refreshPremium: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -28,6 +43,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
     supabase.auth
@@ -68,6 +84,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Entitlement follows the signed-in user. Re-reads whenever the
+  // session identity changes; clears to false on sign-out.
+  const refreshPremium = useCallback(async () => {
+    const uid = session?.user?.id;
+    if (!uid) {
+      setIsPremium(false);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('is_premium')
+      .eq('id', uid)
+      .single();
+    if (error) {
+      // A transient read failure must NOT strip premium the user paid
+      // for — keep the last known value and log. Server-side gates read
+      // the column directly, so they stay correct regardless.
+      console.warn('is_premium fetch failed', error);
+      return;
+    }
+    setIsPremium(!!data?.is_premium);
+  }, [session]);
+
+  useEffect(() => {
+    void refreshPremium();
+  }, [refreshPremium]);
+
   const signOut = async () => {
     // Surface the failure. supabase.auth.signOut() returns `{ error }`
     // and never throws — a network-dropped sign-out returns early
@@ -87,6 +130,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signOut,
         applySession: setSession,
+        isPremium,
+        refreshPremium,
       }}
     >
       {children}

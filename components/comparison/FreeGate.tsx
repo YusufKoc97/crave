@@ -13,12 +13,10 @@ import { compColors, compHexAlpha } from './comparisonTheme';
  * with Premium" CTA. Same paywall grammar as Triggers'
  * `FreeTierGate`.
  *
- * NOTE: This component is DEFINED but NOT MOUNTED. It waits
- * behind the `TEMP-PREMIUM-GATE-DISABLED` marker in
- * ComparisonPane.tsx — one-line JSX swap will restore the gate
- * when the paywall milestone lands. Keeping the import + the
- * `void FreeGate` binding preserved so `git blame` records the
- * intent.
+ * MOUNTED & LIVE: ComparisonPane renders this over Distribution +
+ * Patterns whenever a non-premium user resolves to the `free`
+ * state. The only unfinished piece is `onUpgrade` — no handler is
+ * passed yet, so the CTA is a no-op until the paywall screen ships.
  */
 
 type Props = {

@@ -10,9 +10,10 @@ import {
 } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { X } from 'lucide-react-native';
+import { ChevronRight, Crown, X } from 'lucide-react-native';
 import {
   ADDICTION_CATALOG,
+  PREMIUM_ACTIVE_LIMIT,
   type AddictionCategory,
 } from '@/constants/addictions';
 import { GlowDisc } from '@/components/ui/GlowDisc';
@@ -23,6 +24,8 @@ import {
 import { PoolToken } from '@/components/addictionPicker/PoolToken';
 import {
   ADDICTION_ICON,
+  GOLD,
+  goldA,
   pickerColors,
   pickerLayout,
   pickerRadius,
@@ -30,6 +33,7 @@ import {
 import { hexAlpha } from '@/constants/designSystem';
 import { useAddictions } from '@/context/AddictionsContext';
 import { hapticTap, hapticWarn } from '@/lib/haptics';
+import { openPaywall } from '@/lib/paywall';
 import { t } from '@/lib/i18n';
 
 /**
@@ -137,9 +141,13 @@ export default function AddictionPickerScreen() {
 
   const onEquip = async (id: string) => {
     if (atLimit) {
-      // No sentence, no dialog — the panel refuses in place.
+      // The panel still refuses in place (the socket shakes — a tactile
+      // "locked"), but tapping a locked token is the strongest possible
+      // "I want another focus" signal, so we now also route that intent
+      // to the paywall instead of leaving it a dead end.
       hapticWarn();
       setRejectSignal((s) => s + 1);
+      openPaywall('addiction_limit');
       return;
     }
     hapticTap();
@@ -171,11 +179,12 @@ export default function AddictionPickerScreen() {
         ? t('picker.subtitle_one')
         : t('picker.subtitle_many', { count: limit });
 
-  const hint = atLimit
-    ? t('picker.hint_full')
-    : slots.length > 0
-      ? t('picker.hint_unequip')
-      : t('picker.hint_first');
+  // At the limit the premium pitch now lives in the upsell banner below,
+  // so the loadout hint stays a useful action cue ("tap a slot to
+  // unequip") instead of a second "go Premium" line stacked on the
+  // banner. hint_full is retired.
+  const hint =
+    slots.length > 0 ? t('picker.hint_unequip') : t('picker.hint_first');
 
   return (
     <View style={styles.root}>
@@ -230,6 +239,32 @@ export default function AddictionPickerScreen() {
             unequipA11y: (name) => t('picker.unequip_a11y', { name }),
           }}
         />
+
+        {/* Premium upsell — only when the free ceiling is reached. Keeps
+            the loadout's physical "one slot" truth, then offers the way
+            past it instead of leaving the limit a dead end. */}
+        {atLimit ? (
+          <Pressable
+            onPress={() => openPaywall('addiction_limit')}
+            style={({ pressed }) => [
+              styles.upsell,
+              pressed && styles.upsellPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={t('picker.upsell_a11y')}
+          >
+            <View style={styles.upsellIcon}>
+              <Crown size={18} color={GOLD} strokeWidth={2} />
+            </View>
+            <View style={styles.upsellText}>
+              <Text style={styles.upsellTitle}>{t('picker.upsell_title')}</Text>
+              <Text style={styles.upsellBody}>
+                {t('picker.upsell_body', { max: PREMIUM_ACTIVE_LIMIT })}
+              </Text>
+            </View>
+            <ChevronRight size={18} color={goldA(0.8)} strokeWidth={2} />
+          </Pressable>
+        ) : null}
 
         {CATEGORY_ORDER.map((cat) => {
           const list = pool[cat];
@@ -345,6 +380,45 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingHorizontal: pickerLayout.pagePadding,
     paddingBottom: 34,
+  },
+  upsell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 18,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: goldA(0.08),
+    borderWidth: 1,
+    borderColor: goldA(0.32),
+  },
+  upsellPressed: {
+    opacity: 0.7,
+  },
+  upsellIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: goldA(0.12),
+    borderWidth: 1,
+    borderColor: goldA(0.28),
+  },
+  upsellText: {
+    flex: 1,
+  },
+  upsellTitle: {
+    color: pickerColors.title,
+    fontSize: 14.5,
+    fontWeight: '700',
+  },
+  upsellBody: {
+    color: pickerColors.subtitle,
+    fontSize: 12.5,
+    fontWeight: '500',
+    marginTop: 2,
+    lineHeight: 17,
   },
   catRow: {
     flexDirection: 'row',

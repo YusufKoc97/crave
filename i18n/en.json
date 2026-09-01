@@ -58,6 +58,9 @@
     "hint_first": "Tap a token below to equip your first",
     "hint_unequip": "Tap a slot to unequip it",
     "hint_full": "All slots equipped — go Premium for more",
+    "upsell_title": "You're at your free limit",
+    "upsell_body": "Unlock Premium to track up to {{max}} habits at once.",
+    "upsell_a11y": "Unlock Premium to track more habits",
     "category_count": "{{shown}} of {{total}}",
     "equip_a11y": "Equip {{name}}",
     "unequip_a11y": "Unequip {{name}}",
@@ -156,10 +159,7 @@
     "language_value": "English",
     "language_turkish": "Türkçe",
     "upgrade_premium": "Upgrade to Premium",
-    "premium_sheet_title": "Crave Premium",
-    "premium_feature_insights": "Deeper trigger insights",
-    "premium_feature_addictions": "Unlimited tracked addictions",
-    "premium_feature_themes": "Exclusive core themes",
+    "premium_active": "Premium active",
     "coming_soon": "Coming soon",
     "close": "Close",
     "sign_out": "Sign out",
@@ -188,7 +188,24 @@
     "stat_held_short": "Held",
     "stat_techniques_short": "Toolkit",
     "stat_streak_unit_short": "d",
-    "feeding_section": "Feeding the core"
+    "feeding_section": "Feeding the core",
+    "streak_map": {
+      "label": "STREAK MAP",
+      "legend_resisted": "Resisted each day",
+      "legend_gave_in": "gave in",
+      "tap_hint": "Tap a day to see that day",
+      "day_resisted": "{{count}} resisted",
+      "day_gave_in": "gave in that day",
+      "day_none": "no cravings",
+      "empty_title": "Your map starts empty",
+      "empty_body": "Each craving you resist fills a square. Your first one lights it up.",
+      "lowdata_title": "A few squares in",
+      "lowdata_body": "The picture fills in as your map gathers more days.",
+      "lowdata_days": "{{count}} days",
+      "unlock_cta": "Unlock with Premium",
+      "unlock_body": "See your whole map, all the way back to day one.",
+      "last_14": "LAST 14 DAYS"
+    }
   },
   "active": {
     "resist": "I Resisted",
@@ -511,7 +528,9 @@
       "breathing_478": "4 cycles",
       "urge_surfing": "Ride it out",
       "grounding_54321": "5 senses",
-      "body_scan": "8 zones"
+      "body_scan": "8 zones",
+      "ride_the_wave": "Rise & fall",
+      "fake_feed": "Notice the pull"
     },
     "duration_minutes": "{{minutes}} min",
     "start": "Start",
@@ -776,5 +795,31 @@
       "hips": "Hips",
       "legs": "Legs and feet"
     }
+  },
+  "paywall": {
+    "close": "Close",
+    "title": "Crave Premium",
+    "tagline": "The number is free. The story is yours.",
+    "feature_streakmap_title": "Your full streak map",
+    "feature_streakmap_body": "Every day you've resisted, all the way back to day one — not just the last two weeks.",
+    "feature_triggers_title": "What's driving your cravings",
+    "feature_triggers_body": "See which triggers hit you hardest, and what to do about each one.",
+    "feature_comparison_title": "See where you stand",
+    "feature_comparison_body": "Compare your progress with everyone resisting the same thing — anonymously.",
+    "feature_addictions_title": "Track up to 5 at once",
+    "feature_addictions_body": "Fight several habits in parallel instead of just one.",
+    "feature_protection_title": "Streak protection",
+    "feature_protection_body": "Slip once and keep half your streak instead of falling to zero.",
+    "plan_annual_label": "Annual",
+    "plan_monthly_label": "Monthly",
+    "plan_monthly_note": "billed monthly",
+    "best_value": "BEST VALUE",
+    "trial_badge": "{{days}} days free",
+    "cta": "Start Premium",
+    "cta_sub": "Cancel anytime.",
+    "cta_sub_trial": "{{days}} days free, then {{price}} · Cancel anytime.",
+    "restore": "Restore purchase",
+    "not_live": "Purchases aren't live yet — this is a preview of Premium.",
+    "legal": "Recurring billing. Cancel anytime in your store settings."
   }
 }

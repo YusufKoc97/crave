@@ -179,21 +179,37 @@ export function streakAfterResist(currentStreak: number): number {
 }
 
 /**
+ * How many times Streak Protection may fire per calendar month.
+ *
+ * ESTIMATE / TUNABLE: 2 is a starting guess, not a validated number.
+ * Unlimited protection makes the streak meaningless and undercuts the
+ * whole point (rewarding real resistance); zero would be too punishing
+ * for a paid perk. Two slips softened per month is forgiving enough to
+ * feel premium while a third slip in one month still lands with full
+ * weight. Revisit once there is real usage data.
+ */
+export const STREAK_PROTECTION_MONTHLY_CAP = 2;
+
+/**
  * A 'failed' (gave-in) outcome breaks the consecutive-resist run.
  *
- * Free users reset fully to 0. Premium users keep HALF, rounded down —
- * the "Streak Protection" perk: a slip still costs something real (so
- * the number stays honest) but is softened rather than wiped. A streak
- * of 1 halves to 0, identical to a reset — no special-casing.
+ * Without protection the run resets fully to 0. WITH protection (a
+ * premium user who still has a monthly protection left) it keeps HALF,
+ * rounded down — the "Streak Protection" perk: a slip still costs
+ * something real (so the number stays honest) but is softened rather
+ * than wiped. A streak of 1 halves to 0, identical to a reset — no
+ * special-casing.
  *
- * KNOWN OPEN QUESTION: protection is unlimited-use for now. If users
- * lean on it constantly the streak loses meaning; revisit a monthly cap
- * (e.g. 1-2 protections/month) once there is real usage data.
+ * `protectionApplied` is the already-decided answer to "should this
+ * particular slip be softened?" — it folds in premium status AND the
+ * monthly cap. The caller owns that decision (the server counts usage
+ * per month, see resolve-craving); this function just applies it, so it
+ * stays a pure, testable transform.
  */
 export function streakAfterGiveIn(
   currentStreak: number,
-  isPremium: boolean
+  protectionApplied: boolean
 ): number {
   if (currentStreak <= 0) return 0;
-  return isPremium ? Math.floor(currentStreak / 2) : 0;
+  return protectionApplied ? Math.floor(currentStreak / 2) : 0;
 }

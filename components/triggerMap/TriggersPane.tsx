@@ -9,6 +9,7 @@ import {
 import type { Addiction } from '@/constants/addictions';
 import { useTriggerMap } from '@/lib/triggerMap';
 import { useIsPremium } from '@/lib/premium';
+import { openPaywall } from '@/lib/paywall';
 import { t } from '@/lib/i18n';
 import { dsSectionHeaderStyle, dsSpacing } from '@/constants/designSystem';
 import { PeriodFilter } from './PeriodFilter';
@@ -213,7 +214,7 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
               />
             </View>
           ) : (
-            <FreeTierGate>
+            <FreeTierGate onUpgrade={() => openPaywall('triggers')}>
               <View style={styles.section}>
                 <TriggerDistribution
                   triggers={data.triggers}

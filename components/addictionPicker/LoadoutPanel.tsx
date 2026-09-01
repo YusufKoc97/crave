@@ -9,7 +9,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { Crown, Pointer, type LucideIcon } from 'lucide-react-native';
+import { Pointer, type LucideIcon } from 'lucide-react-native';
 import { GlowDisc } from '@/components/ui/GlowDisc';
 import { LinearFill, RadialFill } from './fills';
 import { EmptySocket, FilledSocket } from './Socket';
@@ -170,7 +170,10 @@ export function LoadoutPanel({
     }
   }
 
-  const HintIcon = full ? Crown : Pointer;
+  // Always the tap pointer now: the hint is a plain action cue ("tap a
+  // slot to unequip"), never a premium pitch — the Crown + upgrade line
+  // moved to the dedicated upsell banner below the panel.
+  const HintIcon = Pointer;
   const hintColor = error
     ? pickerColors.danger
     : full
