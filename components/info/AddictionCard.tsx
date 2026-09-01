@@ -165,6 +165,8 @@ export function AddictionCard({
               { color: tracked ? TEXT_NAME_TRACKED : TEXT_NAME_UNTRACKED },
             ]}
             numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
           >
             {addiction.name}
           </Text>

@@ -320,7 +320,12 @@ export function DistributionCard({
         >
           <Icon size={19} color={accentColor} strokeWidth={2} />
         </View>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text
+          style={styles.title}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+        >
           {t(metric.labelKey)}
         </Text>
         {ghost ? (

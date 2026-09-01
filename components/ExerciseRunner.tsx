@@ -233,6 +233,8 @@ export function ExerciseRunner({
                     { color: hexAlpha(accentColor, 0.9) },
                   ]}
                   numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.72}
                 >
                   {techniqueName(technique).toUpperCase()}
                 </Text>

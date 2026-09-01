@@ -186,7 +186,12 @@ export function TechniqueCard({
 
       {/* ── Layer 4: bottom glass info panel ─────────────────── */}
       <View style={styles.glassPanel}>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text
+          style={styles.title}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.72}
+        >
           {techniqueName(technique)}
         </Text>
         <View style={styles.metaRow}>

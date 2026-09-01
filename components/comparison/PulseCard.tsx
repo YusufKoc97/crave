@@ -453,7 +453,12 @@ function TickerLine({
           },
         ]}
       />
-      <Text style={styles.tickerText} numberOfLines={1}>
+      <Text
+        style={styles.tickerText}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+      >
         {text}
       </Text>
     </Animated.View>

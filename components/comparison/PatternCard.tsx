@@ -191,7 +191,12 @@ export function PatternCard({ kind, data, addiction, index }: Props) {
         >
           <Icon size={19} color={cardColor} strokeWidth={2} />
         </View>
-        <Text style={styles.title} numberOfLines={2}>
+        <Text
+          style={styles.title}
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+        >
           {title}
         </Text>
       </View>
