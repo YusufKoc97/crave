@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { DEV_SEED_DATA, seedScoreRows, seedUnlockRows } from '@/lib/devSeed';
 import {
   RANK_LADDER,
   currentRankFromUnlocks,
@@ -110,6 +111,14 @@ export function AddictionScoresProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
+    // DEV-only random fill (see lib/devSeed.ts): fire before the user
+    // guard so ranks/roadmap/feeding rows fill in even without a signed-in
+    // session (fresh simulator via DEV_SKIP_AUTH). Gated by __DEV__.
+    if (DEV_SEED_DATA) {
+      setScores(seedScoreRows());
+      setUnlocks(seedUnlockRows());
+      return;
+    }
     if (!user) {
       setScores([]);
       setUnlocks([]);

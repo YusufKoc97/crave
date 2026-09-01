@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { isOnboardingCompleted } from '@/lib/onboarding';
 import { getUsername } from '@/lib/profile';
 import { DEV_SKIP_AUTH } from '@/lib/devBypass';
+import { DEV_SEED_DATA } from '@/lib/devSeed';
 import { colors } from '@/constants/theme';
 
 // Onboarding ENABLED — 2026-08-12
@@ -108,7 +109,7 @@ export default function Index() {
   // paused/unreachable, and avoids re-doing the age gate on every reload.
   // Runs BEFORE the onboarding check on purpose: in DEV we never want the
   // verification screen to block UI iteration.
-  if (DEV_SKIP_AUTH) {
+  if (DEV_SKIP_AUTH || DEV_SEED_DATA) {
     return <Redirect href="/(tabs)" />;
   }
 

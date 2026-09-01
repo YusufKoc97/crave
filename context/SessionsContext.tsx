@@ -10,6 +10,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { calculateResistPoints, type Outcome } from '@/lib/scoring';
+import { DEV_SEED_DATA, seedSessions, seedTotals } from '@/lib/devSeed';
 
 /**
  * Faz 3: session-level scoring, momentum, and streak are all computed
@@ -119,6 +120,18 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
 
   // ── Hydrate from Supabase on sign-in ────────────────────────────────
   useEffect(() => {
+    // DEV-only random fill (see lib/devSeed.ts): fire even without a
+    // signed-in user, so the seeded profile is inspectable in a fresh
+    // simulator via DEV_SKIP_AUTH. Gated by __DEV__, never in prod.
+    if (DEV_SEED_DATA) {
+      const totals = seedTotals();
+      setSessions(seedSessions(Date.now()));
+      setTotalPoints(totals.totalPoints);
+      setMomentum(totals.momentum);
+      setStreak(totals.streak);
+      return;
+    }
+
     if (!user) {
       // Sign-out (or delete) drops `user` to null. This provider lives
       // above the router and never unmounts, so without an explicit
@@ -132,6 +145,7 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       setStreak(0);
       return;
     }
+
     let cancelled = false;
 
     (async () => {

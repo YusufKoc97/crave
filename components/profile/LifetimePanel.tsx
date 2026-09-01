@@ -109,7 +109,9 @@ export function LifetimePanel({
         <View style={styles.medallions}>
           <Medallion
             value={longestStreakDays}
-            unit={t('profile.stat_streak_unit_short')}
+            // The streak is consecutive RESISTED cravings (event-based),
+            // not calendar days — so no "d" unit, which misread as days.
+            unit=""
             label={t('profile.stat_streak_short')}
             delay={350}
           />

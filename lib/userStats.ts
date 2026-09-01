@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from './supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useSessions } from '@/context/SessionsContext';
+import { DEV_SEED_DATA, seedUserStats } from './devSeed';
 
 /**
  * Profile-screen statistics aggregator.
@@ -66,6 +67,10 @@ export function useUserStats(): UserStats {
     const successRate = total > 0 ? resisted / total : 0;
     return { resisted, successRate };
   }, [sessions]);
+
+  // DEV-only random fill for visual QA (see lib/devSeed.ts). Placed
+  // after every hook call so the Rules of Hooks stay satisfied.
+  if (DEV_SEED_DATA) return seedUserStats();
 
   return {
     cravingsResisted: derived.resisted,
