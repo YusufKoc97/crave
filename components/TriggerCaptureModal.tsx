@@ -83,6 +83,17 @@ export function TriggerCaptureModal({
     () => triggersFor(addictionId),
     [addictionId]
   );
+  // Common triggers split into two honest sub-sections: emotional
+  // states ("how you felt") vs bodily/situational cues ("body &
+  // situation"). Constant across renders.
+  const commonFeelings = useMemo(
+    () => COMMON_TRIGGERS.filter((x) => x.group !== 'context'),
+    []
+  );
+  const commonContext = useMemo(
+    () => COMMON_TRIGGERS.filter((x) => x.group === 'context'),
+    []
+  );
   const [selected, setSelected] = useState<string[]>([]);
 
   // Server-side 30-day counts, already sorted count-desc by the
@@ -214,7 +225,7 @@ export function TriggerCaptureModal({
 
             <SectionLabel text={t('trigger_capture.how_you_felt')} />
             <View style={styles.chipRow}>
-              {COMMON_TRIGGERS.map((trigger) => (
+              {commonFeelings.map((trigger) => (
                 <TriggerChip
                   key={trigger.id}
                   trigger={trigger}
@@ -225,6 +236,24 @@ export function TriggerCaptureModal({
                 />
               ))}
             </View>
+
+            {commonContext.length > 0 && (
+              <>
+                <SectionLabel text={t('trigger_capture.body_situation')} />
+                <View style={styles.chipRow}>
+                  {commonContext.map((trigger) => (
+                    <TriggerChip
+                      key={trigger.id}
+                      trigger={trigger}
+                      isSelected={selected.includes(trigger.id)}
+                      dimmed={atCap && !selected.includes(trigger.id)}
+                      accentColor={accentColor}
+                      onToggle={() => toggle(trigger.id)}
+                    />
+                  ))}
+                </View>
+              </>
+            )}
 
             {specificTriggers.length > 0 && (
               <>
@@ -443,8 +472,9 @@ function TriggerChip({
         styles.chip,
         isSelected
           ? {
-              borderColor: hexAlpha(accentColor, 0.45),
-              backgroundColor: hexAlpha(accentColor, 0.14),
+              borderColor: hexAlpha(accentColor, 0.55),
+              backgroundColor: hexAlpha(accentColor, 0.16),
+              boxShadow: `0 0 14px ${hexAlpha(accentColor, 0.3)}`,
             }
           : styles.chipIdle,
         dimmed && styles.dimmed,

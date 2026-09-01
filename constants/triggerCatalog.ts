@@ -22,6 +22,11 @@ export type Trigger = {
    *  otherwise the addiction_id it belongs to. */
   scope: 'common' | string;
   displayOrder: number;
+  /** Common triggers only — which sub-section they render under:
+   *  'feeling' (an emotional state) vs 'context' (a bodily/situational
+   *  cue). Undefined for addiction-specific triggers, which all live in
+   *  the single "the moment" group. */
+  group?: 'feeling' | 'context';
 };
 
 /**
@@ -38,18 +43,25 @@ export type Trigger = {
  * cravings ride good moods too, not only bad ones.
  */
 export const COMMON_TRIGGERS: readonly Trigger[] = [
-  { id: 'stress', scope: 'common', displayOrder: 1 },
-  { id: 'anxiety', scope: 'common', displayOrder: 2 },
-  { id: 'overwhelm', scope: 'common', displayOrder: 3 },
-  { id: 'restlessness', scope: 'common', displayOrder: 4 },
-  { id: 'boredom', scope: 'common', displayOrder: 5 },
-  { id: 'loneliness', scope: 'common', displayOrder: 6 },
-  { id: 'sadness', scope: 'common', displayOrder: 7 },
-  { id: 'anger', scope: 'common', displayOrder: 8 },
-  { id: 'tiredness', scope: 'common', displayOrder: 9 },
-  { id: 'hunger', scope: 'common', displayOrder: 10 },
-  { id: 'celebration', scope: 'common', displayOrder: 11 },
-  { id: 'social_situation', scope: 'common', displayOrder: 12 },
+  // Feelings — emotional states (incl. the positive one, celebration).
+  { id: 'stress', scope: 'common', displayOrder: 1, group: 'feeling' },
+  { id: 'anxiety', scope: 'common', displayOrder: 2, group: 'feeling' },
+  { id: 'overwhelm', scope: 'common', displayOrder: 3, group: 'feeling' },
+  { id: 'restlessness', scope: 'common', displayOrder: 4, group: 'feeling' },
+  { id: 'boredom', scope: 'common', displayOrder: 5, group: 'feeling' },
+  { id: 'loneliness', scope: 'common', displayOrder: 6, group: 'feeling' },
+  { id: 'sadness', scope: 'common', displayOrder: 7, group: 'feeling' },
+  { id: 'anger', scope: 'common', displayOrder: 8, group: 'feeling' },
+  { id: 'celebration', scope: 'common', displayOrder: 9, group: 'feeling' },
+  // Body & situation — physical/behavioural cues, not emotions.
+  { id: 'hunger', scope: 'common', displayOrder: 10, group: 'context' },
+  { id: 'tiredness', scope: 'common', displayOrder: 11, group: 'context' },
+  {
+    id: 'social_situation',
+    scope: 'common',
+    displayOrder: 12,
+    group: 'context',
+  },
 ] as const;
 
 /**
