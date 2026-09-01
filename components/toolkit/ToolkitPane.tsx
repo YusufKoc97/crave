@@ -4,10 +4,7 @@ import type { Technique } from '@/constants/toolkitCatalog';
 import { GlassSegmentedControl, type ToolkitSegment } from './CarouselChrome';
 import { ToolkitCarousel } from './ToolkitCarousel';
 import { ToolkitAurora } from './ToolkitAurora';
-import { BreathingOrbPreview } from './previews/BreathingOrbPreview';
-import { WaveSurfPreview } from './previews/WaveSurfPreview';
-import { GroundingDotsPreview } from './previews/GroundingDotsPreview';
-import { BodyScanSweepPreview } from './previews/BodyScanSweepPreview';
+import { CardScene } from './previews/CardScene';
 import { dsSectionHeaderStyle, dsSpacing } from '@/constants/designSystem';
 import { t } from '@/lib/i18n';
 
@@ -37,19 +34,11 @@ type Props = {
   onSelect: (technique: Technique) => void;
 };
 
-function pickPreview(techniqueId: string): React.ReactNode {
-  switch (techniqueId) {
-    case 'breathing_478':
-      return <BreathingOrbPreview />;
-    case 'urge_surfing':
-      return <WaveSurfPreview />;
-    case 'grounding_54321':
-      return <GroundingDotsPreview />;
-    case 'body_scan':
-      return <BodyScanSweepPreview />;
-    default:
-      return null;
-  }
+// Every technique gets a bespoke constellation scene (CardScene). The
+// focused card's chart pulses; neighbours hold a fixed frame — same art,
+// no empty gradients, animation cost constant.
+function pickPreview(techniqueId: string, animate: boolean): React.ReactNode {
+  return <CardScene techniqueId={techniqueId} animate={animate} />;
 }
 
 export function ToolkitPane({ accentColor, addictionId, onSelect }: Props) {
@@ -79,7 +68,7 @@ export function ToolkitPane({ accentColor, addictionId, onSelect }: Props) {
         onSelect={onSelect}
         focusedIndex={focusedIndex}
         onIndexChange={setFocusedIndex}
-        renderPreview={(tech) => pickPreview(tech.id)}
+        renderPreview={(tech, animate) => pickPreview(tech.id, animate)}
       />
     </View>
   );

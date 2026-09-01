@@ -54,7 +54,7 @@ type Props = {
   /** Reports the newly-snapped index after a swipe settles. */
   onIndexChange?: (index: number) => void;
   /** Optional render slot — mounts under the focused card only. */
-  renderPreview?: (technique: Technique) => React.ReactNode;
+  renderPreview?: (technique: Technique, animate: boolean) => React.ReactNode;
   /** Called once at mount with the shared scroll offset so parents
    *  can drive background parallax off the same value. */
   onScrollShared?: (scrollX: SharedValue<number>) => void;
@@ -155,7 +155,7 @@ function CardSlot({
   snapInterval: number;
   onSelect: () => void;
   isFocused: boolean;
-  renderPreview?: (technique: Technique) => React.ReactNode;
+  renderPreview?: (technique: Technique, animate: boolean) => React.ReactNode;
 }) {
   const animatedStyle = useAnimatedStyle(() => {
     const centerScrollX = index * snapInterval;
@@ -169,9 +169,11 @@ function CardSlot({
     };
   });
 
-  // Only the focused card gets the animated preview mount
-  // (karar #4B — neighbours stay static, animation cost constant).
-  const preview = isFocused && renderPreview ? renderPreview(technique) : null;
+  // Every card now renders its scene so none reads as an empty gradient
+  // (the old `berbat` neighbours). Only the FOCUSED card animates
+  // (`animate=isFocused`); neighbours show the same scene at a static
+  // resting frame — animation cost stays constant (karar #4B upheld).
+  const preview = renderPreview ? renderPreview(technique, isFocused) : null;
 
   return (
     <Animated.View
