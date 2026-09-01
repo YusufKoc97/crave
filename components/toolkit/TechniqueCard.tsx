@@ -37,7 +37,6 @@ import {
   PLAY_ICON_COLOR,
   PLAY_SIZE,
   SCENE_HUES,
-  TEXT_MUTED,
   TEXT_SUBTITLE,
   TEXT_TITLE,
   hexAlpha,
@@ -218,17 +217,12 @@ export function TechniqueCard({
         </View>
 
         <View style={styles.panelBottomRow}>
-          <Text style={styles.positionLabel}>
-            {t('toolkit.card_position', {
-              current: index + 1,
-              total,
-            })}
-          </Text>
           <PlayButton />
         </View>
 
-        {/* Passive progress bar — reflects (index+1)/total. Live
-            "now playing" fill was intentionally cut per karar #3A;
+        {/* Passive progress bar — the sole, quiet position indicator
+            now that the "N of M" label is gone. Reflects (index+1)/total.
+            Live "now playing" fill was intentionally cut per karar #3A;
             the runner modal owns the actual timer. */}
         <View style={styles.progressTrack}>
           <View
@@ -398,16 +392,25 @@ const styles = StyleSheet.create({
     bottom: PANEL_INSET,
     padding: 16,
     borderRadius: PANEL_RADIUS,
-    backgroundColor: GLASS_BG,
     borderWidth: 1,
-    borderColor: GLASS_BORDER,
     ...glassBlurWeb,
-    // Faint inset highlight at the top — sells "glass edge caught the light".
     ...Platform.select({
       web: {
+        // Web can actually frost — keep the milky fill behind the blur.
+        backgroundColor: GLASS_BG,
+        borderColor: GLASS_BORDER,
+        borderTopColor: 'rgba(255,255,255,0.22)',
         boxShadow: `inset 0 1px 0 ${GLASS_INSET_HIGHLIGHT}`,
       } as never,
-      default: {},
+      default: {
+        // No backdrop blur on native, so a flat milky fill read as a
+        // heavy grey block. A smoked translucent glass is lighter and
+        // more elegant, and lets the scene bleed faintly through; a
+        // brighter top edge sells "glass caught the light".
+        backgroundColor: 'rgba(12,15,23,0.42)',
+        borderColor: 'rgba(255,255,255,0.06)',
+        borderTopColor: 'rgba(255,255,255,0.16)',
+      },
     }),
   },
   title: {
@@ -438,14 +441,8 @@ const styles = StyleSheet.create({
   panelBottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     marginBottom: 12,
-  },
-  positionLabel: {
-    color: TEXT_MUTED,
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: FONT_STACK,
   },
   playBtn: {
     width: PLAY_SIZE,
