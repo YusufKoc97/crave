@@ -119,12 +119,13 @@ const INTENSITY_LABELS = [
 ] as const;
 type IntensityLabel = (typeof INTENSITY_LABELS)[number];
 
-/** Map 1–5 → label; null → null. */
+/** Map a 1–10 intensity onto one of the five labels (2 values per
+ *  band: 1–2 mild … 9–10 unbearable). null / out-of-range → null. */
 function labelForIntensity(
   value: number | null | undefined
 ): IntensityLabel | null {
-  if (!value || value < 1 || value > 5) return null;
-  return INTENSITY_LABELS[value - 1];
+  if (!value || value < 1 || value > 10) return null;
+  return INTENSITY_LABELS[Math.ceil(value / 2) - 1];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -200,7 +201,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // ── Aggregate: heatmap + intensity_map (per cell average) ──
   // heatmap[day][hour] = count. intensity_map[day][hour] = avg
-  // intensity 1-5 (or null when no ratings). We accumulate sums
+  // intensity 1-10 (or null when no ratings). We accumulate sums
   // and non-null counts side-by-side then divide at the end.
   const heatmap: number[][] = Array.from({ length: 7 }, () =>
     Array(24).fill(0)
@@ -223,7 +224,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (
       typeof s.intensity === 'number' &&
       s.intensity >= 1 &&
-      s.intensity <= 5
+      s.intensity <= 10
     ) {
       intensitySum[day][hour] += s.intensity;
       intensityCounts[day][hour] += 1;
@@ -283,7 +284,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (
       typeof s.intensity === 'number' &&
       s.intensity >= 1 &&
-      s.intensity <= 5
+      s.intensity <= 10
     ) {
       sessionIntensity.set(s.id, s.intensity);
     }
@@ -293,12 +294,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   for (const row of triggerRows) {
     const existing = perTrigger.get(row.trigger_id) ?? {
       count: 0,
-      // Index 0 = intensity 1 (mild) … index 4 = intensity 5.
+      // One bucket per label band (index 0 = mild … 4 = unbearable);
+      // a 1–10 intensity maps in via ceil(v/2)-1.
       buckets: [0, 0, 0, 0, 0],
     };
     existing.count += 1;
     const intensity = sessionIntensity.get(row.session_id);
-    if (intensity) existing.buckets[intensity - 1] += 1;
+    if (intensity) existing.buckets[Math.ceil(intensity / 2) - 1] += 1;
     perTrigger.set(row.trigger_id, existing);
   }
 

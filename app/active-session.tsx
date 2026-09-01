@@ -426,15 +426,10 @@ export default function ActiveSession() {
   };
 
   const onIntensityPick = (intensity: number | null) => {
-    // The dial reports 1–10, but the column is still guarded by
-    // `CHECK (intensity BETWEEN 1 AND 5)` (migration 003), and the
-    // trigger-map Edge Function maps 1–5 onto its five labels. Until
-    // both are widened, halve on write: a 6–10 value would be
-    // rejected outright by Postgres and lose the whole resolve.
-    // Delete this line and pass `intensity` straight through once
-    // the constraint and `labelForIntensity` accept 1–10.
-    pendingIntensity.current =
-      intensity === null ? null : Math.ceil(intensity / 2);
+    // The dial reports 1–10 and the column now stores 1–10 directly
+    // (migration 014 widened the CHECK; the trigger-map Edge Function
+    // buckets 1–10 → its five labels). No scaling on write.
+    pendingIntensity.current = intensity;
     // Resist path chains into the trigger picker. On iOS, wait for the
     // intensity modal to finish dismissing (onIntensityDismissed) so the
     // second modal isn't presented mid-dismiss and dropped; Android can

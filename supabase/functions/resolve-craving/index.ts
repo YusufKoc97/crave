@@ -23,7 +23,7 @@
  *     ended_at: iso,        // client wall-clock
  *     sensitivity: 1..10,
  *     outcome: 'resisted' | 'failed',
- *     intensity?: 1..5,     // only meaningful on resisted
+ *     intensity?: 1..10,    // only meaningful on resisted
  *     trigger_ids: string[] // ≥1 required (client enforces min-1)
  *   }
  *
@@ -192,7 +192,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const intensity =
     typeof body.intensity === 'number' &&
     body.intensity >= 1 &&
-    body.intensity <= 5
+    body.intensity <= 10
       ? body.intensity
       : null;
 
