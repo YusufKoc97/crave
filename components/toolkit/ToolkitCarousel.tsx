@@ -53,6 +53,11 @@ type Props = {
   focusedIndex: number;
   /** Reports the newly-snapped index after a swipe settles. */
   onIndexChange?: (index: number) => void;
+  /** Optional predicate to narrow the offered set (e.g. the
+   *  "Favorites" segment). Applied on top of the addiction's
+   *  technique list. Callers must not render this carousel when the
+   *  predicate would empty the deck — the pane owns that empty state. */
+  filter?: (technique: Technique) => boolean;
   /** Optional render slot — mounts under the focused card only. */
   renderPreview?: (technique: Technique, animate: boolean) => React.ReactNode;
   /** Called once at mount with the shared scroll offset so parents
@@ -66,6 +71,7 @@ export function ToolkitCarousel({
   onSelect,
   focusedIndex,
   onIndexChange,
+  filter,
   renderPreview,
   onScrollShared,
 }: Props) {
@@ -74,10 +80,10 @@ export function ToolkitCarousel({
   const sidePadding = Math.max(24, (screenW - CARD_W) / 2);
   // The offered set for this addiction — swipe/snap/select behaviour is
   // unchanged, it just runs over this list instead of the global one.
-  const techniques = useMemo(
-    () => techniquesForAddiction(addictionId),
-    [addictionId]
-  );
+  const techniques = useMemo(() => {
+    const base = techniquesForAddiction(addictionId);
+    return filter ? base.filter(filter) : base;
+  }, [addictionId, filter]);
   const lastIndex = techniques.length - 1;
 
   const scrollX = useSharedValue(0);

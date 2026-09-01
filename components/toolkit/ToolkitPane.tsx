@@ -1,10 +1,16 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import type { Technique } from '@/constants/toolkitCatalog';
+import { Heart } from 'lucide-react-native';
+import {
+  techniquesForAddiction,
+  type Technique,
+} from '@/constants/toolkitCatalog';
 import { GlassSegmentedControl, type ToolkitSegment } from './CarouselChrome';
 import { ToolkitCarousel } from './ToolkitCarousel';
 import { ToolkitAurora } from './ToolkitAurora';
 import { CardScene } from './previews/CardScene';
+import { CARD_H, FONT_STACK, TEXT_SUBTITLE, TEXT_TITLE } from './carouselStyle';
+import { useToolkitFavorites } from '@/lib/useToolkitFavorites';
 import { dsSectionHeaderStyle, dsSpacing } from '@/constants/designSystem';
 import { t } from '@/lib/i18n';
 
@@ -25,6 +31,11 @@ import { t } from '@/lib/i18n';
  * Holds `focusedIndex` state so the carousel + preview slot stay
  * in sync. Only the focused card mounts its animated preview
  * (karar #4B).
+ *
+ * The "Favorites" segment narrows the deck to the techniques the
+ * user has starred (per-device, via useToolkitFavorites). When the
+ * favorites deck is empty the pane shows a gentle prompt rather than
+ * an empty carousel.
  */
 
 type Props = {
@@ -44,6 +55,35 @@ function pickPreview(techniqueId: string, animate: boolean): React.ReactNode {
 export function ToolkitPane({ accentColor, addictionId, onSelect }: Props) {
   const [segment, setSegment] = useState<ToolkitSegment>('all');
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const { favorites } = useToolkitFavorites();
+
+  const offered = useMemo(
+    () => techniquesForAddiction(addictionId),
+    [addictionId]
+  );
+  const favoriteFilter = useCallback(
+    (tech: Technique) => favorites.has(tech.id),
+    [favorites]
+  );
+  const favoritesOffered = useMemo(
+    () => offered.filter((tech) => favorites.has(tech.id)),
+    [offered, favorites]
+  );
+
+  const onFavorites = segment === 'favorites';
+  const favoritesEmpty = onFavorites && favoritesOffered.length === 0;
+
+  // Remount key: on Favorites it changes with the deck size so the
+  // carousel resets to the first card when the user stars/unstars while
+  // viewing it (no stranded index, scroll snaps back to 0). On All it
+  // stays constant so favoriting a card there preserves scroll position.
+  const carouselKey = onFavorites ? `fav-${favoritesOffered.length}` : 'all';
+
+  // Keep the parent-owned focus index in range whenever the rendered
+  // deck is rebuilt (segment switch or a favorites edit).
+  useEffect(() => {
+    setFocusedIndex(0);
+  }, [carouselKey]);
 
   return (
     <View style={styles.root}>
@@ -62,14 +102,39 @@ export function ToolkitPane({ accentColor, addictionId, onSelect }: Props) {
 
       <GlassSegmentedControl active={segment} onChange={setSegment} />
 
-      <ToolkitCarousel
-        accentColor={accentColor}
-        addictionId={addictionId}
-        onSelect={onSelect}
-        focusedIndex={focusedIndex}
-        onIndexChange={setFocusedIndex}
-        renderPreview={(tech, animate) => pickPreview(tech.id, animate)}
-      />
+      {favoritesEmpty ? (
+        <FavoritesEmpty />
+      ) : (
+        <ToolkitCarousel
+          // Remount when the rendered deck changes so scroll offset +
+          // scale interpolation reset to the first card.
+          key={carouselKey}
+          accentColor={accentColor}
+          addictionId={addictionId}
+          onSelect={onSelect}
+          focusedIndex={focusedIndex}
+          onIndexChange={setFocusedIndex}
+          filter={onFavorites ? favoriteFilter : undefined}
+          renderPreview={(tech, animate) => pickPreview(tech.id, animate)}
+        />
+      )}
+    </View>
+  );
+}
+
+/** Shown when the Favorites segment is active but nothing is starred
+ *  yet for this addiction. Keeps the pane height stable (≈ card height)
+ *  so switching segments doesn't make the layout jump. */
+function FavoritesEmpty() {
+  return (
+    <View style={styles.emptyWrap}>
+      <View style={styles.emptyIconRing}>
+        <Heart color={TEXT_SUBTITLE} size={26} strokeWidth={2} />
+      </View>
+      <Text style={styles.emptyTitle}>
+        {t('toolkit.favorites_empty_title')}
+      </Text>
+      <Text style={styles.emptyHint}>{t('toolkit.favorites_empty_hint')}</Text>
     </View>
   );
 }
@@ -95,5 +160,37 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  emptyWrap: {
+    height: CARD_H,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 48,
+  },
+  emptyIconRing: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    marginBottom: 18,
+  },
+  emptyTitle: {
+    color: TEXT_TITLE,
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: FONT_STACK,
+    marginBottom: 8,
+  },
+  emptyHint: {
+    color: TEXT_SUBTITLE,
+    fontSize: 14,
+    fontWeight: '500',
+    fontFamily: FONT_STACK,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

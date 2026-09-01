@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { clearActiveSessionId, clearPendingFinish } from './activeSession';
 import { resetOnboarding } from './onboarding';
+import { resetFavoritesCache } from './toolkitFavorites';
 
 /**
  * Local-state purge shared by sign-out and account deletion.
@@ -50,6 +51,11 @@ export async function purgeLocalUserState({
     ADDICTIONS_ACTIVE_KEY,
     ADDICTIONS_SEEDED_KEY,
   ]);
+
+  // Starred toolkit techniques are a per-device convenience, not PII,
+  // but a shared device should still not leak one user's go-to set to
+  // the next — clear the in-memory cache and the persisted key.
+  await resetFavoritesCache();
 
   if (includeOnboarding) await resetOnboarding();
 

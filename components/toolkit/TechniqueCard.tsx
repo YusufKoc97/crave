@@ -4,6 +4,7 @@ import {
   Activity,
   Clock,
   Hand,
+  Heart,
   Layers,
   PersonStanding,
   Play,
@@ -19,6 +20,7 @@ import {
   type Technique,
 } from '@/constants/toolkitCatalog';
 import { t } from '@/lib/i18n';
+import { useToolkitFavorites } from '@/lib/useToolkitFavorites';
 import {
   CARD_BG_BOT,
   CARD_BG_TOP,
@@ -76,6 +78,11 @@ type Props = {
   preview?: ReactNode;
 };
 
+// Warm rose for the active favorite — reads as "saved" against the
+// card's cool cosmic scene without borrowing the addiction accent
+// (which owns play/dot/progress).
+const FAV_ACTIVE_COLOR = '#FF6E9C';
+
 const TYPE_ICONS: Record<Technique['type'], ComponentType<LucideProps>> = {
   breathing: Wind,
   mindfulness: Waves,
@@ -104,6 +111,8 @@ export function TechniqueCard({
 }: Props) {
   const hues = SCENE_HUES[technique.id];
   const TypeIcon = TYPE_ICONS[technique.type];
+  const { favorites, toggle } = useToolkitFavorites();
+  const isFavorite = favorites.has(technique.id);
 
   return (
     <Pressable
@@ -152,6 +161,28 @@ export function TechniqueCard({
           {t(TYPE_LABEL_KEYS[technique.type])}
         </Text>
       </View>
+
+      {/* ── Top-right favorite toggle ───────────────────────────
+          Nested Pressable: on native the inner responder handles the
+          tap so favoriting never opens the exercise. hitSlop keeps the
+          small glass circle comfortably tappable. */}
+      <Pressable
+        onPress={() => toggle(technique.id)}
+        style={styles.favBtn}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityState={{ selected: isFavorite }}
+        accessibilityLabel={t(
+          isFavorite ? 'toolkit.favorite_remove' : 'toolkit.favorite_add'
+        )}
+      >
+        <Heart
+          color={isFavorite ? FAV_ACTIVE_COLOR : '#ffffff'}
+          fill={isFavorite ? FAV_ACTIVE_COLOR : 'transparent'}
+          size={17}
+          strokeWidth={2.2}
+        />
+      </Pressable>
 
       {/* ── Layer 4: bottom glass info panel ─────────────────── */}
       <View style={styles.glassPanel}>
@@ -336,6 +367,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
     fontFamily: FONT_STACK,
+  },
+
+  // Favorite toggle (top-right) — glass circle mirroring the type pill.
+  favBtn: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: GLASS_BG,
+    borderWidth: 1,
+    borderColor: GLASS_BORDER,
+    ...smallGlassBlurWeb,
   },
 
   // Glass info panel (bottom)

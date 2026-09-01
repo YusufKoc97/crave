@@ -19,9 +19,9 @@ import {
  * Toolkit carousel chrome — the non-card UI around the swipe deck:
  *   - GlassBackButton (top-left, closes the sub-tab)
  *   - CarouselHeader ("Toolkit" title + "Swipe to explore" hint)
- *   - GlassSegmentedControl (All / Quick · under 3m — visual only
- *     for now per karar #1B; segment tap flips the active state,
- *     the card list stays at 4)
+ *   - GlassSegmentedControl (All / Favorites — Favorites narrows the
+ *     deck to the user's starred techniques; empty state handled by
+ *     the pane)
  *   - DotNavigation (4 dots, active one stretches to a 22pt pill
  *     in accent color; tap → snap to that card)
  *
@@ -59,7 +59,7 @@ export function CarouselHeader() {
 
 // ─────────────── Segmented control ───────────────
 
-export type ToolkitSegment = 'all' | 'quick';
+export type ToolkitSegment = 'all' | 'favorites';
 
 export function GlassSegmentedControl({
   active,
@@ -76,9 +76,9 @@ export function GlassSegmentedControl({
         onPress={() => onChange('all')}
       />
       <SegmentPill
-        label={t('toolkit.segment_quick')}
-        isActive={active === 'quick'}
-        onPress={() => onChange('quick')}
+        label={t('toolkit.segment_favorites')}
+        isActive={active === 'favorites'}
+        onPress={() => onChange('favorites')}
       />
     </View>
   );
