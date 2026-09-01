@@ -275,7 +275,11 @@
       "sadness": "Sadness",
       "tiredness": "Tiredness",
       "anger": "Anger",
-      "social_situation": "Social situation"
+      "social_situation": "Social situation",
+      "hunger": "Hunger",
+      "celebration": "Celebration",
+      "overwhelm": "Overwhelm",
+      "restlessness": "Restlessness"
     },
     "nicotine": {
       "after_coffee": "After coffee",

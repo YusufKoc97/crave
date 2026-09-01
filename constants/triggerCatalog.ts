@@ -25,19 +25,31 @@ export type Trigger = {
 };
 
 /**
- * Eight shared triggers that appear on every craving-start screen
- * above the addiction-specific list. Kept short on purpose — a
- * longer list turns the picker into a wall of chips.
+ * Shared triggers that appear on every craving screen above the
+ * addiction-specific list. Kept reasonably short — a longer list turns
+ * the picker into a wall of chips — but broad enough to cover the
+ * common states a craving rides in on.
+ *
+ * Coverage rationale: the classic HALT recovery cue (Hungry, Angry,
+ * Lonely, Tired) is all represented (hunger / anger / loneliness /
+ * tiredness), plus the high-arousal negatives (stress, anxiety,
+ * overwhelm, restlessness), the low-arousal negatives (sadness,
+ * boredom), and — deliberately — a positive one (celebration), since
+ * cravings ride good moods too, not only bad ones.
  */
 export const COMMON_TRIGGERS: readonly Trigger[] = [
   { id: 'stress', scope: 'common', displayOrder: 1 },
-  { id: 'loneliness', scope: 'common', displayOrder: 2 },
-  { id: 'boredom', scope: 'common', displayOrder: 3 },
-  { id: 'anxiety', scope: 'common', displayOrder: 4 },
-  { id: 'sadness', scope: 'common', displayOrder: 5 },
-  { id: 'tiredness', scope: 'common', displayOrder: 6 },
-  { id: 'anger', scope: 'common', displayOrder: 7 },
-  { id: 'social_situation', scope: 'common', displayOrder: 8 },
+  { id: 'anxiety', scope: 'common', displayOrder: 2 },
+  { id: 'overwhelm', scope: 'common', displayOrder: 3 },
+  { id: 'restlessness', scope: 'common', displayOrder: 4 },
+  { id: 'boredom', scope: 'common', displayOrder: 5 },
+  { id: 'loneliness', scope: 'common', displayOrder: 6 },
+  { id: 'sadness', scope: 'common', displayOrder: 7 },
+  { id: 'anger', scope: 'common', displayOrder: 8 },
+  { id: 'tiredness', scope: 'common', displayOrder: 9 },
+  { id: 'hunger', scope: 'common', displayOrder: 10 },
+  { id: 'celebration', scope: 'common', displayOrder: 11 },
+  { id: 'social_situation', scope: 'common', displayOrder: 12 },
 ] as const;
 
 /**

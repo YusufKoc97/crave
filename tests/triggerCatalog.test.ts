@@ -15,8 +15,18 @@ import { ADDICTION_CATALOG } from '@/constants/addictions';
  */
 
 describe('COMMON_TRIGGERS', () => {
-  it('has exactly 8 common triggers (brief spec)', () => {
-    expect(COMMON_TRIGGERS.length).toBe(8);
+  it('has exactly 12 common triggers (brief spec)', () => {
+    expect(COMMON_TRIGGERS.length).toBe(12);
+  });
+
+  it('covers the HALT cue plus a positive trigger', () => {
+    const ids = new Set(COMMON_TRIGGERS.map((t) => t.id));
+    // HALT: Hungry, Angry, Lonely, Tired.
+    for (const id of ['hunger', 'anger', 'loneliness', 'tiredness']) {
+      expect(ids.has(id), `missing HALT trigger ${id}`).toBe(true);
+    }
+    // Cravings ride good moods too — a positive option must exist.
+    expect(ids.has('celebration')).toBe(true);
   });
 
   it('every common row is scoped "common"', () => {

@@ -57,6 +57,10 @@ type Props = {
   visible: boolean;
   accentColor: string;
   onSelect: (intensity: number | null) => void;
+  /** iOS-only — fires once the modal has finished dismissing. The
+   *  caller uses it to chain the next modal (the trigger picker)
+   *  without racing this one's dismiss animation. */
+  onDismiss?: () => void;
 };
 
 const DIAL = 186;
@@ -108,7 +112,7 @@ function bandKeyFor(level: number) {
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-export function IntensityModal({ visible, onSelect }: Props) {
+export function IntensityModal({ visible, onSelect, onDismiss }: Props) {
   const [level, setLevel] = useState(START_LEVEL);
   const [trackW, setTrackW] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -252,6 +256,7 @@ export function IntensityModal({ visible, onSelect }: Props) {
       transparent
       animationType="fade"
       onRequestClose={() => onSelect(null)}
+      onDismiss={onDismiss}
       statusBarTranslucent
     >
       <View style={styles.backdrop}>

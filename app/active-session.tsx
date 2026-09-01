@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  AppState,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import Animated, {
   useSharedValue,
@@ -193,6 +200,11 @@ export default function ActiveSession() {
   const [triggerModalOpen, setTriggerModalOpen] = useState(false);
   const pendingOutcome = useRef<Outcome | null>(null);
   const pendingIntensity = useRef<number | null>(null);
+  // iOS can't present the trigger modal while the intensity modal is
+  // still dismissing (the sheet silently never appears). On iOS we set
+  // this flag and open the trigger picker from the intensity modal's
+  // onDismiss instead; Android has no such race and opens inline.
+  const chainTriggerAfterIntensity = useRef(false);
   // Faz 6: toolkit picker + runner state. Picker is the bottom
   // sheet; runner is the full-screen guided flow. Both are RN
   // Modals so they overlay the running timer without unmounting
@@ -414,7 +426,6 @@ export default function ActiveSession() {
   };
 
   const onIntensityPick = (intensity: number | null) => {
-    setIntensityOpen(false);
     // The dial reports 1–10, but the column is still guarded by
     // `CHECK (intensity BETWEEN 1 AND 5)` (migration 003), and the
     // trigger-map Edge Function maps 1–5 onto its five labels. Until
@@ -424,8 +435,25 @@ export default function ActiveSession() {
     // the constraint and `labelForIntensity` accept 1–10.
     pendingIntensity.current =
       intensity === null ? null : Math.ceil(intensity / 2);
-    // Resist path chains straight into the trigger picker.
-    setTriggerModalOpen(true);
+    // Resist path chains into the trigger picker. On iOS, wait for the
+    // intensity modal to finish dismissing (onIntensityDismissed) so the
+    // second modal isn't presented mid-dismiss and dropped; Android can
+    // open immediately.
+    setIntensityOpen(false);
+    if (Platform.OS === 'ios') {
+      chainTriggerAfterIntensity.current = true;
+    } else {
+      setTriggerModalOpen(true);
+    }
+  };
+
+  // iOS-only: fires after the intensity modal has fully dismissed. This
+  // is the safe moment to present the trigger picker.
+  const onIntensityDismissed = () => {
+    if (chainTriggerAfterIntensity.current) {
+      chainTriggerAfterIntensity.current = false;
+      setTriggerModalOpen(true);
+    }
   };
 
   const onTriggerCancel = () => {
@@ -827,6 +855,7 @@ export default function ActiveSession() {
         visible={intensityOpen}
         accentColor={accentColor}
         onSelect={onIntensityPick}
+        onDismiss={onIntensityDismissed}
       />
 
       {/* Faz 5 REVERSAL — post-outcome trigger capture. Fires from
