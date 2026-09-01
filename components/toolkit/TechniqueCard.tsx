@@ -280,7 +280,12 @@ const styles = StyleSheet.create({
         opacity: 0.75,
       } as never,
       default: {
-        opacity: 0.55,
+        // Hard-edged on native (no blur) — kept low so it only adds a
+        // whisper of asymmetric depth. CardScene's soft nebula is the
+        // real atmosphere now; at higher opacity these discs stacked
+        // with it and read as heavy blobs (incl. a magenta wash over
+        // the title on native).
+        opacity: 0.22,
       },
     }),
   },
