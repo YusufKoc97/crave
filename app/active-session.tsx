@@ -51,8 +51,12 @@ import { invalidateTriggerMaps } from '@/lib/queryClient';
 import type { Technique } from '@/constants/toolkitCatalog';
 
 const TIMER_SIZE = 220;
-const STROKE_WIDTH = 2;
-const R = (TIMER_SIZE - STROKE_WIDTH * 2) / 2;
+// Track ring stroke. Bumped from a hairline 2 → 6 so the ring reads as
+// a substantial, satisfying band on the 220px dial rather than a thin
+// wire. The accent arc rides a touch thicker still (ARC_STROKE).
+const STROKE_WIDTH = 6;
+const ARC_STROKE = 7;
+const R = (TIMER_SIZE - ARC_STROKE * 2) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * R;
 const SPINNER_RING_SIZE = TIMER_SIZE + 18;
 
@@ -113,7 +117,7 @@ function ArcProgress({
         // some margin. 0.78 still reads as "the accent" against the
         // #0F1A2C track without lighting up the whole screen.
         strokeOpacity={0.78}
-        strokeWidth={STROKE_WIDTH}
+        strokeWidth={ARC_STROKE}
         fill="transparent"
         strokeDasharray={`${CIRCUMFERENCE} ${CIRCUMFERENCE}`}
         strokeLinecap="round"
@@ -736,21 +740,39 @@ export default function ActiveSession() {
           // Faz 5 intensity modal fires BEFORE this banner shows,
           // so by the time the user sees Finish the intensity is
           // already in flight.
-          <View style={styles.shareBanner}>
-            <Text style={styles.shareTitle}>
-              <Text style={{ color: accentColor }}>+{shareBanner.points} </Text>
-              <Text style={{ color: '#F1F5F9' }}>
-                {t('active.points_earned')}
-              </Text>
+          <View
+            style={[
+              styles.shareBanner,
+              styles.shareBannerWin,
+              {
+                borderColor: hexAlpha(accentColor, 0.28),
+                boxShadow: `0 8px 22px rgba(0,0,0,0.45), 0 0 26px ${hexAlpha(
+                  accentColor,
+                  0.2
+                )}, inset 0 1px 0 rgba(255,255,255,0.06)`,
+              },
+            ]}
+          >
+            <Text style={[styles.shareWinPoints, { color: accentColor }]}>
+              +{shareBanner.points}
             </Text>
-            <View style={styles.shareBtnRow}>
-              <Pressable
-                style={[styles.dismissBtn]}
-                onPress={dismissAfterShareDecision}
-              >
-                <Text style={styles.dismissText}>{t('active.finish')}</Text>
-              </Pressable>
-            </View>
+            <Text style={styles.shareWinLabel}>
+              {t('active.points_earned')}
+            </Text>
+            <Pressable
+              style={[
+                styles.winFinishBtn,
+                {
+                  borderColor: hexAlpha(accentColor, 0.5),
+                  backgroundColor: hexAlpha(accentColor, 0.14),
+                },
+              ]}
+              onPress={dismissAfterShareDecision}
+            >
+              <Text style={[styles.winFinishText, { color: accentColor }]}>
+                {t('active.finish')}
+              </Text>
+            </Pressable>
           </View>
         ) : protectionBanner ? (
           // Premium Streak Protection: the run was halved, not wiped.
@@ -1144,6 +1166,42 @@ const styles = StyleSheet.create({
   shareTitle: {
     fontSize: 18,
     fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  // Win banner — celebratory, centered, hero points number over an
+  // accent Finish CTA (distinct from the neutral protection banner).
+  shareBannerWin: {
+    alignItems: 'center',
+    paddingTop: 22,
+    paddingBottom: 20,
+  },
+  shareWinPoints: {
+    fontSize: 42,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'],
+    lineHeight: 46,
+  },
+  shareWinLabel: {
+    marginTop: 2,
+    color: dsColors.textTertiary,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
+  },
+  winFinishBtn: {
+    marginTop: 18,
+    alignSelf: 'stretch',
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  winFinishText: {
+    fontSize: 16,
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
   protectionSub: {
