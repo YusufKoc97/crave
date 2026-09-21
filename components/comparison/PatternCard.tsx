@@ -70,6 +70,8 @@ type Props = {
   index: number;
   /** Free-tier teaser: blur this card but keep its shape readable. */
   locked?: boolean;
+  /** Blur strength when `locked` (defaults to the light teaser blur). */
+  lockedIntensity?: number;
 };
 
 export function PatternCard({
@@ -78,6 +80,7 @@ export function PatternCard({
   addiction,
   index,
   locked = false,
+  lockedIntensity,
 }: Props) {
   const [reducedMotion, setReducedMotion] = useState(false);
   useEffect(() => {
@@ -223,7 +226,7 @@ export function PatternCard({
           <BarViz data={data.bar} color={cardColor} reduced={reducedMotion} />
         )}
       </View>
-      {locked ? <LockedBlur /> : null}
+      {locked ? <LockedBlur intensity={lockedIntensity} /> : null}
     </Animated.View>
   );
 }

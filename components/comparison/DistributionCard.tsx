@@ -84,6 +84,8 @@ type Props = {
   ghost?: boolean;
   /** Free-tier teaser: blur this card but keep its shape readable. */
   locked?: boolean;
+  /** Blur strength when `locked` (defaults to the light teaser blur). */
+  lockedIntensity?: number;
 };
 
 export function DistributionCard({
@@ -92,6 +94,7 @@ export function DistributionCard({
   index,
   ghost = false,
   locked = false,
+  lockedIntensity,
 }: Props) {
   const [reducedMotion, setReducedMotion] = useState(false);
   useEffect(() => {
@@ -512,7 +515,7 @@ export function DistributionCard({
       {metric.note && !ghost ? (
         <Text style={styles.noteText}>{t(metric.note)}</Text>
       ) : null}
-      {locked ? <LockedBlur /> : null}
+      {locked ? <LockedBlur intensity={lockedIntensity} /> : null}
     </Animated.View>
   );
 }

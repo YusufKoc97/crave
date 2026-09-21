@@ -1,10 +1,12 @@
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { BlurView } from 'expo-blur';
 import { Flag, Sunrise } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
 import { compColors, compHexAlpha } from './comparisonTheme';
+import { DistributionCard } from './DistributionCard';
+import { PatternCard } from './PatternCard';
+import type { DistributionMetric, PatternsData } from './__mockData';
 
 /**
  * Launch state — shown when there aren't enough community members
@@ -12,11 +14,37 @@ import { compColors, compHexAlpha } from './comparisonTheme';
  * "yapı/söz var, sahte sayı yok. Hayalet kartlar + 'The lookout
  * before sunrise' + tek gerçek sayı ('first 500 resisters')".
  *
- * Two blurred/dim ghost cards preview the shape of what's coming
+ * Two heavily blurred preview cards (a real distribution card and a
+ * real pattern card, on neutral shape-only values) show what's coming
  * (so the layout doesn't feel empty), then a centered sunrise
  * hero card announces the honest state + the one real fact we
  * can share.
  */
+
+/**
+ * Shape-only preview for the launch state. These cards are NOT data:
+ * they exist so the user sees what the comparison will look like once the
+ * community fills in. Values are neutral and the blur is strong enough
+ * that nothing on them reads as a real number.
+ */
+const PREVIEW_BLUR = 34;
+const PREVIEW_METRIC: DistributionMetric = {
+  key: 'resistance_rate',
+  labelKey: 'comparison.metric.resistance_rate',
+  icon: 'shield-check',
+  youNum: 60,
+  suffix: '%',
+  avg: 55,
+  avgLabel: '55%',
+  sd: 15,
+  tone: 'good',
+  deltaLabel: '+5 pts',
+};
+const PREVIEW_PATTERNS: PatternsData = {
+  clock: { startHour: 19, endHour: 22, sharePct: 30 },
+  wave: { techniqueLabel: '', successPct: 0 },
+  bar: { values: [1, 1, 1, 1, 1, 1, 1], hardestDayIdx: 0, labels: [] },
+};
 
 type Props = {
   addiction: Addiction;
@@ -32,9 +60,22 @@ export function LaunchState({ addiction, count }: Props) {
       {/* Blurred/dim ghost cards — pure decorative shapes so the
           user can see the shape of what's coming without any real
           numbers. */}
-      <View style={styles.ghostStack}>
-        <GhostCard />
-        <GhostCard />
+      <View style={styles.ghostStack} pointerEvents="none">
+        <DistributionCard
+          metric={PREVIEW_METRIC}
+          addiction={addiction}
+          index={0}
+          locked
+          lockedIntensity={PREVIEW_BLUR}
+        />
+        <PatternCard
+          kind="clock"
+          data={PREVIEW_PATTERNS}
+          addiction={addiction}
+          index={1}
+          locked
+          lockedIntensity={PREVIEW_BLUR}
+        />
       </View>
 
       {/* Sunrise hero */}
@@ -105,74 +146,16 @@ export function LaunchState({ addiction, count }: Props) {
   );
 }
 
-function GhostCard() {
-  return (
-    <View style={styles.ghostCard}>
-      <View style={styles.ghostTitle} />
-      <View style={styles.ghostRow}>
-        <View style={styles.ghostChip} />
-        <View style={styles.ghostLine} />
-      </View>
-      <View style={styles.ghostRow}>
-        <View style={styles.ghostChip} />
-        <View style={styles.ghostLine} />
-      </View>
-      {/* `filter: blur` is web-only in RN; native needs a real blur
-          layer over the card's own content. */}
-      {Platform.OS !== 'web' ? (
-        <BlurView
-          pointerEvents="none"
-          intensity={9}
-          tint="dark"
-          style={StyleSheet.absoluteFill}
-        />
-      ) : null}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   ghostStack: {
     gap: 11,
-    opacity: 0.5,
+    opacity: 0.85,
     ...Platform.select({
       web: {
         filter: 'blur(2px)',
       } as any,
       default: {},
     }),
-  },
-  ghostCard: {
-    overflow: 'hidden',
-    borderRadius: 18,
-    padding: 15,
-    backgroundColor: 'rgba(17, 26, 45, 0.7)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  ghostTitle: {
-    width: '45%',
-    height: 11,
-    borderRadius: 5,
-    backgroundColor: 'rgba(255,255,255,0.09)',
-  },
-  ghostRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 12,
-  },
-  ghostChip: {
-    width: 34,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  ghostLine: {
-    flex: 1,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   hero: {
     position: 'relative',
