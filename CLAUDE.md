@@ -509,10 +509,17 @@ SVG + Reanimated (görsel dosya yok, blur/gradient kütüphanesi yok).
 | **Active session**       | Uygulama temasına uyum (`f4bd9fd`), kritik an için nefes alan neon çerçeve (`c061d0f`, `96b181e`)                                                            |
 | **Picker**               | "Socket loadout" tasarımı (`b86cccf`) + neon materialize yerleşme (`f599640`)                                                                                |
 
-**Kütüphane kısıtı:** `expo-blur`, `expo-linear-gradient`,
+**Kütüphane kısıtı:** `expo-linear-gradient` ve
 `@react-native-masked-view` **kurulu değil**. Blur taklidi çok duraklı
 SVG radial gradient ile; web'de ek olarak `Platform.select({ web:
 { filter: 'blur(Npx)' } })`. Yeni tasarımda bunu varsay.
+
+**İstisna — `expo-blur` (2026-09-21):** premium kilitlerindeki
+"bulanık önizleme" için tek yerde kullanılıyor:
+`components/ui/LockedBlur.tsx`. iOS'ta gerçek `BlurView`; **Android'de
+kullanılmıyor** (SDK 54'te deneysel, yoksa düz tint) — orada düz
+yarı saydam "buzlu cam" View. Web'de CSS `filter`. Başka yerde
+`expo-blur` import etme; blur gerekiyorsa `LockedBlur`'u kullan.
 
 ## 🧰 Toolkit / Egzersiz Mimarisi
 
