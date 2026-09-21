@@ -1,4 +1,5 @@
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Users } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
@@ -32,6 +33,16 @@ export function FreeGate({ addiction, onUpgrade, children }: Props) {
         {children}
       </View>
       <View style={styles.veil} pointerEvents="box-none">
+        {/* Web blurs via CSS above; native needs a real blur layer so the
+            locked Distribution/Patterns read as "there, but not yet". */}
+        {Platform.OS !== 'web' ? (
+          <BlurView
+            pointerEvents="none"
+            intensity={35}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+          />
+        ) : null}
         <View style={styles.lockCard}>
           <View
             style={[

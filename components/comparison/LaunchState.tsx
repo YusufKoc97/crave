@@ -1,5 +1,6 @@
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { BlurView } from 'expo-blur';
 import { Flag, Sunrise } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
@@ -116,6 +117,16 @@ function GhostCard() {
         <View style={styles.ghostChip} />
         <View style={styles.ghostLine} />
       </View>
+      {/* `filter: blur` is web-only in RN; native needs a real blur
+          layer over the card's own content. */}
+      {Platform.OS !== 'web' ? (
+        <BlurView
+          pointerEvents="none"
+          intensity={22}
+          tint="dark"
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
     </View>
   );
 }
@@ -132,6 +143,7 @@ const styles = StyleSheet.create({
     }),
   },
   ghostCard: {
+    overflow: 'hidden',
     borderRadius: 18,
     padding: 15,
     backgroundColor: 'rgba(17, 26, 45, 0.7)',
