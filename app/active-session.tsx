@@ -157,7 +157,10 @@ export default function ActiveSession() {
     1,
     Math.min(10, Number(params.sensitivity ?? 5))
   );
-  const cycleSeconds = Math.max(60, maxMinutes * 60);
+  // One full ring loop = half the sensitivity-derived ceiling. The 5-15 min
+  // window felt too slow to fill visually (the arc barely crept), so the ring
+  // (and its per-cycle bonus cadence) runs at 2x — a loop every ~2.5-7.5 min.
+  const cycleSeconds = Math.max(60, Math.round((maxMinutes * 60) / 2));
 
   const { recordSession, streak } = useSessions();
   const { user } = useAuth();

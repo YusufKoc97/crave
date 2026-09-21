@@ -107,7 +107,14 @@ function ToolkitCard({
       >
         <Icon color={accentColor} size={22} strokeWidth={2} />
       </View>
-      <Text style={styles.name}>{techniqueName(technique)}</Text>
+      <Text
+        style={styles.name}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.72}
+      >
+        {techniqueName(technique)}
+      </Text>
       <Text style={styles.shortDesc} numberOfLines={2}>
         {techniqueShortDescription(technique)}
       </Text>
