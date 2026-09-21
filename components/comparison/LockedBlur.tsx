@@ -12,14 +12,21 @@ import { BlurView } from 'expo-blur';
  */
 export const CARD_RADIUS = 20;
 
-export function LockedBlur({ intensity = 16 }: { intensity?: number }) {
+export function LockedBlur({
+  intensity = 16,
+  radius = CARD_RADIUS,
+}: {
+  intensity?: number;
+  /** Match the host card's corner radius (Standing is 24, the rest 20). */
+  radius?: number;
+}) {
   if (Platform.OS === 'web') return null;
   return (
     <BlurView
       pointerEvents="none"
       intensity={intensity}
       tint="dark"
-      style={styles.fill}
+      style={[styles.fill, { borderRadius: radius }]}
     />
   );
 }

@@ -30,6 +30,7 @@ import { TrendingUp, Trophy } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
 import { COMP, compColors, compHexAlpha } from './comparisonTheme';
+import { LockedBlur } from './LockedBlur';
 import { bellPath, bellPointForZ, bellZonePath } from './bellMath';
 import type { StandingData } from './__mockData';
 
@@ -72,9 +73,18 @@ const PATH_DASH = 1400;
 type Props = {
   addiction: Addiction;
   data: StandingData;
+  /** Teaser mode (launch preview): blur the card, keep its shape. */
+  locked?: boolean;
+  /** Blur strength when `locked`. */
+  lockedIntensity?: number;
 };
 
-export function StandingCard({ addiction, data }: Props) {
+export function StandingCard({
+  addiction,
+  data,
+  locked = false,
+  lockedIntensity,
+}: Props) {
   const [reducedMotion, setReducedMotion] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -424,6 +434,7 @@ export function StandingCard({ addiction, data }: Props) {
           </Text>
         </View>
       </View>
+      {locked ? <LockedBlur intensity={lockedIntensity} radius={24} /> : null}
     </View>
   );
 }

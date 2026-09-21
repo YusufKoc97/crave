@@ -219,6 +219,9 @@ export function ComparisonPane({ addiction }: Props) {
             <LaunchState
               addiction={addiction}
               count={data.pulse.peopleThisWeek}
+              onUpgrade={
+                isPremium ? undefined : () => openPaywall('comparison')
+              }
             />
           </View>
         ) : isFree ? (
