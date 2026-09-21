@@ -7,7 +7,8 @@ import { compColors, compHexAlpha } from './comparisonTheme';
 import { DistributionCard } from './DistributionCard';
 import { PatternCard } from './PatternCard';
 import { StandingCard } from './StandingCard';
-import { PremiumPitch } from './PremiumPitch';
+import { PremiumPitch, type PitchBenefit } from '@/components/ui/PremiumPitch';
+import { ChartNoAxesColumn, Clock, Trophy } from 'lucide-react-native';
 import type {
   DistributionMetric,
   PatternsData,
@@ -82,6 +83,12 @@ const PREVIEW_PATTERNS: PatternsData = {
   },
 };
 
+const PITCH_BENEFITS = (): PitchBenefit[] => [
+  { label: t('comparison.pitch_f1'), Icon: Trophy },
+  { label: t('comparison.pitch_f2'), Icon: ChartNoAxesColumn },
+  { label: t('comparison.pitch_f3'), Icon: Clock },
+];
+
 type Props = {
   addiction: Addiction;
   count: number; // "first N resisters"
@@ -98,7 +105,16 @@ export function LaunchState({ addiction, count, onUpgrade }: Props) {
       {/* Free users get the gilded premium pitch; premium users (nothing
           to unlock) keep the quiet sunrise note. */}
       {onUpgrade ? (
-        <PremiumPitch addiction={addiction} onUpgrade={onUpgrade} />
+        <PremiumPitch
+          kicker={t('comparison.pitch_kicker')}
+          title={t('comparison.free_title')}
+          body={t('comparison.free_body', { addiction: addiction.name })}
+          benefits={PITCH_BENEFITS()}
+          cta={t('comparison.free_cta')}
+          trial={t('comparison.pitch_trial')}
+          footnote={t('comparison.launch_body')}
+          onUpgrade={onUpgrade}
+        />
       ) : (
         <View
           style={[

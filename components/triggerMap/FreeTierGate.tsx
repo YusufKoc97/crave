@@ -1,168 +1,63 @@
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Sparkles } from 'lucide-react-native';
+import { Platform, StyleSheet, View } from 'react-native';
+import { LockedBlur } from '@/components/ui/LockedBlur';
+import { PremiumPitch } from '@/components/ui/PremiumPitch';
 import { t } from '@/lib/i18n';
 import { triggersSurface } from './triggersTheme';
-import { useTriggersAccent } from './triggersAccent';
 
 /**
- * Free-tier lock overlay for the Trigger Map (Modül 3 redesign).
+ * Free-tier gate for the Trigger Map (Modül 3).
  *
- * `children` renders the actual chart underneath. This component
- * layers a locked panel on top:
- *   - Web: real backdrop-filter blur if supported.
- *   - Native: a semi-opaque dark veil + lock card. Not a "true"
- *     blur (RN doesn't ship one; expo-blur is banned — karar #6A)
- *     but visually enough to signal the paywall boundary.
+ * `children` is the locked section (the trigger DISTRIBUTION — the
+ * "why"). Instead of hiding it behind an opaque veil, it renders as a
+ * lightly blurred teaser — bars and colour dots still read, labels and
+ * numbers don't — so a free user sees what Premium unlocks. The shared
+ * gold `PremiumPitch` sits right under it (same identity as the paywall
+ * and the Comparison gate), so the tap into the paywall feels like a
+ * continuation.
  *
- * Design brief: accent aurora border, `Sparkles` icon, "Unlock the
- * full trigger map" copy, gradient CTA. Kept single-shade (no
- * gradient dep) — the boxShadow + border alpha stack does the
- * "aurora" work.
- *
- * MOUNTED & LIVE (2026-08-14): TriggersPane wraps the trigger
- * DISTRIBUTION section in this gate for every non-premium user.
- * The CTA is still a no-op — `onUpgrade` is not passed yet, so the
- * paywall milestone only needs to inject a handler here.
+ * Blur: native uses a real `BlurView` layer (`LockedBlur`); web keeps
+ * the CSS `filter: blur`.
  */
 
 type Props = {
   children: React.ReactNode;
-  onUpgrade?: () => void;
+  onUpgrade: () => void;
 };
 
 export function FreeTierGate({ children, onUpgrade }: Props) {
-  const { accent, alpha } = useTriggersAccent();
   return (
     <View style={styles.wrap}>
-      <View style={styles.underlay} pointerEvents="none">
-        {children}
+      <View style={styles.preview} pointerEvents="none">
+        <View style={styles.underlay}>{children}</View>
+        <LockedBlur intensity={14} radius={triggersSurface.radius} />
       </View>
-      <View style={styles.veil} pointerEvents="box-none">
-        <View
-          style={[
-            styles.lockCard,
-            {
-              borderColor: alpha(0.42),
-              ...Platform.select({
-                web: { boxShadow: `0 18px 50px ${alpha(0.28)}` },
-                default: { shadowColor: accent },
-              }),
-            },
-          ]}
-        >
-          <View
-            style={[
-              styles.lockIconWrap,
-              { backgroundColor: alpha(0.14), borderColor: alpha(0.42) },
-            ]}
-          >
-            <Sparkles size={22} color={accent} strokeWidth={2.2} />
-          </View>
-          <Text style={styles.title}>{t('trigger_map.free_gate.title')}</Text>
-          <Text style={styles.body}>{t('trigger_map.free_gate.body')}</Text>
-          <Pressable
-            onPress={onUpgrade}
-            style={({ pressed }) => [
-              styles.cta,
-              { borderColor: accent, backgroundColor: alpha(0.22) },
-              pressed && { backgroundColor: alpha(0.32) },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={t('trigger_map.free_gate.cta')}
-          >
-            <Text style={styles.ctaText}>{t('trigger_map.free_gate.cta')}</Text>
-          </Pressable>
-        </View>
-      </View>
+      <PremiumPitch
+        kicker={t('trigger_map.free_gate.kicker')}
+        title={t('trigger_map.free_gate.title')}
+        body={t('trigger_map.free_gate.body')}
+        cta={t('trigger_map.free_gate.cta')}
+        trial={t('trigger_map.free_gate.trial')}
+        onUpgrade={onUpgrade}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
-    position: 'relative',
     marginBottom: 24,
   },
+  preview: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: triggersSurface.radius,
+  },
   underlay: {
-    // On web the blur below applies to whatever lives inside this
-    // View; on native the underlay just renders normally underneath
-    // the veil.
     ...Platform.select({
       web: {
-        filter: 'blur(6px)',
-      },
+        filter: 'blur(5px)',
+      } as never,
       default: {},
     }),
-    opacity: 0.35,
-  },
-  veil: {
-    position: 'absolute',
-    inset: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    // Web uses backdrop-filter; native uses a flat dark fill.
-    ...Platform.select({
-      web: {
-        backdropFilter: 'blur(8px)',
-      },
-      default: {
-        backgroundColor: 'rgba(6, 10, 22, 0.62)',
-      },
-    }),
-  },
-  lockCard: {
-    maxWidth: 320,
-    padding: 22,
-    borderRadius: triggersSurface.radius,
-    backgroundColor: 'rgba(15, 26, 50, 0.95)',
-    borderWidth: 1,
-    alignItems: 'center',
-    // Accent-dependent colours are applied inline at the call site.
-    ...Platform.select({
-      web: {},
-      default: {
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.4,
-        shadowRadius: 24,
-        elevation: 8,
-      },
-    }),
-  },
-  lockIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  title: {
-    color: '#F1F5FF',
-    fontSize: 15.5,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  body: {
-    color: '#B8C4E0',
-    fontSize: 12.5,
-    lineHeight: 18,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  cta: {
-    paddingHorizontal: 22,
-    paddingVertical: 11,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  ctaText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.5,
   },
 });

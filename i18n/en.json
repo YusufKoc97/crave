@@ -720,9 +720,11 @@
       "sparse_body": "Keep tracking — after a few more sessions patterns become visible."
     },
     "free_gate": {
+      "kicker": "CRAVE PREMIUM",
       "title": "See what's driving your cravings",
       "body": "Premium breaks down which triggers hit you hardest — and what to do about each one.",
-      "cta": "Upgrade to Premium"
+      "cta": "Unlock with Premium",
+      "trial": "7 days free · Cancel anytime"
     },
     "intensity_levels": {
       "mild": "mild",

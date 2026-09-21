@@ -30,7 +30,7 @@ import { TrendingUp, Trophy } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
 import { COMP, compColors, compHexAlpha } from './comparisonTheme';
-import { LockedBlur } from './LockedBlur';
+import { LockedBlur } from '@/components/ui/LockedBlur';
 import { bellPath, bellPointForZ, bellZonePath } from './bellMath';
 import type { StandingData } from './__mockData';
 

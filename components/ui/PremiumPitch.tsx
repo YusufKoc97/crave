@@ -25,45 +25,54 @@ import Animated, {
 } from 'react-native-reanimated';
 import {
   ArrowRight,
-  ChartNoAxesColumn,
-  Clock,
   Crown,
   Sunrise,
-  Trophy,
   type LucideIcon,
 } from 'lucide-react-native';
-import type { Addiction } from '@/constants/addictions';
-import { t } from '@/lib/i18n';
-import { compColors, compHexAlpha } from './comparisonTheme';
+import { hexAlpha } from '@/constants/designSystem';
 
 /**
- * Premium pitch for the Comparison tab's launch state (free users).
- *
- * Replaces the flat "lookout before sunrise" card as the thing that sits
- * above the blurred previews. It wears the paywall's gold identity (same
+ * Gilded premium pitch card — the shared "unlock" surface for free users
+ * (Comparison launch state, Trigger Map gate). It wears the paywall's gold identity (same
  * GOLD + Crown as `app/paywall.tsx`) so the tap into the paywall feels
  * like a continuation, not a jump: gilded halo, a slow "breathing" glow
- * on the crown, three one-glance benefits, and a gold CTA. The honest
- * launch note ("comparisons unlock as more people join") stays, demoted
- * to a quiet footnote so nothing is oversold.
+ * on the crown, optional one-glance benefits, and a gold CTA. Copy is
+ * passed in by the caller; an optional quiet footnote keeps any honest
+ * caveat ("unlocks as more people join") from being oversold.
  */
 
 const GOLD = '#e8c87c';
+const TEXT_SECONDARY = '#a7b2ca';
+const TEXT_MUTED = '#7f8db0';
 const GOLD_DEEP = '#d9b45a';
-const gold = (a: number) => compHexAlpha(GOLD, a);
+const gold = (a: number) => hexAlpha(GOLD, a);
 
-const BENEFITS: { key: string; Icon: LucideIcon }[] = [
-  { key: 'comparison.pitch_f1', Icon: Trophy },
-  { key: 'comparison.pitch_f2', Icon: ChartNoAxesColumn },
-  { key: 'comparison.pitch_f3', Icon: Clock },
-];
+export type PitchBenefit = { label: string; Icon: LucideIcon };
 
 type Props = {
-  addiction: Addiction;
+  kicker: string;
+  title: string;
+  body: string;
+  cta: string;
   onUpgrade: () => void;
+  /** One-glance benefits row (omit for the compact variant). */
+  benefits?: PitchBenefit[];
+  /** Small line under the CTA, e.g. trial terms. */
+  trial?: string;
+  /** Quiet honest note at the bottom (e.g. "unlocks as more people join"). */
+  footnote?: string;
 };
 
-export function PremiumPitch({ addiction, onUpgrade }: Props) {
+export function PremiumPitch({
+  kicker,
+  title,
+  body,
+  cta,
+  onUpgrade,
+  benefits,
+  trial,
+  footnote,
+}: Props) {
   const [reducedMotion, setReducedMotion] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -134,27 +143,27 @@ export function PremiumPitch({ addiction, onUpgrade }: Props) {
       <View style={styles.crown}>
         <Crown size={26} color={GOLD} strokeWidth={2} fill={gold(0.2)} />
       </View>
-      <Text style={styles.kicker}>{t('comparison.pitch_kicker')}</Text>
-      <Text style={styles.title}>{t('comparison.free_title')}</Text>
-      <Text style={styles.body}>
-        {t('comparison.free_body', { addiction: addiction.name })}
-      </Text>
+      <Text style={styles.kicker}>{kicker}</Text>
+      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.body}>{body}</Text>
 
-      <View style={styles.benefits}>
-        {BENEFITS.map(({ key, Icon }) => (
-          <View key={key} style={styles.benefit}>
-            <View style={styles.benefitIcon}>
-              <Icon size={17} color={GOLD} strokeWidth={2.1} />
+      {benefits?.length ? (
+        <View style={styles.benefits}>
+          {benefits.map(({ label, Icon }) => (
+            <View key={label} style={styles.benefit}>
+              <View style={styles.benefitIcon}>
+                <Icon size={17} color={GOLD} strokeWidth={2.1} />
+              </View>
+              <Text style={styles.benefitLabel}>{label}</Text>
             </View>
-            <Text style={styles.benefitLabel}>{t(key)}</Text>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      ) : null}
 
       <Pressable
         onPress={onUpgrade}
         accessibilityRole="button"
-        accessibilityLabel={t('comparison.free_cta')}
+        accessibilityLabel={cta}
         style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
       >
         <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
@@ -166,16 +175,20 @@ export function PremiumPitch({ addiction, onUpgrade }: Props) {
           </Defs>
           <Rect x="0" y="0" width="100%" height="100%" fill="url(#pitchCta)" />
         </Svg>
-        <Text style={styles.ctaText}>{t('comparison.free_cta')}</Text>
+        <Text style={styles.ctaText}>{cta}</Text>
         <ArrowRight size={18} color="#2a1f06" strokeWidth={2.6} />
       </Pressable>
-      <Text style={styles.trial}>{t('comparison.pitch_trial')}</Text>
+      {trial ? <Text style={styles.trial}>{trial}</Text> : null}
 
-      <View style={styles.rule} />
-      <View style={styles.footnote}>
-        <Sunrise size={14} color={compColors.textMuted} strokeWidth={2.2} />
-        <Text style={styles.footnoteText}>{t('comparison.launch_body')}</Text>
-      </View>
+      {footnote ? (
+        <>
+          <View style={styles.rule} />
+          <View style={styles.footnote}>
+            <Sunrise size={14} color={TEXT_MUTED} strokeWidth={2.2} />
+            <Text style={styles.footnoteText}>{footnote}</Text>
+          </View>
+        </>
+      ) : null}
     </View>
   );
 }
@@ -259,7 +272,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     lineHeight: 20,
-    color: compColors.textSecondary,
+    color: TEXT_SECONDARY,
     textAlign: 'center',
     maxWidth: 300,
   },
@@ -325,7 +338,7 @@ const styles = StyleSheet.create({
     marginTop: 11,
     fontSize: 12,
     fontWeight: '600',
-    color: compColors.textMuted,
+    color: TEXT_MUTED,
   },
   rule: {
     alignSelf: 'stretch',
@@ -345,6 +358,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '500',
-    color: compColors.textMuted,
+    color: TEXT_MUTED,
   },
 });

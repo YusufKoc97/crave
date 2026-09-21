@@ -31,7 +31,7 @@ import { Calendar, Clock, Waves, type LucideIcon } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
 import { COMP, compColors, compHexAlpha } from './comparisonTheme';
-import { LockedBlur } from './LockedBlur';
+import { LockedBlur } from '@/components/ui/LockedBlur';
 import type { PatternsData } from './__mockData';
 
 /**
