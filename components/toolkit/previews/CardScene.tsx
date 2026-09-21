@@ -101,7 +101,7 @@ function poly(points: readonly (readonly [number, number])[], p: Palette) {
     <Polyline
       points={pts}
       fill="none"
-      stroke={p.line}
+      stroke={hexAlpha(p.line, 0.82)}
       strokeWidth={1.4}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -145,7 +145,7 @@ function BreathingMotif({ p }: { p: Palette }) {
         cy={cy}
         r={30}
         fill="none"
-        stroke={p.line}
+        stroke={hexAlpha(p.line, 0.82)}
         strokeWidth={1.6}
       />
       <Circle cx={CX} cy={cy} r={4} fill={p.node} />
@@ -266,7 +266,7 @@ function BodyScanMotif({ p }: { p: Palette }) {
         cy={78}
         r={9}
         fill="none"
-        stroke={p.line}
+        stroke={hexAlpha(p.line, 0.82)}
         strokeWidth={1.4}
       />
       {nodes(
@@ -308,7 +308,7 @@ function FakeFeedMotif({ p }: { p: Palette }) {
       <Path
         d={`M ${x + r} ${y} h ${w - 2 * r} a ${r} ${r} 0 0 1 ${r} ${r} v ${h - 2 * r} a ${r} ${r} 0 0 1 -${r} ${r} h -${w - 2 * r} a ${r} ${r} 0 0 1 -${r} -${r} v -${h - 2 * r} a ${r} ${r} 0 0 1 ${r} -${r} Z`}
         fill="none"
-        stroke={p.line}
+        stroke={hexAlpha(p.line, 0.82)}
         strokeWidth={1.4}
       />
       {/* feed rows */}
@@ -370,7 +370,7 @@ export function CardScene({
     secondary: '#3A2FA8',
   };
   const palette: Palette = {
-    line: 'rgba(226,235,255,0.82)',
+    line: '#e2ebff', // hex on purpose: hexAlpha() only parses hex
     node: '#f4f8ff',
     glow: hues.primary,
   };
