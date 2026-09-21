@@ -38,6 +38,7 @@ import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
 import { COMP, compColors, compHexAlpha } from './comparisonTheme';
 import { bellPath, bellPointForZ, phi } from './bellMath';
+import { LockedBlur } from './LockedBlur';
 import type { DistributionMetric } from './__mockData';
 
 /**
@@ -81,6 +82,8 @@ type Props = {
   addiction: Addiction;
   index: number;
   ghost?: boolean;
+  /** Free-tier teaser: blur this card but keep its shape readable. */
+  locked?: boolean;
 };
 
 export function DistributionCard({
@@ -88,6 +91,7 @@ export function DistributionCard({
   addiction,
   index,
   ghost = false,
+  locked = false,
 }: Props) {
   const [reducedMotion, setReducedMotion] = useState(false);
   useEffect(() => {
@@ -508,6 +512,7 @@ export function DistributionCard({
       {metric.note && !ghost ? (
         <Text style={styles.noteText}>{t(metric.note)}</Text>
       ) : null}
+      {locked ? <LockedBlur /> : null}
     </Animated.View>
   );
 }

@@ -31,6 +31,7 @@ import { Calendar, Clock, Waves, type LucideIcon } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
 import { COMP, compColors, compHexAlpha } from './comparisonTheme';
+import { LockedBlur } from './LockedBlur';
 import type { PatternsData } from './__mockData';
 
 /**
@@ -67,9 +68,17 @@ type Props = {
   data: PatternsData;
   addiction: Addiction;
   index: number;
+  /** Free-tier teaser: blur this card but keep its shape readable. */
+  locked?: boolean;
 };
 
-export function PatternCard({ kind, data, addiction, index }: Props) {
+export function PatternCard({
+  kind,
+  data,
+  addiction,
+  index,
+  locked = false,
+}: Props) {
   const [reducedMotion, setReducedMotion] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -214,6 +223,7 @@ export function PatternCard({ kind, data, addiction, index }: Props) {
           <BarViz data={data.bar} color={cardColor} reduced={reducedMotion} />
         )}
       </View>
+      {locked ? <LockedBlur /> : null}
     </Animated.View>
   );
 }

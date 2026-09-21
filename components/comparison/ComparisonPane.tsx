@@ -142,6 +142,7 @@ export function ComparisonPane({ addiction }: Props) {
             addiction={addiction}
             index={i}
             ghost={isLowData}
+            locked={isFree}
           />
         ))}
       </View>
@@ -168,18 +169,21 @@ export function ComparisonPane({ addiction }: Props) {
           data={data.patterns}
           addiction={addiction}
           index={0}
+          locked={isFree}
         />
         <PatternCard
           kind="wave"
           data={data.patterns}
           addiction={addiction}
           index={1}
+          locked={isFree}
         />
         <PatternCard
           kind="bar"
           data={data.patterns}
           addiction={addiction}
           index={2}
+          locked={isFree}
         />
       </View>
     </>

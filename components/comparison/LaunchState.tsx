@@ -122,7 +122,7 @@ function GhostCard() {
       {Platform.OS !== 'web' ? (
         <BlurView
           pointerEvents="none"
-          intensity={22}
+          intensity={9}
           tint="dark"
           style={StyleSheet.absoluteFill}
         />

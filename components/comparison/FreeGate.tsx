@@ -1,5 +1,4 @@
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { Users } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
@@ -33,16 +32,6 @@ export function FreeGate({ addiction, onUpgrade, children }: Props) {
         {children}
       </View>
       <View style={styles.veil} pointerEvents="box-none">
-        {/* Web blurs via CSS above; native needs a real blur layer so the
-            locked Distribution/Patterns read as "there, but not yet". */}
-        {Platform.OS !== 'web' ? (
-          <BlurView
-            pointerEvents="none"
-            intensity={35}
-            tint="dark"
-            style={StyleSheet.absoluteFill}
-          />
-        ) : null}
         <View style={styles.lockCard}>
           <View
             style={[
@@ -84,7 +73,9 @@ const styles = StyleSheet.create({
       } as any,
       default: {},
     }),
-    opacity: 0.55,
+    // Web dims a touch (its blur is CSS); native keeps the cards near
+    // full strength — the per-card blur does the teasing.
+    opacity: Platform.OS === 'web' ? 0.55 : 0.95,
   },
   veil: {
     position: 'absolute',
@@ -97,8 +88,11 @@ const styles = StyleSheet.create({
       web: {
         backdropFilter: 'blur(7px)',
       } as any,
+      // Native: no full-width slab. Each locked card blurs itself
+      // (LockedBlur) so its shape stays readable; the veil is just a
+      // faint wash so the lock card lifts off the content.
       default: {
-        backgroundColor: 'rgba(10, 16, 32, 0.62)',
+        backgroundColor: 'rgba(10, 16, 32, 0.12)',
       },
     }),
   },
