@@ -10,13 +10,14 @@ import {
 } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { ChevronRight, Crown, X } from 'lucide-react-native';
+import { Crown, X } from 'lucide-react-native';
 import {
   ADDICTION_CATALOG,
   PREMIUM_ACTIVE_LIMIT,
   type AddictionCategory,
 } from '@/constants/addictions';
 import { GlowDisc } from '@/components/ui/GlowDisc';
+import { PremiumButton } from '@/components/ui/PremiumButton';
 import {
   LoadoutPanel,
   type SlotItem,
@@ -244,26 +245,26 @@ export default function AddictionPickerScreen() {
             the loadout's physical "one slot" truth, then offers the way
             past it instead of leaving the limit a dead end. */}
         {atLimit ? (
-          <Pressable
-            onPress={() => openPaywall('addiction_limit')}
-            style={({ pressed }) => [
-              styles.upsell,
-              pressed && styles.upsellPressed,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={t('picker.upsell_a11y')}
-          >
-            <View style={styles.upsellIcon}>
-              <Crown size={18} color={GOLD} strokeWidth={2} />
+          <View style={styles.upsell}>
+            <View style={styles.upsellRow}>
+              <View style={styles.upsellIcon}>
+                <Crown size={18} color={GOLD} strokeWidth={2} />
+              </View>
+              <View style={styles.upsellText}>
+                <Text style={styles.upsellTitle}>
+                  {t('picker.upsell_title')}
+                </Text>
+                <Text style={styles.upsellBody}>
+                  {t('picker.upsell_body', { max: PREMIUM_ACTIVE_LIMIT })}
+                </Text>
+              </View>
             </View>
-            <View style={styles.upsellText}>
-              <Text style={styles.upsellTitle}>{t('picker.upsell_title')}</Text>
-              <Text style={styles.upsellBody}>
-                {t('picker.upsell_body', { max: PREMIUM_ACTIVE_LIMIT })}
-              </Text>
-            </View>
-            <ChevronRight size={18} color={goldA(0.8)} strokeWidth={2} />
-          </Pressable>
+            <PremiumButton
+              size="md"
+              onPress={() => openPaywall('addiction_limit')}
+              style={styles.upsellButton}
+            />
+          </View>
         ) : null}
 
         {CATEGORY_ORDER.map((cat) => {
@@ -382,9 +383,6 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
   },
   upsell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
     marginTop: 18,
     padding: 14,
     borderRadius: 16,
@@ -392,8 +390,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: goldA(0.32),
   },
-  upsellPressed: {
-    opacity: 0.7,
+  upsellRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  upsellButton: {
+    marginTop: 14,
   },
   upsellIcon: {
     width: 38,

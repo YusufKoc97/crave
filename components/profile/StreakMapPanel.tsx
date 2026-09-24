@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { ChevronRight, Crown } from 'lucide-react-native';
 import { useReducedMotion } from '@/components/toolkit/useReducedMotion';
 import { LockedBlur } from '@/components/ui/LockedBlur';
+import { PremiumButton } from '@/components/ui/PremiumButton';
 import { useIsPremium } from '@/lib/premium';
 import { openPaywall } from '@/lib/paywall';
 import { useStreakMap, type StreakDay } from '@/lib/streakMap';
@@ -44,7 +44,6 @@ import { hexAlpha } from './coreTheme';
 
 // ── Tokens (neutral Profile palette, not an addiction accent) ──
 const CORE = '#4fd0dd';
-const GOLD = '#e8c87c';
 const WARM = '#e0a07a';
 const TEXT = '#e8ecf6';
 const MUTE = '#8a93a8';
@@ -591,28 +590,8 @@ function FreeState({
       />
 
       {/* Premium lock — the blurred part of the grid above is the teaser. */}
-      <Pressable
-        onPress={onUnlock}
-        style={({ pressed }) => [
-          styles.lockBanner,
-          pressed && { opacity: 0.85 },
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel={t('profile.streak_map.unlock_cta')}
-      >
-        <View style={styles.lockIcon}>
-          <Crown size={15} color={GOLD} strokeWidth={2.2} />
-        </View>
-        <View style={styles.lockTextWrap}>
-          <Text style={styles.lockTitle}>
-            {t('profile.streak_map.unlock_cta')}
-          </Text>
-          <Text style={styles.lockBody}>
-            {t('profile.streak_map.unlock_body')}
-          </Text>
-        </View>
-        <ChevronRight size={18} color={hexAlpha(GOLD, 0.7)} strokeWidth={2.2} />
-      </Pressable>
+      <Text style={styles.lockBody}>{t('profile.streak_map.unlock_body')}</Text>
+      <PremiumButton size="md" onPress={onUnlock} style={styles.lockButton} />
     </>
   );
 }
@@ -921,41 +900,15 @@ const styles = StyleSheet.create({
   },
 
   // Free lock banner
-  lockBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    backgroundColor: hexAlpha(GOLD, 0.08),
-    borderWidth: 1,
-    borderColor: hexAlpha(GOLD, 0.32),
-  },
-  lockIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: hexAlpha(GOLD, 0.14),
-    borderWidth: 1,
-    borderColor: hexAlpha(GOLD, 0.35),
-  },
-  lockTextWrap: {
-    flex: 1,
-  },
-  lockTitle: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '800',
-  },
   lockBody: {
     color: MUTE,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    lineHeight: 15,
-    marginTop: 2,
+    lineHeight: 17,
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  lockButton: {
+    marginTop: 12,
   },
 });

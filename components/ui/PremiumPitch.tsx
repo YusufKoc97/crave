@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import {
   AccessibilityInfo,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -23,13 +22,9 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import {
-  ArrowRight,
-  Crown,
-  Sunrise,
-  type LucideIcon,
-} from 'lucide-react-native';
+import { Crown, Sunrise, type LucideIcon } from 'lucide-react-native';
 import { hexAlpha } from '@/constants/designSystem';
+import { PremiumButton } from './PremiumButton';
 
 /**
  * Gilded premium pitch card — the shared "unlock" surface for free users
@@ -44,7 +39,6 @@ import { hexAlpha } from '@/constants/designSystem';
 const GOLD = '#e8c87c';
 const TEXT_SECONDARY = '#a7b2ca';
 const TEXT_MUTED = '#7f8db0';
-const GOLD_DEEP = '#d9b45a';
 const gold = (a: number) => hexAlpha(GOLD, a);
 
 export type PitchBenefit = { label: string; Icon: LucideIcon };
@@ -160,24 +154,12 @@ export function PremiumPitch({
         </View>
       ) : null}
 
-      <Pressable
+      <PremiumButton
+        size="lg"
         onPress={onUpgrade}
-        accessibilityRole="button"
-        accessibilityLabel={cta}
-        style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
-      >
-        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
-          <Defs>
-            <LinearGradient id="pitchCta" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor="#f6e2a6" />
-              <Stop offset="1" stopColor={GOLD_DEEP} />
-            </LinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill="url(#pitchCta)" />
-        </Svg>
-        <Text style={styles.ctaText}>{cta}</Text>
-        <ArrowRight size={18} color="#2a1f06" strokeWidth={2.6} />
-      </Pressable>
+        label={cta}
+        style={styles.ctaSlot}
+      />
       {trial ? <Text style={styles.trial}>{trial}</Text> : null}
 
       {footnote ? (
@@ -304,35 +286,8 @@ const styles = StyleSheet.create({
     color: '#dbe4f0',
     textAlign: 'center',
   },
-  cta: {
-    alignSelf: 'stretch',
+  ctaSlot: {
     marginTop: 24,
-    height: 56,
-    borderRadius: 18,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    ...Platform.select({
-      web: { boxShadow: `0 10px 28px -8px ${gold(0.6)}` },
-      default: {
-        shadowColor: GOLD,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.5,
-        shadowRadius: 18,
-      },
-    }),
-  },
-  ctaPressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.985 }],
-  },
-  ctaText: {
-    fontSize: 16.5,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-    color: '#2a1f06',
   },
   trial: {
     marginTop: 11,

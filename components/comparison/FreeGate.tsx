@@ -1,6 +1,7 @@
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Users } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
+import { PremiumButton } from '@/components/ui/PremiumButton';
 import { t } from '@/lib/i18n';
 import { compColors, compHexAlpha } from './comparisonTheme';
 
@@ -48,14 +49,11 @@ export function FreeGate({ addiction, onUpgrade, children }: Props) {
           <Text style={styles.body}>
             {t('comparison.free_body', { addiction: addiction.name })}
           </Text>
-          <Pressable
-            onPress={onUpgrade}
-            style={({ pressed }) => [styles.cta, pressed && { opacity: 0.85 }]}
-            accessibilityRole="button"
-            accessibilityLabel={t('comparison.free_cta')}
-          >
-            <Text style={styles.ctaText}>{t('comparison.free_cta')}</Text>
-          </Pressable>
+          <PremiumButton
+            size="md"
+            onPress={() => onUpgrade?.()}
+            style={styles.ctaSlot}
+          />
         </View>
       </View>
     </View>
@@ -118,6 +116,10 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  ctaSlot: {
+    marginTop: 18,
+    width: '100%',
+  },
   iconWrap: {
     width: 56,
     height: 56,
@@ -152,29 +154,5 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 19,
     textAlign: 'center',
-  },
-  cta: {
-    marginTop: 18,
-    width: '100%',
-    paddingVertical: 14,
-    borderRadius: 16,
-    alignItems: 'center',
-    backgroundColor: '#c2cad8',
-    ...Platform.select({
-      web: {
-        boxShadow: '0 8px 22px -8px rgba(154,163,184,0.7)',
-      },
-      default: {
-        shadowColor: compColors.community,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.6,
-        shadowRadius: 16,
-      },
-    }),
-  },
-  ctaText: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: '#12172a',
   },
 });

@@ -812,6 +812,9 @@
       "legs": "Legs and feet"
     }
   },
+  "premium": {
+    "cta": "Unlock with Premium"
+  },
   "paywall": {
     "close": "Close",
     "title": "Crave Premium",

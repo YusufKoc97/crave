@@ -12,10 +12,10 @@ import {
   ChevronRight,
   Languages,
   LogOut,
-  Sparkles,
   Trash2,
 } from 'lucide-react-native';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
+import { PremiumButton } from '@/components/ui/PremiumButton';
 import { t } from '@/lib/i18n';
 import { openPaywall } from '@/lib/paywall';
 import { useIsPremium } from '@/lib/premium';
@@ -117,14 +117,12 @@ export function PremiumRow() {
     );
   }
   return (
-    <SettingsRow
-      icon={<Sparkles size={18} color={neon(0.95)} strokeWidth={2} />}
-      label={t('profile.upgrade_premium')}
-      labelColor={neon(0.95)}
-      wash
-      onPress={() => openPaywall('profile')}
-      showDivider
-    />
+    <>
+      <View style={styles.premiumSlot}>
+        <PremiumButton size="md" onPress={() => openPaywall('profile')} />
+      </View>
+      <View style={styles.divider} />
+    </>
   );
 }
 
@@ -414,6 +412,10 @@ const styles = StyleSheet.create({
     color: coreText.secondary,
     fontSize: 13,
     fontWeight: '600',
+  },
+  premiumSlot: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   divider: {
     height: 1,
