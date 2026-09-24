@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Lock } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
+import { DAY_KEYS } from '@/lib/dateNames';
 import { useIsPremium } from '@/lib/premium';
 import { openPaywall } from '@/lib/paywall';
 import { useComparison } from '@/lib/comparison';
@@ -30,7 +31,7 @@ import { mockComparisonFor, type ComparisonState } from './__mockData';
  * numbers. Renders the Launch panel with a 0 count ("community
  * forming"); distribution/standing/patterns don't paint in launch.
  */
-const EMPTY_LAUNCH: ComparisonData = {
+const emptyLaunch = (): ComparisonData => ({
   state: 'launch',
   pulse: {
     peopleThisWeek: 0,
@@ -46,10 +47,10 @@ const EMPTY_LAUNCH: ComparisonData = {
     bar: {
       values: [0, 0, 0, 0, 0, 0, 0],
       hardestDayIdx: 0,
-      labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+      labels: DAY_KEYS.map((k) => t(`date.day_initial.${k}`)),
     },
   },
-};
+});
 
 /**
  * Modül 4 root panel — the "gözlemevi" (observatory).
@@ -101,7 +102,7 @@ export function ComparisonPane({ addiction }: Props) {
   // error. The __DEV__ chip can override with a mock state.
   const real = query.data ? toComparisonData(query.data, addiction.id) : null;
   const data: ComparisonData =
-    __DEV__ && devState ? mockComparisonFor(devState) : (real ?? EMPTY_LAUNCH);
+    __DEV__ && devState ? mockComparisonFor(devState) : (real ?? emptyLaunch());
 
   // Premium overlay is a CLIENT concern, layered on top of the
   // backend's honesty state: a non-premium user's FULL view renders as

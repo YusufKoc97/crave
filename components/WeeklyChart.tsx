@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { t } from '@/lib/i18n';
 import { Card } from './Card';
 
 /**
@@ -11,11 +12,17 @@ import { Card } from './Card';
  * lib/scoring.
  */
 
-// Turkish day initials, starting from Sunday to match
-// JS Date.getDay()'s 0..6 indexing.
-//   0 Pazar (Sun) · 1 Pazartesi (Mon) · 2 Salı (Tue) · 3 Çarşamba (Wed)
-//   4 Perşembe (Thu) · 5 Cuma (Fri) · 6 Cumartesi (Sat)
-const TR_DAY_INITIALS = ['P', 'P', 'S', 'Ç', 'P', 'C', 'C'] as const;
+// Keys for date.day_initial.*, starting from Sunday to match JS
+// Date.getDay()'s 0..6 indexing.
+const DAY_KEYS_SUN_FIRST = [
+  'sun',
+  'mon',
+  'tue',
+  'wed',
+  'thu',
+  'fri',
+  'sat',
+] as const;
 
 export function WeeklyChart({
   counts,
@@ -35,7 +42,9 @@ export function WeeklyChart({
           const isToday = i === 6;
           // Day index relative to today: i=0 is 6 days back, i=6 is today.
           const weekdayIndex = (todayWeekday - (6 - i) + 7) % 7;
-          const label = TR_DAY_INITIALS[weekdayIndex];
+          const label = t(
+            `date.day_initial.${DAY_KEYS_SUN_FIRST[weekdayIndex]}`
+          );
           const heightPct = (c / max) * 100;
           return (
             <View key={i} style={styles.col}>
