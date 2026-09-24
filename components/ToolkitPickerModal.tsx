@@ -1,6 +1,7 @@
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ToolkitGrid } from '@/components/ToolkitGrid';
+import { ToolkitAurora } from '@/components/toolkit/ToolkitAurora';
 import type { Technique } from '@/constants/toolkitCatalog';
 import { t } from '@/lib/i18n';
 
@@ -49,6 +50,11 @@ export function ToolkitPickerModal({
             close the sheet. */}
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.sheet}>
+          {/* Same soft aurora as the Toolkit tab, so the sheet reads as
+              part of that module rather than a flat panel. */}
+          <View style={styles.aurora} pointerEvents="none">
+            <ToolkitAurora />
+          </View>
           <View style={styles.header}>
             <View style={styles.handle} />
             <Pressable
@@ -58,7 +64,7 @@ export function ToolkitPickerModal({
               accessibilityRole="button"
               accessibilityLabel={t('toolkit.quit')}
             >
-              <Ionicons name="close" size={20} color="#94A3B8" />
+              <Ionicons name="close" size={20} color="rgba(255,255,255,0.75)" />
             </Pressable>
           </View>
 
@@ -88,15 +94,16 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    // Bottom-sheet look: rounded top corners, capped at 78% of the
+    // Bottom-sheet look: rounded top corners, capped at 88% of the
     // screen so a peek of the timer stays visible.
-    maxHeight: '78%',
-    backgroundColor: '#0A1628',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    maxHeight: '88%',
+    backgroundColor: '#0a1020',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     borderTopWidth: 1,
-    borderColor: '#1E2D4D',
-    boxShadow: '0 -12px 40px rgba(0, 0, 0, 0.6)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    overflow: 'hidden',
+    boxShadow: '0 -16px 48px rgba(0, 0, 0, 0.65)',
   },
   header: {
     paddingTop: 12,
@@ -109,7 +116,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#1E3050',
+    backgroundColor: 'rgba(255,255,255,0.22)',
     marginBottom: 6,
   },
   closeBtn: {
@@ -121,14 +128,21 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0D1E35',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
-    borderColor: '#1E3050',
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   scroll: {
     flexGrow: 0,
   },
+  aurora: {
+    ...StyleSheet.absoluteFillObject,
+    // The tab's aurora is tuned for a full page; dialled back here so the
+    // glow doesn't muddy the gaps between the tiles.
+    opacity: 0.6,
+  },
   scrollContent: {
+    paddingTop: 12,
     paddingHorizontal: 20,
     paddingBottom: 30,
   },
