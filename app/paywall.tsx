@@ -26,6 +26,7 @@ import {
 import { AmbientGlow } from '@/components/ui/AmbientGlow';
 import { hexAlpha } from '@/constants/designSystem';
 import { colors } from '@/constants/theme';
+import { STREAK_PROTECTION_MONTHLY_CAP } from '@/shared/scoring';
 import { t } from '@/lib/i18n';
 import { defaultPlanId, usePaywallPlans, type PlanId } from '@/lib/pricing';
 
@@ -166,7 +167,9 @@ export default function Paywall() {
               <View style={styles.featureIcon}>{f.icon(GOLD)}</View>
               <View style={styles.featureText}>
                 <Text style={styles.featureTitle}>{t(f.titleKey)}</Text>
-                <Text style={styles.featureBody}>{t(f.bodyKey)}</Text>
+                <Text style={styles.featureBody}>
+                  {t(f.bodyKey, { count: STREAK_PROTECTION_MONTHLY_CAP })}
+                </Text>
               </View>
             </Animated.View>
           ))}

@@ -18,6 +18,7 @@ export type PaywallSource =
   | 'triggers'
   | 'comparison'
   | 'streak_map'
+  | 'streak_protection'
   | 'addiction_limit'
   | 'profile'
   | 'unknown';

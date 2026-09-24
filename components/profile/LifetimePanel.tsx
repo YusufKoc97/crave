@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, {
   Defs,
   Ellipse,
@@ -18,6 +18,10 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useReducedMotion } from '@/components/toolkit/useReducedMotion';
+import { Crown, ShieldCheck } from 'lucide-react-native';
+import { STREAK_PROTECTION_MONTHLY_CAP } from '@/shared/scoring';
+import { useIsPremium } from '@/lib/premium';
+import { openPaywall } from '@/lib/paywall';
 import { t } from '@/lib/i18n';
 import { CountUp } from './CountUp';
 import {
@@ -122,12 +126,49 @@ export function LifetimePanel({
             delay={500}
           />
         </View>
+
+        <ProtectionNote />
       </View>
 
       {empty ? (
         <Text style={styles.emptyHint}>{t('profile.core_dormant_body')}</Text>
       ) : null}
     </>
+  );
+}
+
+// ─────────────────────── Streak protection ───────────────────────
+
+/**
+ * Makes the streak-protection perk visible where the streak lives, so a
+ * free user can see what Premium would do for it and a premium user can see
+ * it's on. Free: a quiet tappable line (→ paywall). Premium: a static
+ * confirmation. Deliberately NOT shown at the give-in moment (free stays
+ * silent there — pitching right after a slip would be the wrong time).
+ */
+function ProtectionNote() {
+  const isPremium = useIsPremium();
+  if (isPremium) {
+    return (
+      <View style={styles.protectRow}>
+        <ShieldCheck size={13} color={gold(0.9)} strokeWidth={2.2} />
+        <Text style={styles.protectText}>
+          {t('profile.streak_protect_on', {
+            count: STREAK_PROTECTION_MONTHLY_CAP,
+          })}
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <Pressable
+      onPress={() => openPaywall('streak_protection')}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.protectRow, pressed && { opacity: 0.7 }]}
+    >
+      <Crown size={13} color={gold(0.95)} strokeWidth={2.2} />
+      <Text style={styles.protectText}>{t('profile.streak_protect_free')}</Text>
+    </Pressable>
   );
 }
 
@@ -472,6 +513,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     marginTop: 18,
+  },
+  protectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 16,
+    paddingBottom: 14,
+  },
+  protectText: {
+    color: gold(0.9),
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   medallion: {
     width: 92,
