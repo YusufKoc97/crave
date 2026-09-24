@@ -12,7 +12,7 @@ import { useIsPremium } from '@/lib/premium';
 import { openPaywall } from '@/lib/paywall';
 import { t } from '@/lib/i18n';
 import { dsSectionHeaderStyle, dsSpacing } from '@/constants/designSystem';
-import { PeriodFilter } from './PeriodFilter';
+import { FREE_PERIODS, PeriodFilter } from './PeriodFilter';
 import { FreeTierGate } from './FreeTierGate';
 import { EmptyState } from './EmptyStates';
 import { HeatmapGrid } from './HeatmapGrid';
@@ -71,8 +71,13 @@ type Props = {
 };
 
 export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
-  const [period, setPeriod] = useState<PeriodKey>(DEFAULT_PERIOD);
+  const [pickedPeriod, setPeriod] = useState<PeriodKey>(DEFAULT_PERIOD);
   const isPremium = useIsPremium();
+  // Free sees the last 7 days only; 30 days / all time are Premium. Derived
+  // (not stored) so a lapsed subscription or the 30d default falls back to
+  // 7d on its own.
+  const period: PeriodKey =
+    isPremium || FREE_PERIODS.includes(pickedPeriod) ? pickedPeriod : '7d';
   const query = useTriggerMap(addiction.id, period);
   const cellSheetRef = useRef<CellDetailSheetHandle>(null);
   // Mount-on-demand — @gorhom/bottom-sheet has a bug on RN Web where
@@ -130,7 +135,13 @@ export function TriggersPane({ addiction, onNavigateSubTab }: Props) {
         />
       )}
 
-      <PeriodFilter value={period} onChange={setPeriod} accentColor={accent} />
+      <PeriodFilter
+        value={period}
+        onChange={setPeriod}
+        accentColor={accent}
+        isPremium={isPremium}
+        onLockedPress={() => openPaywall('triggers')}
+      />
 
       {showSpinner && (
         <View style={styles.spinnerWrap}>

@@ -1,6 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { PERIOD_ORDER, type PeriodKey } from '@/constants/heatmap';
+import { Crown } from 'lucide-react-native';
 import { t } from '@/lib/i18n';
+import { PREMIUM_GOLD } from '@/components/ui/PremiumButton';
 
 /**
  * Faz 8a — segmented time-period picker. Renders three pills
@@ -8,21 +10,33 @@ import { t } from '@/lib/i18n';
  * triggers a fresh React Query fetch via the parent's `onChange`.
  */
 
+/** Periods Free can pick; the rest carry a crown and open the paywall. */
+export const FREE_PERIODS: readonly PeriodKey[] = ['7d'];
+
 type Props = {
   value: PeriodKey;
   onChange: (period: PeriodKey) => void;
   accentColor: string;
+  isPremium: boolean;
+  onLockedPress: () => void;
 };
 
-export function PeriodFilter({ value, onChange, accentColor }: Props) {
+export function PeriodFilter({
+  value,
+  onChange,
+  accentColor,
+  isPremium,
+  onLockedPress,
+}: Props) {
   return (
     <View style={styles.row}>
       {PERIOD_ORDER.map((period) => {
         const active = period === value;
+        const locked = !isPremium && !FREE_PERIODS.includes(period);
         return (
           <Pressable
             key={period}
-            onPress={() => onChange(period)}
+            onPress={() => (locked ? onLockedPress() : onChange(period))}
             style={[
               styles.pill,
               active
@@ -44,6 +58,14 @@ export function PeriodFilter({ value, onChange, accentColor }: Props) {
             >
               {t(`trigger_map.period.${period}`)}
             </Text>
+            {locked ? (
+              <Crown
+                size={12}
+                color={PREMIUM_GOLD}
+                strokeWidth={2.2}
+                style={styles.crown}
+              />
+            ) : null}
           </Pressable>
         );
       })}
@@ -66,6 +88,8 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
@@ -79,6 +103,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 0.3,
+  },
+  crown: {
+    marginLeft: 6,
   },
   labelIdle: {
     color: '#94A3B8',
