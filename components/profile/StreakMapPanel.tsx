@@ -4,6 +4,7 @@ import Svg, { Line } from 'react-native-svg';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ChevronRight, Crown } from 'lucide-react-native';
 import { useReducedMotion } from '@/components/toolkit/useReducedMotion';
+import { LockedBlur } from '@/components/ui/LockedBlur';
 import { useIsPremium } from '@/lib/premium';
 import { openPaywall } from '@/lib/paywall';
 import { useStreakMap, type StreakDay } from '@/lib/streakMap';
@@ -28,9 +29,12 @@ import { hexAlpha } from './coreTheme';
  *
  * Free vs premium: the last 14 days always render crisp (with the
  * legend, so the colours are legible); premium unlocks the full
- * horizontally-scrolling history back to day one. The free lock is a
- * clean CTA banner — no fake ghost squares, which previously read as
- * real data.
+ * horizontally-scrolling history back to day one. Free users get a
+ * teaser too — older weeks render as a real column grid but under
+ * `LockedBlur` (a real blur on iOS, a frosted tint on Android), so it
+ * reads as "your history is there, locked" rather than fabricated
+ * data (an earlier version used plain ghost squares with no blur,
+ * which looked like real — if suspiciously flat — activity).
  *
  * RN adaptations (no new deps): CSS grid → flex week columns in a
  * horizontal ScrollView; give-in slash → a tiny SVG <Line>; per-cell
@@ -176,10 +180,50 @@ function DayLabels() {
   return (
     <View style={styles.dayLabelCol}>
       {Array.from({ length: 7 }).map((_, r) => (
-        <View key={r} style={styles.cell}>
-          <Text style={styles.dayLabelText}>{DAY_NAMES[r] ?? ''}</Text>
+        <View key={r} style={styles.dayLabelCell}>
+          <Text style={styles.dayLabelText} numberOfLines={1}>
+            {DAY_NAMES[r] ?? ''}
+          </Text>
         </View>
       ))}
+    </View>
+  );
+}
+
+// ─────────────────────── Ghost history (blurred teaser) ───────────────────────
+
+const GHOST_WEEKS = 10;
+
+// Deterministic pseudo-activity so the teaser has visual texture (not a
+// flat wall of one colour) without pretending to be real history — it's
+// always shown blurred, never crisp.
+function ghostLevel(col: number, row: number): number {
+  const v = Math.abs(Math.sin(col * 12.9898 + row * 78.233)) * 5;
+  return Math.min(4, Math.floor(v));
+}
+
+function GhostColumns({ weeks }: { weeks: number }) {
+  const cols = useMemo(() => Array.from({ length: weeks }), [weeks]);
+  return (
+    <View style={styles.columnsRow}>
+      {cols.map((_, ci) => (
+        <View key={ci} style={styles.column}>
+          {Array.from({ length: 7 }).map((_, ri) => (
+            <GhostCell key={ri} level={ghostLevel(ci, ri)} />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// The blurred stretch of "older" weeks that sits to the left of the real,
+// crisp recent days — teases that history exists beyond the free window.
+function GhostHistory() {
+  return (
+    <View style={styles.ghostHistoryWrap} pointerEvents="none">
+      <GhostColumns weeks={GHOST_WEEKS} />
+      <LockedBlur intensity={12} radius={10} />
     </View>
   );
 }
@@ -422,6 +466,18 @@ function FreeState({
   onUnlock: () => void;
 }) {
   const columns = useMemo(() => toColumns(days.slice(-FREE_WINDOW)), [days]);
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Open on today (newest week, right edge) — the crisp part, with the
+  // blurred teaser one swipe away to the left.
+  useEffect(() => {
+    const id = setTimeout(
+      () => scrollRef.current?.scrollToEnd({ animated: false }),
+      0
+    );
+    return () => clearTimeout(id);
+  }, [columns.length]);
+
   return (
     <>
       <Header
@@ -433,17 +489,27 @@ function FreeState({
       />
       <Caption selected={selected} />
       <Legend />
-      <View style={styles.gridRow}>
+      <View style={styles.fullRow}>
         <DayLabels />
-        <Columns
-          columns={columns}
-          todayMs={todayMs}
-          selectedMs={selectedMs}
-          onSelect={onSelect}
-        />
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.gridScrollPad}
+        >
+          <View style={styles.freeGridRow}>
+            <GhostHistory />
+            <Columns
+              columns={columns}
+              todayMs={todayMs}
+              selectedMs={selectedMs}
+              onSelect={onSelect}
+            />
+          </View>
+        </ScrollView>
       </View>
 
-      {/* Clean premium lock — no fake squares. */}
+      {/* Premium lock — the blurred grid above is the teaser. */}
       <Pressable
         onPress={onUnlock}
         style={({ pressed }) => [
@@ -718,6 +784,13 @@ const styles = StyleSheet.create({
     gap: GAP,
     width: DAY_LABEL_W,
   },
+  // Full DAY_LABEL_W (not the narrower CELL) so "Mon"/"Wed"/"Fri" have
+  // room to render on one line instead of wrapping/clipping.
+  dayLabelCell: {
+    width: DAY_LABEL_W,
+    height: CELL,
+    justifyContent: 'center',
+  },
   dayLabelText: {
     color: FAINT,
     fontSize: 8.5,
@@ -746,6 +819,16 @@ const styles = StyleSheet.create({
   },
   monthSpacer: {
     height: 16,
+  },
+  freeGridRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: COL_W,
+  },
+  ghostHistoryWrap: {
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: 10,
   },
 
   // Empty / loading
