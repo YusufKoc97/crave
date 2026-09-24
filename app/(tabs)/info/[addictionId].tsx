@@ -1,3 +1,4 @@
+import { lucideIconFor } from '@/components/info/iconMap';
 import { useState } from 'react';
 import {
   Alert,
@@ -287,6 +288,7 @@ function NotTrackedCta({
   addiction: Addiction;
   onStart: () => void;
 }) {
+  const Glyph = lucideIconFor(addiction.id);
   return (
     <View style={styles.ctaWrap}>
       <View
@@ -298,7 +300,7 @@ function NotTrackedCta({
           },
         ]}
       >
-        <Text style={styles.ctaEmoji}>{addiction.emoji}</Text>
+        <Glyph size={36} color={addiction.color} strokeWidth={2} />
       </View>
       <Text style={styles.ctaTitle}>
         {t('landing.start_tracking_title', { name: addiction.name })}
@@ -460,9 +462,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     marginBottom: dsSpacing.xxl,
-  },
-  ctaEmoji: {
-    fontSize: 36,
   },
   ctaTitle: {
     color: dsColors.textPrimary,

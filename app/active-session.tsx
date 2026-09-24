@@ -34,6 +34,7 @@ import {
 } from '@/lib/activeSession';
 import { hapticCelebrate, hapticCommit } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
+import { lucideIconFor } from '@/components/info/iconMap';
 import { useIsPremium } from '@/lib/premium';
 import { streakAfterGiveIn } from '@/lib/scoring';
 import type { Outcome } from '@/shared/scoring';
@@ -143,6 +144,9 @@ export default function ActiveSession() {
   // styles shrug that off, but Reanimated throws on an invalid color,
   // which crashed this screen outright on device.
   const accentColor = params.color?.trim() ? params.color : colors.blue;
+  // The app's drawn glyph for this addiction (never the platform emoji, which
+  // clashes with every other surface and vanishes if the param is missing).
+  const AddictionGlyph = lucideIconFor(params.id ?? '');
   const maxMinutes = Number(params.maxMinutes ?? 9);
   const sensitivity = Math.max(
     1,
@@ -635,7 +639,7 @@ export default function ActiveSession() {
         <View
           style={[styles.addictionCard, { borderColor: `${accentColor}55` }]}
         >
-          <Text style={styles.addictionEmoji}>{params.emoji ?? '⚠️'}</Text>
+          <AddictionGlyph size={36} color={accentColor} strokeWidth={2} />
         </View>
         <Text style={styles.addictionName}>
           {(params.name ?? 'Craving').toUpperCase()}
@@ -976,9 +980,6 @@ const styles = StyleSheet.create({
     elevation: 5,
     boxShadow:
       '0 6px 14px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
-  },
-  addictionEmoji: {
-    fontSize: 36,
   },
   addictionName: {
     marginTop: 14,
