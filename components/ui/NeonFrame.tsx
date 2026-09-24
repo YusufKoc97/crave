@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, StyleSheet, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  StyleSheet,
+  View,
+  type LayoutChangeEvent,
+} from 'react-native';
 import Animated, {
   cancelAnimation,
   useSharedValue,
@@ -8,7 +13,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Polygon, Stop } from 'react-native-svg';
 
 /** Gradient ids come from a module-level counter, not `useId()`:
  *  React emits ":r0:", which is not a valid SVG identifier, and
@@ -16,99 +21,133 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
  *  second instance mounts. Same rule as `addictionPicker/fills.tsx`. */
 let gradSeq = 0;
 
-type EdgeName = 'top' | 'bottom' | 'left' | 'right';
-
-/** Gradient vector per edge, in the fixed 0–100 user space below. Each
- *  runs from the screen border inward, so the bright stop always sits
- *  against the bezel and fades toward the content. */
-const EDGE_VECTORS: Record<
-  EdgeName,
-  { x1: number; y1: number; x2: number; y2: number }
-> = {
-  top: { x1: 0, y1: 0, x2: 0, y2: 100 },
-  bottom: { x1: 0, y1: 100, x2: 0, y2: 0 },
-  left: { x1: 0, y1: 0, x2: 100, y2: 0 },
-  right: { x1: 100, y1: 0, x2: 0, y2: 0 },
-};
+/** Same brightness on every edge. Edges meet on a 45° miter, and the two
+ *  gradients only agree along that seam if their peaks are equal; with
+ *  unequal peaks (as before) the corner shows a visible step. */
+const PEAK_ALPHA = 0.42;
 
 /**
- * One edge of the frame: a strip of the given depth holding a single
- * accent→transparent gradient.
+ * The four glow edges as ONE mitered frame.
  *
- * Three sizing/compat rules are load-bearing here:
+ * Each edge is a trapezoid whose slanted ends meet its neighbours on the
+ * corner diagonal, so nothing overlaps. (The earlier version laid four
+ * full-length rectangles over each other: at every corner the top and
+ * side strips summed into a brighter, hard-edged square — the "pointy,
+ * cheap" corners.) Drawn in pixel space (`userSpaceOnUse`) from the
+ * measured size, because a percentage-based gradient can't express the
+ * miter, and the fractional `objectBoundingBox` form is unreliable on
+ * native anyway (see `addictionPicker/fills.tsx`).
  *
- * - `gradientUnits="userSpaceOnUse"` with numeric coordinates. The
- *   fractional `objectBoundingBox` form is unreliable on native — the
- *   same lesson recorded in the header of `addictionPicker/fills.tsx`.
- *   An earlier revision of this file used it and rendered correctly on
- *   web, which would have made it an iOS-only failure.
- * - Explicit `width="100%" height="100%"`. With only an absolute-fill
- *   style, react-native-svg infers the element's height from the
- *   viewBox aspect ratio, so a square 100×100 box forces a square
- *   element: these strips collapsed to 361×361 and 72×72 instead of
- *   361×108 and 72×738. Every other gradient surface in the app
- *   (AmbientGlow, GlowDisc, GradientSurface) sets both for this
- *   reason.
- * - `preserveAspectRatio="none"` so the square user space stretches to
- *   fill a very non-square strip.
+ * `depth` is the reach from the top/bottom edges, `sideDepth` from the
+ * left/right ones — a phone is much taller than wide, so equal depths make
+ * the sides feel heavier.
  */
-function Edge({
-  edge,
+function Frame({
+  w,
+  h,
   color,
   depth,
-  peakAlpha,
+  sideDepth,
 }: {
-  edge: EdgeName;
+  w: number;
+  h: number;
   color: string;
   depth: number;
-  peakAlpha: number;
+  sideDepth: number;
 }) {
-  const [gradId] = useState(() => `neonFrame${(gradSeq += 1)}`);
-  const v = EDGE_VECTORS[edge];
+  const [ids] = useState(() => {
+    const n = (gradSeq += 1);
+    return {
+      top: `neonTop${n}`,
+      bottom: `neonBottom${n}`,
+      left: `neonLeft${n}`,
+      right: `neonRight${n}`,
+    };
+  });
+  const d = Math.min(depth, h / 2);
+  const sd = Math.min(sideDepth, w / 2);
 
-  const box =
-    edge === 'top'
-      ? { top: 0, left: 0, right: 0, height: depth }
-      : edge === 'bottom'
-        ? { bottom: 0, left: 0, right: 0, height: depth }
-        : edge === 'left'
-          ? { top: 0, bottom: 0, left: 0, width: depth }
-          : { top: 0, bottom: 0, right: 0, width: depth };
+  // Mid stop pulls the falloff toward the border. A plain two-stop ramp
+  // spreads the tint too evenly and reads as a wash over the content
+  // rather than light coming off the bezel.
+  const stops = [
+    <Stop key="a" offset="0%" stopColor={color} stopOpacity={PEAK_ALPHA} />,
+    <Stop
+      key="b"
+      offset="45%"
+      stopColor={color}
+      stopOpacity={PEAK_ALPHA * 0.2}
+    />,
+    <Stop key="c" offset="100%" stopColor={color} stopOpacity={0} />,
+  ];
 
   return (
-    <View style={[styles.edge, box]} pointerEvents="none">
-      <Svg
-        pointerEvents="none"
-        width="100%"
-        height="100%"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-      >
-        <Defs>
-          <LinearGradient
-            id={gradId}
-            x1={v.x1}
-            y1={v.y1}
-            x2={v.x2}
-            y2={v.y2}
-            gradientUnits="userSpaceOnUse"
-          >
-            <Stop offset="0%" stopColor={color} stopOpacity={peakAlpha} />
-            {/* Mid stop pulls the falloff toward the border. A plain
-                two-stop ramp spreads the tint too evenly and reads as
-                a wash over the content rather than light coming off
-                the bezel. */}
-            <Stop
-              offset="45%"
-              stopColor={color}
-              stopOpacity={peakAlpha * 0.2}
-            />
-            <Stop offset="100%" stopColor={color} stopOpacity={0} />
-          </LinearGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100" height="100" fill={`url(#${gradId})`} />
-      </Svg>
-    </View>
+    <Svg
+      pointerEvents="none"
+      width={w}
+      height={h}
+      viewBox={`0 0 ${w} ${h}`}
+      style={StyleSheet.absoluteFill}
+    >
+      <Defs>
+        <LinearGradient
+          id={ids.top}
+          gradientUnits="userSpaceOnUse"
+          x1={0}
+          y1={0}
+          x2={0}
+          y2={d}
+        >
+          {stops}
+        </LinearGradient>
+        <LinearGradient
+          id={ids.bottom}
+          gradientUnits="userSpaceOnUse"
+          x1={0}
+          y1={h}
+          x2={0}
+          y2={h - d}
+        >
+          {stops}
+        </LinearGradient>
+        <LinearGradient
+          id={ids.left}
+          gradientUnits="userSpaceOnUse"
+          x1={0}
+          y1={0}
+          x2={sd}
+          y2={0}
+        >
+          {stops}
+        </LinearGradient>
+        <LinearGradient
+          id={ids.right}
+          gradientUnits="userSpaceOnUse"
+          x1={w}
+          y1={0}
+          x2={w - sd}
+          y2={0}
+        >
+          {stops}
+        </LinearGradient>
+      </Defs>
+      <Polygon
+        points={`0,0 ${w},0 ${w - sd},${d} ${sd},${d}`}
+        fill={`url(#${ids.top})`}
+      />
+      <Polygon
+        points={`0,${h} ${w},${h} ${w - sd},${h - d} ${sd},${h - d}`}
+        fill={`url(#${ids.bottom})`}
+      />
+      <Polygon
+        points={`0,0 ${sd},${d} ${sd},${h - d} 0,${h}`}
+        fill={`url(#${ids.left})`}
+      />
+      <Polygon
+        points={`${w},0 ${w - sd},${d} ${w - sd},${h - d} ${w},${h}`}
+        fill={`url(#${ids.right})`}
+      />
+    </Svg>
   );
 }
 
@@ -128,6 +167,10 @@ type Props = {
   minOpacity?: number;
   /** Group opacity at the bright end. */
   maxOpacity?: number;
+  /** Corner radius of the frame. Should match the surface it hugs (the
+   *  modal sheet / device corner) so the glow follows the curve instead of
+   *  ending in a square corner. */
+  cornerRadius?: number;
 };
 
 /**
@@ -153,8 +196,16 @@ export function NeonFrame({
   duration = 5200,
   minOpacity = 0.3,
   maxOpacity = 1,
+  cornerRadius = 40,
 }: Props) {
   const breath = useSharedValue(minOpacity);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setSize((prev) =>
+      prev.w === width && prev.h === height ? prev : { w: width, h: height }
+    );
+  };
 
   const [reducedMotion, setReducedMotion] = useState(false);
   useEffect(() => {
@@ -200,28 +251,38 @@ export function NeonFrame({
 
   return (
     <Animated.View
-      style={[StyleSheet.absoluteFill, style]}
+      style={[
+        StyleSheet.absoluteFill,
+        { borderRadius: cornerRadius, overflow: 'hidden' },
+        style,
+      ]}
       pointerEvents="none"
+      onLayout={onLayout}
     >
-      <Edge edge="top" color={color} depth={depth} peakAlpha={0.5} />
-      <Edge edge="bottom" color={color} depth={depth} peakAlpha={0.42} />
-      <Edge edge="left" color={color} depth={sideDepth} peakAlpha={0.34} />
-      <Edge edge="right" color={color} depth={sideDepth} peakAlpha={0.34} />
+      {size.w > 0 ? (
+        <Frame
+          w={size.w}
+          h={size.h}
+          color={color}
+          depth={depth}
+          sideDepth={sideDepth}
+        />
+      ) : null}
       {/* Hairline tube along the very edge. Without it the gradients
           read as a soft haze; the crisp line is what makes the whole
-          thing land as "neon". */}
+          thing land as "neon". Rounded to match the frame. */}
       <View
         pointerEvents="none"
-        style={[styles.tube, { borderColor: color }]}
+        style={[
+          styles.tube,
+          { borderColor: color, borderRadius: cornerRadius },
+        ]}
       />
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  edge: {
-    position: 'absolute',
-  },
   tube: {
     ...StyleSheet.absoluteFillObject,
     borderWidth: 1.5,
