@@ -119,7 +119,13 @@ export function PremiumRow() {
   return (
     <>
       <View style={styles.premiumSlot}>
-        <PremiumButton size="md" onPress={() => openPaywall('profile')} />
+        {/* Nothing is locked here, so "Unlock" would be wrong — this is the
+            generic upgrade entry. Same button, its own words. */}
+        <PremiumButton
+          size="md"
+          label={t('profile.upgrade_premium')}
+          onPress={() => openPaywall('profile')}
+        />
       </View>
       <View style={styles.divider} />
     </>
