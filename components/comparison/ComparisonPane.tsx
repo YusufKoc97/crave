@@ -155,6 +155,9 @@ export function ComparisonPane({ addiction }: Props) {
     </View>
   );
 
+  // Free taster: the clock card (community peak hours) stays crisp — a
+  // general fact, not "you vs them" — so the blurred cards below read as
+  // real content, not decoration. Everything else stays locked.
   const patternsBlock = (
     <>
       <View style={styles.sectionHeader}>
@@ -169,7 +172,6 @@ export function ComparisonPane({ addiction }: Props) {
           data={data.patterns}
           addiction={addiction}
           index={0}
-          locked={isFree}
         />
         <PatternCard
           kind="wave"
