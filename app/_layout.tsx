@@ -6,7 +6,7 @@
 // the very top and takes no binding.
 import 'react-native-get-random-values';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, Platform, View, StyleSheet } from 'react-native';
@@ -18,6 +18,8 @@ import { SessionsProvider } from '@/context/SessionsContext';
 import { AddictionScoresProvider } from '@/context/AddictionScoresContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { queryClient } from '@/lib/queryClient';
+import { hydrateLanguage } from '@/lib/i18n';
+import { useLanguage } from '@/lib/useLanguage';
 import { colors } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import {
@@ -247,6 +249,19 @@ function useWebDarkCanvas() {
 export default function RootLayout() {
   useWebFocusOutlineFix();
   useWebDarkCanvas();
+
+  // Resolve the language (saved choice → device → English) BEFORE the first
+  // real render so nothing flashes in the wrong language. It's a fast local
+  // read, so the blank frame is imperceptible.
+  const [langReady, setLangReady] = useState(false);
+  useEffect(() => {
+    void hydrateLanguage().finally(() => setLangReady(true));
+  }, []);
+  // Changing language re-mounts the navigator (key below) so every screen
+  // re-reads its strings; providers above it — auth, sessions — are kept.
+  const lang = useLanguage();
+  if (!langReady) return <View style={styles.loader} />;
+
   return (
     <GestureHandlerRootView style={styles.rootFlex}>
       <View style={styles.phoneColumn}>
@@ -257,7 +272,7 @@ export default function RootLayout() {
                 <AddictionScoresProvider>
                   <ToastProvider>
                     <StatusBar style="light" />
-                    <RootStack />
+                    <RootStack key={lang} />
                   </ToastProvider>
                 </AddictionScoresProvider>
               </SessionsProvider>

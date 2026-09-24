@@ -75,7 +75,11 @@ constants/
                           + dsFont + dsCardStyles + hexAlpha() helper
 
 i18n/
-  en.json              ─ Single-language dictionary (Faz 2: EN only)
+  en.json              ─ Source-of-truth dictionary; every string is added here first
+  tr.json              ─ Turkish, partial by design — a missing key falls back to
+                         English. Check progress: `npm run i18n:missing`.
+                         Turkish stays DEV-only until `TR_READY` (lib/i18nCore.ts)
+                         is flipped to true (test enforces completeness then).
 
 context/
   AuthContext.tsx      ─ Supabase session + signOut
@@ -86,7 +90,10 @@ lib/
   supabase.ts          ─ Client + Database<T> tipi
   auth.ts              ─ translateAuthError() (EN→TR), isValidEmail()
   profile.ts           ─ getUsername / setUsername (handle for Modül 4)
-  i18n.ts              ─ Tiny t(key, params) helper — Faz 2 EN-only
+  i18n.ts              ─ t(key, params) + current language (saved choice → device
+                         locale → English), setLanguage/hydrateLanguage; pure logic in
+                         i18nCore.ts, React hook in useLanguage.ts. Changing language
+                         re-mounts the navigator (app/_layout.tsx `key={lang}`).
   relativeTime.ts      ─ Pure ISO→"5dk önce" Turkish formatter
   scoring.ts           ─ Re-exports shared/scoring + weeklyResistCounts
   activeSession.ts     ─ AsyncStorage snapshot + pending finish replay

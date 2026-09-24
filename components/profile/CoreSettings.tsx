@@ -17,7 +17,8 @@ import {
 } from 'lucide-react-native';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 import { PREMIUM_GOLD } from '@/components/ui/PremiumButton';
-import { t } from '@/lib/i18n';
+import { LANGUAGES, availableLanguages, setLanguage, t } from '@/lib/i18n';
+import { useLanguage } from '@/lib/useLanguage';
 import { openPaywall } from '@/lib/paywall';
 import { useIsPremium } from '@/lib/premium';
 import {
@@ -133,6 +134,12 @@ export function PremiumRow() {
 
 export function LanguageRow() {
   const [open, setOpen] = useState(false);
+  const lang = useLanguage();
+  const options = availableLanguages();
+  // One language on offer (production, until Turkish is finished) → no
+  // picker to show.
+  if (options.length < 2) return null;
+  const currentName = LANGUAGES.find((l) => l.code === lang)?.native ?? '';
   return (
     <>
       <SettingsRow
@@ -140,7 +147,7 @@ export function LanguageRow() {
           <Languages size={18} color={coreText.secondary} strokeWidth={2} />
         }
         label={t('profile.language')}
-        trailing={t('profile.language_value')}
+        trailing={currentName}
         onPress={() => setOpen(true)}
         showDivider
       />
@@ -149,27 +156,23 @@ export function LanguageRow() {
           title={t('profile.language')}
           onClose={() => setOpen(false)}
         >
-          <Pressable
-            style={styles.optionRow}
-            onPress={() => setOpen(false)}
-            accessibilityRole="button"
-          >
-            <Text style={styles.optionText}>{t('profile.language_value')}</Text>
-            <Check size={16} color={neon(0.9)} strokeWidth={2.4} />
-          </Pressable>
-          {/* Turkish is listed but inert — the i18n layer only ships
-              English today. Showing it dimmed promises the direction
-              without pretending the switch works. */}
-          <View style={[styles.optionRow, styles.optionDisabled]}>
-            <Text style={styles.optionText}>
-              {t('profile.language_turkish')}
-            </Text>
-            <View style={styles.soonChipSmall}>
-              <Text style={styles.soonChipText}>
-                {t('profile.coming_soon')}
-              </Text>
-            </View>
-          </View>
+          {options.map((l) => (
+            <Pressable
+              key={l.code}
+              style={styles.optionRow}
+              onPress={() => {
+                setOpen(false);
+                void setLanguage(l.code);
+              }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: l.code === lang }}
+            >
+              <Text style={styles.optionText}>{l.native}</Text>
+              {l.code === lang ? (
+                <Check size={16} color={neon(0.9)} strokeWidth={2.4} />
+              ) : null}
+            </Pressable>
+          ))}
         </SettingsSheet>
       )}
     </>

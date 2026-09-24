@@ -60,19 +60,10 @@ const R = (TIMER_SIZE - ARC_STROKE * 2) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * R;
 const SPINNER_RING_SIZE = TIMER_SIZE + 18;
 
-// Flavor text shown beneath the timer. Turkish per the project's
-// language-mixing rule (English is reserved for the brand + action
-// labels). Lines are short on purpose — long quotes compete with the
-// timer for attention.
-const QUOTES = [
-  'Geçen her saniye senin lehine.',
-  'Bu dürtüden daha güçlüsün.',
-  'Bu dalga kırılacak. Sen kırılmayacaksın.',
-  'Dur. Nefes al. Dürtü geçici.',
-  'Bunu seçtin — bu cesaret.',
-  'Bir anlık sabır, pişmanlıktan kurtarır.',
-  'Sen dürtü değilsin. Onu izleyensin.',
-];
+// Flavor text shown beneath the timer (`craving_quotes.q0…` in the i18n
+// files). Lines are short on purpose — long quotes compete with the timer
+// for attention.
+const QUOTE_KEYS = [0, 1, 2, 3, 4, 5, 6].map((i) => `craving_quotes.q${i}`);
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -361,7 +352,7 @@ export default function ActiveSession() {
         }
       });
       setTimeout(() => {
-        setQuoteIdx((i) => (i + 1) % QUOTES.length);
+        setQuoteIdx((i) => (i + 1) % QUOTE_KEYS.length);
       }, 350);
     }, 7000);
     return () => clearInterval(id);
@@ -722,7 +713,7 @@ export default function ActiveSession() {
           style={[styles.quoteLine, { backgroundColor: `${accentColor}70` }]}
         />
         <Animated.Text style={[styles.quoteText, quoteStyle]}>
-          {QUOTES[quoteIdx]}
+          {t(QUOTE_KEYS[quoteIdx])}
         </Animated.Text>
         <View
           style={[styles.quoteLine, { backgroundColor: `${accentColor}70` }]}

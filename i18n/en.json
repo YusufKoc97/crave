@@ -156,11 +156,8 @@
     "stat_success_rate": "Success rate",
     "stat_techniques_used": "Techniques used",
     "language": "Language",
-    "language_value": "English",
-    "language_turkish": "Türkçe",
     "upgrade_premium": "Upgrade to Premium",
     "premium_active": "Premium active",
-    "coming_soon": "Coming soon",
     "close": "Close",
     "sign_out": "Sign out",
     "delete_account": "Delete account",
@@ -842,5 +839,14 @@
     "restore": "Restore purchase",
     "not_live": "Purchases aren't live yet — this is a preview of Premium.",
     "legal": "Recurring billing. Cancel anytime in your store settings."
+  },
+  "craving_quotes": {
+    "q0": "Every second that passes is on your side.",
+    "q1": "You are stronger than this urge.",
+    "q2": "This wave will break. You won't.",
+    "q3": "Stop. Breathe. The urge is temporary.",
+    "q4": "You chose this — that takes courage.",
+    "q5": "A moment of patience saves you from regret.",
+    "q6": "You are not the urge. You are the one watching it."
   }
 }
