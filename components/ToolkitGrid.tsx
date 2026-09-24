@@ -13,6 +13,7 @@ import {
   ArrowUpRight,
   Clock,
   Hand,
+  Heart,
   PersonStanding,
   Smartphone,
   Waves,
@@ -29,6 +30,7 @@ import { dsSectionHeaderStyle } from '@/constants/designSystem';
 import { CardScene } from '@/components/toolkit/previews/CardScene';
 import { SCENE_HUES, hexAlpha } from '@/components/toolkit/carouselStyle';
 import { t } from '@/lib/i18n';
+import { useToolkitFavorites } from '@/lib/useToolkitFavorites';
 
 /**
  * 2-column grid of the offered toolkit techniques.
@@ -74,12 +76,19 @@ const GAP = 12;
 const TILE_H = 208;
 const WIDE_H = 150;
 const RADIUS = 22;
+// Same rose the carousel uses for a saved technique.
+const FAV_COLOR = '#FF6E9C';
 const FALLBACK_HUES = { primary: '#5A6BE8', secondary: '#3A2FA8' };
 
 export function ToolkitGrid({ accentColor, addictionId, onSelect }: Props) {
   const { width } = useWindowDimensions();
   const tileW = (width - SIDE_PAD * 2 - GAP) / 2;
-  const list = techniquesForAddiction(addictionId);
+  const { favorites } = useToolkitFavorites();
+  // Hearted techniques first, in the catalog's own order otherwise. Sort is
+  // stable, so everything not favourited keeps its familiar position.
+  const list = [...techniquesForAddiction(addictionId)].sort(
+    (a, b) => Number(favorites.has(b.id)) - Number(favorites.has(a.id))
+  );
   const lastIsAlone = list.length % 2 === 1;
 
   return (
@@ -98,6 +107,7 @@ export function ToolkitGrid({ accentColor, addictionId, onSelect }: Props) {
               accentColor={accentColor}
               tileW={tileW}
               wide={wide}
+              favorite={favorites.has(tech.id)}
               onPress={() => onSelect(tech)}
             />
           );
@@ -114,12 +124,14 @@ function ToolkitCard({
   accentColor,
   tileW,
   wide,
+  favorite,
   onPress,
 }: {
   technique: Technique;
   accentColor: string;
   tileW: number;
   wide: boolean;
+  favorite: boolean;
   onPress: () => void;
 }) {
   const Icon = TYPE_ICONS[technique.type];
@@ -190,6 +202,12 @@ function ToolkitCard({
         <Icon color="#ffffff" size={15} strokeWidth={2.2} />
       </View>
 
+      {favorite ? (
+        <View style={styles.fav} accessibilityElementsHidden>
+          <Heart color={FAV_COLOR} fill={FAV_COLOR} size={14} strokeWidth={2} />
+        </View>
+      ) : null}
+
       <View style={wide ? styles.infoWide : styles.info}>
         <Text
           style={styles.name}
@@ -251,6 +269,19 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     left: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+  },
+  fav: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
     width: 30,
     height: 30,
     borderRadius: 15,
