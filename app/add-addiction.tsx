@@ -10,14 +10,13 @@ import {
 } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { Crown, X } from 'lucide-react-native';
+import { ChevronRight, Crown, X } from 'lucide-react-native';
 import {
   ADDICTION_CATALOG,
   PREMIUM_ACTIVE_LIMIT,
   type AddictionCategory,
 } from '@/constants/addictions';
 import { GlowDisc } from '@/components/ui/GlowDisc';
-import { PremiumButton } from '@/components/ui/PremiumButton';
 import {
   LoadoutPanel,
   type SlotItem,
@@ -241,11 +240,19 @@ export default function AddictionPickerScreen() {
           }}
         />
 
-        {/* Premium upsell — only when the free ceiling is reached. Keeps
-            the loadout's physical "one slot" truth, then offers the way
-            past it instead of leaving the limit a dead end. */}
+        {/* Premium note — only when the free ceiling is reached. Explains
+            the lock icons below and is itself tappable, but is NOT a loud
+            button: the real trigger is tapping a locked token (onEquip). */}
         {atLimit ? (
-          <View style={styles.upsell}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.upsell,
+              pressed && { opacity: 0.8 },
+            ]}
+            onPress={() => openPaywall('addiction_limit')}
+            accessibilityRole="button"
+            accessibilityLabel={t('picker.upsell_title')}
+          >
             <View style={styles.upsellRow}>
               <View style={styles.upsellIcon}>
                 <Crown size={18} color={GOLD} strokeWidth={2} />
@@ -258,13 +265,9 @@ export default function AddictionPickerScreen() {
                   {t('picker.upsell_body', { max: PREMIUM_ACTIVE_LIMIT })}
                 </Text>
               </View>
+              <ChevronRight size={18} color={GOLD} strokeWidth={2.2} />
             </View>
-            <PremiumButton
-              size="md"
-              onPress={() => openPaywall('addiction_limit')}
-              style={styles.upsellButton}
-            />
-          </View>
+          </Pressable>
         ) : null}
 
         {CATEGORY_ORDER.map((cat) => {
@@ -394,9 +397,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-  },
-  upsellButton: {
-    marginTop: 14,
   },
   upsellIcon: {
     width: 38,
