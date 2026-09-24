@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
+import { ChevronRight, Crown } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useReducedMotion } from '@/components/toolkit/useReducedMotion';
 import { LockedBlur } from '@/components/ui/LockedBlur';
-import { PremiumButton } from '@/components/ui/PremiumButton';
+import { PREMIUM_GOLD } from '@/components/ui/PremiumButton';
 import { useIsPremium } from '@/lib/premium';
 import { openPaywall } from '@/lib/paywall';
 import { useStreakMap, type StreakDay } from '@/lib/streakMap';
@@ -295,12 +296,15 @@ function HistoryGrid({
   selectedMs,
   onSelect,
   lockedBeforeMs = 0,
+  onLockedPress,
 }: {
   days: StreakDay[];
   todayMs: number;
   selectedMs: number | null;
   onSelect: (day: StreakDay) => void;
   lockedBeforeMs?: number;
+  /** Free only: tapping the blurred history opens the paywall. */
+  onLockedPress?: () => void;
 }) {
   const columns = useMemo(() => toColumns(days), [days]);
   const lock = useMemo(
@@ -343,8 +347,10 @@ function HistoryGrid({
               lockedBeforeMs={lockedBeforeMs}
             />
             {lock.fullCols > 0 ? (
-              <View
-                pointerEvents="none"
+              <Pressable
+                onPress={onLockedPress}
+                accessibilityRole="button"
+                accessibilityLabel={t('profile.streak_map.unlock_body')}
                 style={[
                   styles.lockBlock,
                   {
@@ -356,11 +362,13 @@ function HistoryGrid({
                 ]}
               >
                 <LockedBlur intensity={14} radius={LOCK_RADIUS} />
-              </View>
+              </Pressable>
             ) : null}
             {lock.prefixRows > 0 ? (
-              <View
-                pointerEvents="none"
+              <Pressable
+                onPress={onLockedPress}
+                accessibilityRole="button"
+                accessibilityLabel={t('profile.streak_map.unlock_body')}
                 style={[
                   styles.lockBlock,
                   {
@@ -372,7 +380,7 @@ function HistoryGrid({
                 ]}
               >
                 <LockedBlur intensity={14} radius={LOCK_RADIUS} />
-              </View>
+              </Pressable>
             ) : null}
           </View>
         </View>
@@ -587,11 +595,22 @@ function FreeState({
         selectedMs={selectedMs}
         onSelect={onSelect}
         lockedBeforeMs={lockedBeforeMs}
+        onLockedPress={onUnlock}
       />
 
-      {/* Premium lock — the blurred part of the grid above is the teaser. */}
-      <Text style={styles.lockBody}>{t('profile.streak_map.unlock_body')}</Text>
-      <PremiumButton size="md" onPress={onUnlock} style={styles.lockButton} />
+      {/* The blurred part of the grid is itself the button (tap → paywall);
+          this line just says what's behind it, without a loud CTA. */}
+      <Pressable
+        onPress={onUnlock}
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.lockLink, pressed && { opacity: 0.7 }]}
+      >
+        <Crown size={13} color={PREMIUM_GOLD} strokeWidth={2.2} />
+        <Text style={styles.lockLinkText}>
+          {t('profile.streak_map.unlock_body')}
+        </Text>
+        <ChevronRight size={14} color={PREMIUM_GOLD} strokeWidth={2.2} />
+      </Pressable>
     </>
   );
 }
@@ -900,15 +919,17 @@ const styles = StyleSheet.create({
   },
 
   // Free lock banner
-  lockBody: {
-    color: MUTE,
-    fontSize: 12,
-    fontWeight: '600',
-    lineHeight: 17,
-    textAlign: 'center',
-    marginTop: 16,
+  lockLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 14,
+    paddingVertical: 6,
   },
-  lockButton: {
-    marginTop: 12,
+  lockLinkText: {
+    color: PREMIUM_GOLD,
+    fontSize: 12.5,
+    fontWeight: '700',
   },
 });

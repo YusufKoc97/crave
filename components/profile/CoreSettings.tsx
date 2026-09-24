@@ -10,12 +10,13 @@ import {
 import {
   Check,
   ChevronRight,
+  Crown,
   Languages,
   LogOut,
   Trash2,
 } from 'lucide-react-native';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
-import { PremiumButton } from '@/components/ui/PremiumButton';
+import { PREMIUM_GOLD } from '@/components/ui/PremiumButton';
 import { t } from '@/lib/i18n';
 import { openPaywall } from '@/lib/paywall';
 import { useIsPremium } from '@/lib/premium';
@@ -116,19 +117,17 @@ export function PremiumRow() {
       />
     );
   }
+  // A quiet row, not a filled button: Settings is where people go LOOKING
+  // for the upgrade, so it doesn't need to shout (the gold button belongs
+  // on locked content). Nothing is locked here, hence "Upgrade", not "Unlock".
   return (
-    <>
-      <View style={styles.premiumSlot}>
-        {/* Nothing is locked here, so "Unlock" would be wrong — this is the
-            generic upgrade entry. Same button, its own words. */}
-        <PremiumButton
-          size="md"
-          label={t('profile.upgrade_premium')}
-          onPress={() => openPaywall('profile')}
-        />
-      </View>
-      <View style={styles.divider} />
-    </>
+    <SettingsRow
+      icon={<Crown size={18} color={PREMIUM_GOLD} strokeWidth={2.2} />}
+      label={t('profile.upgrade_premium')}
+      labelColor={PREMIUM_GOLD}
+      onPress={() => openPaywall('profile')}
+      showDivider
+    />
   );
 }
 
@@ -418,10 +417,6 @@ const styles = StyleSheet.create({
     color: coreText.secondary,
     fontSize: 13,
     fontWeight: '600',
-  },
-  premiumSlot: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
   },
   divider: {
     height: 1,
