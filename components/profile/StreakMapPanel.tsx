@@ -10,6 +10,7 @@ import { useIsPremium } from '@/lib/premium';
 import { openPaywall } from '@/lib/paywall';
 import { useStreakMap, type StreakDay } from '@/lib/streakMap';
 import { t } from '@/lib/i18n';
+import { DAY_KEYS, MONTH_KEYS } from '@/lib/dateNames';
 import { hexAlpha } from './coreTheme';
 
 /**
@@ -65,22 +66,6 @@ const LEVEL_BG = [
   CORE,
 ] as const;
 
-const MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
-
 function todayMidnight(): number {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -88,9 +73,10 @@ function todayMidnight(): number {
 }
 
 function formatDay(ms: number): string {
-  return new Date(ms).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
+  const d = new Date(ms);
+  return t('date.short_format', {
+    month: t(`date.month_short.${MONTH_KEYS[d.getMonth()]}`),
+    day: d.getDate(),
   });
 }
 
@@ -197,7 +183,7 @@ function DayLabels() {
       {Array.from({ length: 7 }).map((_, r) => (
         <View key={r} style={styles.dayLabelCell}>
           <Text style={styles.dayLabelText} numberOfLines={1}>
-            {DAY_NAMES[r]}
+            {t(`date.day_short.${DAY_KEYS[r]}`)}
           </Text>
         </View>
       ))}
@@ -213,7 +199,7 @@ function MonthRow({ columns }: { columns: Slot[][] }) {
     const m = new Date(first.day.dateMs).getMonth();
     if (m === prev) return '';
     prev = m;
-    return MONTHS[m];
+    return t(`date.month_short.${MONTH_KEYS[m]}`);
   });
   return (
     <View style={styles.monthRow}>

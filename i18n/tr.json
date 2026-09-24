@@ -1,4 +1,867 @@
 {
+  "addictions": {
+    "nicotine": {
+      "name": "Nikotin",
+      "description": "Sigara"
+    },
+    "alcohol": {
+      "name": "Alkol",
+      "description": "Bira, şarap, sert içkiler"
+    },
+    "caffeine": {
+      "name": "Kafein",
+      "description": "Kahve, çay, enerji içecekleri"
+    },
+    "vape": {
+      "name": "Vape",
+      "description": "Elektronik sigara, puff bar, modlar"
+    },
+    "gambling": {
+      "name": "Kumar",
+      "description": "Spor bahisleri, casino, online şans oyunları"
+    },
+    "junk_food": {
+      "name": "Abur Cubur",
+      "description": "Fast food, cips, çikolata, tatlılar"
+    },
+    "shopping": {
+      "name": "Online Alışveriş",
+      "description": "Anlık alışveriş, bitmeyen gezinme"
+    },
+    "pmo": {
+      "name": "Porno ve Mastürbasyon",
+      "description": "Yetişkin içerik ve kompulsif davranış"
+    },
+    "doomscroll": {
+      "name": "Sonsuz Kaydırma",
+      "description": "Instagram, TikTok, Twitter, Reels, Shorts, haberler"
+    },
+    "gaming": {
+      "name": "Oyun",
+      "description": "PC, konsol, mobil oyunlar"
+    }
+  },
+  "categories": {
+    "substance": "Madde",
+    "behavioral": "Davranışsal",
+    "digital": "Dijital"
+  },
+  "picker": {
+    "title": "Bağımlılık ekle",
+    "subtitle_one": "Ücretsiz planda tek yuva var — takmak için bir jetona dokun",
+    "subtitle_many": "En fazla {{count}} tane tak — yerleştirmek için bir jetona dokun",
+    "subtitle_over": "{{count}} takip ediyorsun — planın {{limit}} yuvaya izin veriyor",
+    "loadout": "DONANIM",
+    "slots_free": "/{{total}} ücretsiz",
+    "socket_next": "Sonraki",
+    "socket_empty": "Boş",
+    "hint_first": "İlkini takmak için aşağıdan bir jetona dokun",
+    "hint_unequip": "Çıkarmak için bir yuvaya dokun",
+    "hint_full": "Tüm yuvalar dolu — daha fazlası için Premium'a geç",
+    "upsell_title": "Ücretsiz sınırına ulaştın",
+    "upsell_body": "Aynı anda {{max}} alışkanlığa kadar takip etmek için Premium'un kilidini aç.",
+    "upsell_a11y": "Daha fazla alışkanlık takip etmek için Premium'un kilidini aç",
+    "category_count": "{{shown}} / {{total}}",
+    "equip_a11y": "{{name}} tak",
+    "unequip_a11y": "{{name}} çıkar",
+    "locked_a11y": "{{name}} — tüm yuvalar dolu, önce birini çıkar",
+    "close_a11y": "Kapat"
+  },
+  "removal": {
+    "title": "{{name}} kaldırılsın mı?",
+    "message": "Verilerin saklanır. Devam etmek için istediğin zaman yeniden ekleyebilirsin.",
+    "cancel": "Vazgeç",
+    "confirm": "Kaldır"
+  },
+  "errors": {
+    "addiction_limit_reached": "Daha fazla eklemek için bir bağımlılığı kaldır veya Premium'a geç",
+    "add_failed": "Eklenemedi. Bağlantını kontrol et.",
+    "save_choice_failed": "Seçimin kaydedilemedi. Bağlantını kontrol et."
+  },
+  "home": {
+    "empty_subtitle": "Katalogdan seçmek için aşağıdaki artı düğmesine dokun.",
+    "empty_cta": "Bağımlılık ekle",
+    "add_addiction_a11y": "Bağımlılık ekle",
+    "resist": "DİREN"
+  },
+  "onboarding": {
+    "welcome": {
+      "brand": "CRAVE",
+      "eyebrow": "Daha sakin bir yol",
+      "title": "Direnci büyüt,\nher seferinde bir an.",
+      "body": "Bir dürtü geldiğinde Crave dayanmana yardım eder.",
+      "cta": "Başla"
+    },
+    "how": {
+      "eyebrow": "Direnç döngüsü",
+      "title": "Direnç nasıl büyür",
+      "body": "Dürtü bir andır. İçinden geçebilirsin.",
+      "core": "DİREN",
+      "step1": "Bir dürtü gelir",
+      "step2": "Küreye dokun",
+      "step3": "Dayan",
+      "step4": "Puan kazan",
+      "path_label": "Yolun",
+      "path_start": "Başlangıç noktası",
+      "footer": "Direndiğin her dürtü çekirdeğini besler.",
+      "cta": "Devam et"
+    },
+    "focus": {
+      "eyebrow": "İlk sinyalin",
+      "title": "İlk odağını seç",
+      "body": "Sonra daha fazlasını ekleyebilirsin. Şimdilik destek istediğin dürtüyle başla.",
+      "selected_label": "Seçili odak",
+      "none_selected": "Başlamak için birini seç",
+      "rank_pill": "Temel · 0 puan",
+      "cta": "Takip et: {{name}}",
+      "cta_empty": "Bir odak seç"
+    },
+    "age": {
+      "eyebrow": "Odak seçildi",
+      "title": "18 yaşında\nveya daha büyük müsün?",
+      "body": "Crave yetişkinler için tasarlandı.",
+      "yes": "Evet, 18 yaşında veya daha büyüğüm",
+      "no": "Hayır",
+      "no_under": "Hayır, 18 yaşından küçüğüm",
+      "consent_title": "Şartları ve sağlık verisi işlenmesini kabul ediyorum",
+      "consent_body": "Şartları ve gizlilik politikasını okudum. Sağlık kategorisindeki verilerimin (bağımlılık türü, dürtüye direnç seansları, ilerleme istatistikleri) bu uygulama tarafından işlenmesine açık rıza veriyorum.",
+      "consent_required": "Devam etmek için lütfen yukarıdaki rızayı onayla.",
+      "cta": "Devam et"
+    },
+    "blocked": {
+      "title": "18 olunca geri gel.",
+      "body": "Crave, dürtülere direnen yetişkinler için yapıldı. Uğradığın için teşekkürler — zamanı geldiğinde burada olacağız.",
+      "cta": "Kapat"
+    },
+    "ready": {
+      "eyebrow": "Sıradaki adımın",
+      "title": "Hazırsın.",
+      "body": "Yolculuğun bir sonraki dürtüyle başlıyor. Geldiğinde küreye dokun ve dayan.",
+      "core_caption": "Direnç hazır",
+      "rank_label": "Mevcut rütbe",
+      "progress_label": "İlk Adım'a ilerleme",
+      "progress_hint": "İlk Adım'a 100 puan",
+      "cta": "Crave'e gir",
+      "error_title": "Kurulum tamamlanamadı",
+      "error_body": "Seçimini kaydedemedik. Bağlantını kontrol edip tekrar dene."
+    },
+    "go_back_a11y": "Geri dön",
+    "progress_a11y": "Karşılama ilerlemesi, adım {{step}} / {{total}}"
+  },
+  "profile": {
+    "my_addictions": "BAĞIMLILIKLARIM",
+    "add_pill": "Ekle",
+    "screen_title": "Profil",
+    "overall_rank_label": "Genel rütbe",
+    "total_points": "{{count}} toplam puan",
+    "statistics_section": "İstatistikler",
+    "your_addictions_section": "Bağımlılıkların",
+    "settings_section": "Ayarlar",
+    "stat_cravings_resisted": "Direnilen dürtüler",
+    "stat_longest_streak": "En uzun seri",
+    "stat_streak_unit": "gün",
+    "stat_success_rate": "Başarı oranı",
+    "stat_techniques_used": "Kullanılan teknikler",
+    "language": "Dil",
+    "upgrade_premium": "Premium'a geç",
+    "premium_active": "Premium aktif",
+    "close": "Kapat",
+    "sign_out": "Çıkış yap",
+    "delete_account": "Hesabı sil",
+    "delete_confirmation_title": "Hesap silinsin mi?",
+    "delete_confirmation_message": "Bu işlem geri alınamaz. Tüm verilerin kalıcı olarak silinecek.",
+    "delete_confirm": "Sil",
+    "cancel": "Vazgeç",
+    "deleting": "Hesabın siliniyor…",
+    "signing_out": "Çıkış yapılıyor…",
+    "sign_out_confirm_title": "Çıkış yapılsın mı?",
+    "sign_out_confirm_message": "Dürtülerini takip etmeye devam etmek için tekrar giriş yapman gerekir.",
+    "sign_out_failed": "Çıkış yapılamadı. Bağlantını kontrol edip tekrar dene.",
+    "delete_failed": "Hesabın silinemedi. Hiçbir şey değişmedi — lütfen tekrar dene.",
+    "delete_failed_retry": "Silme işlemi tamamlanırken bir şeyler ters gitti. Lütfen tekrar dene; sürerse destekle iletişime geç.",
+    "points_unit": "puan",
+    "core_points_to_next": "{{rank}} için {{points}} puan",
+    "core_at_ceiling": "Son rütbeye ulaştın",
+    "core_dormant_hint": "Çekirdeği yakmak için ilk dürtüne diren",
+    "core_dormant_body": "Direndiğin her dürtü çekirdeği besler.",
+    "streak_protect_free": "Pes edersen Premium serinin yarısını korur",
+    "streak_protect_on": "Seri koruması açık · ayda {{count}} kez",
+    "lifetime_section": "Tüm zamanlar",
+    "this_week": "Bu hafta",
+    "record_badge": "REC",
+    "stat_streak_short": "Seri",
+    "stat_rate_short": "Başarı",
+    "stat_held_short": "Direnç",
+    "stat_techniques_short": "Araç kutusu",
+    "stat_streak_unit_short": "g",
+    "feeding_section": "Çekirdeği besle",
+    "streak_map": {
+      "label": "SERİ HARİTASI",
+      "legend_resisted": "Her gün direndiklerin",
+      "legend_gave_in": "pes ettin",
+      "tap_hint": "O günü görmek için bir güne dokun",
+      "day_resisted": "{{count}} kez direndin",
+      "day_gave_in": "o gün pes ettin",
+      "day_none": "dürtü yok",
+      "empty_title": "Haritan boş başlıyor",
+      "empty_body": "Direndiğin her dürtü bir kareyi doldurur. İlki onu yakar.",
+      "lowdata_title": "Birkaç kare doldu",
+      "lowdata_body": "Haritan daha çok gün topladıkça resim tamamlanır.",
+      "lowdata_days": "{{count}} gün",
+      "unlock_cta": "Premium ile aç",
+      "unlock_body": "Tüm haritanı ilk güne kadar gör.",
+      "last_14": "SON 14 GÜN"
+    },
+    "feeding_row_a11y": "{{name}} — {{rank}}, {{score}}"
+  },
+  "active": {
+    "resist": "Direndim",
+    "failed": "Pes ettim",
+    "points_earned": "puan kazandın",
+    "finish": "Bitir",
+    "streak_protected_title": "Serin korundu",
+    "streak_protected_body": "Serin sıfırlanmak yerine yerinde kaldı.",
+    "craving_fallback": "Dürtü",
+    "cycle_tag": "DÖNGÜ {{cycle}} · +{{bonus}} KAZANILDI",
+    "points_live": "+{{points}} puan"
+  },
+  "trigger_capture": {
+    "resist_title": "Aferin — bir şey daha",
+    "resist_body": "Bu dürtüyü ne tetikledi? Kısa bir etiket, örüntüleri sonra görmene yardım eder.",
+    "fail_title": "Olur — kısa bir not",
+    "fail_body": "Neler oluyordu? Bu, örüntülerini ikimizin de anlamasına yardım eder.",
+    "common_section": "Yaygın",
+    "specific_section": "{{name}} özel",
+    "step_label": "ADIM 2 / 2",
+    "title": "Neyi tetikledi?",
+    "subtitle": "En fazla üç etiket. Harita kendiliğinden dolar.",
+    "usually_you": "Genelde sen",
+    "window_30d": "30 gün",
+    "how_you_felt": "Nasıl hissettin",
+    "body_situation": "Beden ve durum",
+    "the_moment": "O an",
+    "empty_summary": "Henüz etiket yok — bir tane yeter.",
+    "save_one": "1 etiketi kaydet",
+    "save_many": "{{count}} etiketi kaydet",
+    "save": "Kaydet",
+    "cancel": "Vazgeç",
+    "min_one_trigger": "Kaydetmek için en az bir tetikleyici seç."
+  },
+  "craving_flow": {
+    "start_title": "Şu an dürtü var",
+    "select_addiction_label": "BAĞIMLILIK",
+    "select_triggers_title": "Bunu ne tetikledi?",
+    "select_triggers_hint": "Bir veya daha fazlasını seç",
+    "common_section": "Yaygın",
+    "specific_section": "{{name}} özel",
+    "start_button": "Başla",
+    "min_one_trigger": "En az bir tetikleyici seç",
+    "intensity_question": "Bu dürtü ne kadar yoğundu?",
+    "intensity_subtitle": "İsteğe bağlı — örüntüleri sonra görmene yardım eder.",
+    "intensity_skip": "Atla",
+    "intensity_confirm": "Yoğunluğu kaydet",
+    "intensity_min": "1 · Hafif",
+    "intensity_max": "10 · Dayanılmaz",
+    "intensity": {
+      "mild": "Hafif",
+      "moderate": "Orta",
+      "noticeable": "Belirgin",
+      "strong": "Güçlü",
+      "very_strong": "Çok güçlü",
+      "unbearable": "Dayanılmaz"
+    },
+    "confirm_trigger_question": "Bunu ne tetikledi?",
+    "confirm_trigger_hint": "Onayla veya düzelt",
+    "confirm_button": "Doğru görünüyor",
+    "edit_button": "Düzenle ve kaydet",
+    "cancel_button": "Vazgeç",
+    "failed_message": "Bu da bir veri. Bir sonraki dürtüde görüşürüz."
+  },
+  "triggers": {
+    "common": {
+      "stress": "Stres",
+      "loneliness": "Yalnızlık",
+      "boredom": "Can sıkıntısı",
+      "anxiety": "Kaygı",
+      "sadness": "Üzüntü",
+      "tiredness": "Yorgunluk",
+      "anger": "Öfke",
+      "social_situation": "Sosyal ortam",
+      "hunger": "Açlık",
+      "celebration": "Kutlama",
+      "overwhelm": "Bunalmışlık",
+      "restlessness": "Huzursuzluk"
+    },
+    "nicotine": {
+      "after_coffee": "Kahveden sonra",
+      "after_meal": "Yemekten sonra",
+      "with_alcohol": "Alkolle birlikte",
+      "someone_smoking": "Yakında biri sigara içiyor",
+      "morning_routine": "Sabah rutini",
+      "driving": "Araba kullanırken",
+      "break_time": "Mola zamanı",
+      "phone_in_hand": "Elde telefon"
+    },
+    "alcohol": {
+      "evening_after_work": "Akşam / iş çıkışı",
+      "weekend": "Hafta sonu",
+      "social_gathering": "Sosyal buluşma",
+      "restaurant_bar": "Restoran / bar",
+      "stressed_at_work": "İşte stresli",
+      "watching_tv": "TV veya film izlerken",
+      "someone_offered": "Biri ikram etti",
+      "special_occasion": "Özel gün"
+    },
+    "caffeine": {
+      "morning_routine": "Sabah rutini",
+      "afternoon_slump": "Öğleden sonra yorgunluğu",
+      "meeting_break": "Toplantı arası",
+      "studying": "Ders çalışırken",
+      "need_focus": "Odaklanma ihtiyacı",
+      "warm_drink_craving": "Sıcak içecek isteği",
+      "habit_routine": "Alışkanlık / rutin"
+    },
+    "vape": {
+      "phone_in_hand": "Elde telefon",
+      "break_time": "Mola zamanı",
+      "someone_vaping": "Yakında biri vape kullanıyor",
+      "hidden_spot": "Gizli / özel bir yer",
+      "boredom_scroll": "Can sıkıntısıyla kaydırma",
+      "after_meal": "Yemekten sonra",
+      "morning_routine": "Sabah rutini",
+      "concert_event": "Konser veya etkinlik"
+    },
+    "gambling": {
+      "app_notification": "Uygulama bildirimi",
+      "money_worry": "Para endişesi",
+      "big_game": "Büyük oyun veya maç",
+      "payday": "Maaş günü",
+      "chasing_loss": "Kaybı geri kazanma çabası",
+      "friend_won": "Bir arkadaş kazandı",
+      "weekend_evening": "Hafta sonu akşamı",
+      "alone_at_night": "Gece yalnızken"
+    },
+    "junk_food": {
+      "late_night": "Gece geç saat",
+      "after_argument": "Tartışmadan sonra",
+      "watching_tv": "TV izlerken",
+      "passing_fast_food": "Fast food'un önünden geçerken",
+      "sweet_craving": "Tatlı isteği",
+      "salty_craving": "Tuzlu isteği",
+      "cheat_day_thought": "Hile günü düşüncesi",
+      "emotional_pain": "Duygusal acı"
+    },
+    "shopping": {
+      "notification_email": "Bildirim / e-posta",
+      "payday": "Maaş günü",
+      "social_media_ad": "Sosyal medya reklamı",
+      "bad_mood": "Kötü ruh hali",
+      "sale_announcement": "İndirim duyurusu",
+      "comparing_others": "Başkalarıyla kıyaslama",
+      "bored_scrolling": "Can sıkıntısıyla kaydırma",
+      "feeling_deserving": "Hak ettiğini hissetme"
+    },
+    "pmo": {
+      "alone_private": "Yalnız / özel ortam",
+      "before_sleep": "Uykudan önce",
+      "after_waking": "Uyandıktan sonra",
+      "phone_in_hand": "Elde telefon",
+      "suggestive_content": "Tahrik edici içerik",
+      "sexual_thought": "Cinsel düşünce",
+      "post_argument": "Tartışmadan sonra",
+      "winding_down": "Günün yorgunluğunu atarken"
+    },
+    "doomscroll": {
+      "notification": "Bildirim",
+      "waking_up": "Yeni uyandım",
+      "before_sleep": "Uykudan önce",
+      "bathroom": "Tuvalet",
+      "waiting_somewhere": "Bir yerde beklerken",
+      "after_stressful": "Stresli bir andan sonra",
+      "habit_autopilot": "Alışkanlık / otomatik pilot",
+      "fear_missing_out": "Bir şeyi kaçırma korkusu"
+    },
+    "gaming": {
+      "one_more_round": "Bir tur daha",
+      "friends_online": "Arkadaşlar çevrimiçi",
+      "new_release": "Yeni çıkan oyun",
+      "bad_day_escape": "Kötü günden kaçış",
+      "weekend": "Hafta sonu",
+      "game_notification": "Oyun bildirimi",
+      "ranking_pressure": "Sıralama baskısı",
+      "habit_after_work": "İş çıkışı alışkanlığı"
+    }
+  },
+  "info": {
+    "tab_label": "Bilgi",
+    "screen_title": "Bağımlılıklar",
+    "screen_subtitle": "Takibi başlatmak veya durdurmak için bir karta dokun.",
+    "section_tracking": "TAKİP",
+    "section_all": "TÜM BAĞIMLILIKLAR",
+    "not_tracked": "Takipte değil",
+    "current_rank_prefix": "",
+    "empty_tracking": "Henüz takip edilen yok — aşağıdan birini seç.",
+    "rank_maxed": "Maksimum",
+    "details_a11y": "{{name}} ayrıntıları",
+    "start_tracking_a11y": "{{name}} takibini başlat",
+    "track_pill": "+ Takip et",
+    "start_failed_title": "Takip başlatılamadı"
+  },
+  "landing": {
+    "start_tracking_title": "{{name}} henüz takipte değil",
+    "start_tracking_body": "Direnç yolculuğunu ve {{name}} için kişisel içgörüleri açmak için takibi başlat.",
+    "start_tracking_cta": "Takibi başlat"
+  },
+  "modules": {
+    "journey": "Yolculuk",
+    "toolkit": "Araç kutusu",
+    "triggers": "Tetikleyiciler",
+    "comparison": "Karşılaştırma",
+    "coming_soon_title": "Yakında",
+    "coming_soon_body": "Bu modül hazırlanıyor — şekli oturunca açacağız."
+  },
+  "comparison": {
+    "section_kicker": "NASIL KARŞILAŞTIĞIN",
+    "pulse_kicker": "TOPLULUK NABZI",
+    "pulse_live_now": "Şu an canlı",
+    "pulse_people": "{{addiction}} için bu hafta direnen kişi",
+    "pulse_cravings_resisted": "direnilen dürtü",
+    "pulse_common_trigger": "en yaygın tetikleyici",
+    "you_vs_community": "SEN VE TOPLULUK",
+    "community_patterns": "TOPLULUK KALIPLARI",
+    "your_standing_kicker": "DURUMUN",
+    "standing_high_title": "İlk %{{percent}} içindesin",
+    "standing_high_body": "Bu ay {{addiction}} için direnenlerin en güçlü çeyreğindesin.",
+    "standing_low_title": "İvme kazanıyorsun",
+    "standing_low_body": "Direnenlerin %{{percent}} kadarı senden yavaş başladı — ve oranın bu hafta %12 arttı.",
+    "standing_axis_low": "Yavaş başlangıç",
+    "standing_axis_high": "Kararlı direnenler",
+    "metric": {
+      "resistance_rate": "Direnme oranı",
+      "hold_out": "Ort. dayanma süresi",
+      "cravings_week": "Dürtü / hafta"
+    },
+    "metric_avg": "topluluk ort. {{avg}}",
+    "metric_ahead": "Toplulukta %{{percent}} kişinin önündesin",
+    "metric_near_middle": "Topluluğun ortasına yakınsın",
+    "metric_lower_side": "Alt tarafta kalıyorsun",
+    "metric_higher_side": "Üst tarafta kalıyorsun",
+    "metric_avg_label": "ort.",
+    "cravings_note": "Az ya da çok, ikisi de normal — bu bir puan değil.",
+    "ghost_prompt": "Durumunu görmek için daha fazla kayıt gir",
+    "pattern": {
+      "clock_title": "Dürtülerin çoğu {{start}}–{{end}} {{ampm}} arasında geliyor",
+      "clock_headline": "Yoğun saatler",
+      "clock_body": "Tüm dürtülerin %{{percent}} kadarını barındıran 3 saatlik aralık.",
+      "wave_title": "En etkili teknik: {{technique}}",
+      "wave_body": "sörfçü dürtüyü atlatıyor",
+      "bar_title": "Direnmesi en zor gün: {{day}}"
+    },
+    "launch_title": "Gün doğmadan önceki gözetleme noktası",
+    "launch_body": "Bu yolculuğa katılan kişi arttıkça topluluk karşılaştırmaları açılır.",
+    "launch_chip": "İlk {{count}} direnenden birisin",
+    "lowdata_title": "Yerini görmek için birkaç kayıt daha gir",
+    "lowdata_body": "Senin tarafının biraz daha geçmişe ihtiyacı var.",
+    "lowdata_progress": "{{done}} / {{total}}",
+    "free_title": "Nerede durduğunu gör",
+    "free_body": "{{addiction}} için direnen herkesle ilerlemeni anonim olarak karşılaştır.",
+    "free_cta": "Premium ile aç",
+    "pitch_kicker": "CRAVE PREMIUM",
+    "pitch_f1": "Yüzdelik dilimin",
+    "pitch_f2": "Çan eğrileri",
+    "pitch_f3": "Yoğun saatler",
+    "pitch_trial": "7 gün ücretsiz · İstediğin zaman iptal et",
+    "anonymous_footer": "Tüm karşılaştırmalar anonimdir",
+    "pulse_no_trigger": "—",
+    "ticker_resisted": "Bu hafta {{count}} dürtüye direnildi",
+    "ticker_people": "Bu hafta {{count}} kişi katıldı",
+    "ticker_trigger": "Bu hafta dürtülerde başı çeken: {{trigger}}",
+    "delta_fewer": "{{count}} az",
+    "delta_more": "{{count}} fazla",
+    "delta_same": "ortalamayla aynı"
+  },
+  "journey": {
+    "your_rank": "RÜTBEN",
+    "score_label": "PUAN",
+    "next_rank_progress": "{{name}} için {{remaining}} kaldı",
+    "at_ceiling": "En yüksek rütbeye ulaştın",
+    "ladder_title": "YOL",
+    "unlocked": "Ulaşıldı",
+    "current": "Şu an",
+    "locked": "Kilitli",
+    "next_progress": "%{{percent}} tamam",
+    "unlocked_at": "{{date}} tarihinde ulaşıldı"
+  },
+  "ranks": {
+    "traveler": {
+      "name": "Temel",
+      "description": "Tırmanış başlıyor"
+    },
+    "first_step": {
+      "name": "İlk Adım",
+      "description": "Direnebildiğini kanıtladın"
+    },
+    "steady": {
+      "name": "Kararlı",
+      "description": "Ritmini buluyorsun"
+    },
+    "persistent": {
+      "name": "Sırt",
+      "description": "Artık daha yüksektesin — dikkatini koru"
+    },
+    "disciplined": {
+      "name": "Dayanak",
+      "description": "Sapasağlam duruyorsun"
+    },
+    "aware": {
+      "name": "Seyir Noktası",
+      "description": "Tetikleyicilerini önceden görüyorsun"
+    },
+    "master": {
+      "name": "Zirve",
+      "description": "Çekimi yendin"
+    },
+    "expert": {
+      "name": "Ufuk",
+      "description": "Dağın ötesindeki hayat"
+    },
+    "free": {
+      "name": "Özgür",
+      "description": "Dağ artık geride kaldı"
+    }
+  },
+  "celebration": {
+    "kicker": "YENİ RÜTBE AÇILDI",
+    "continue": "Devam et"
+  },
+  "toolkit": {
+    "tab_title": "Araç Kutusu",
+    "grid_header": "Dürtü anında deneyebileceğin teknikler",
+    "screen_title": "Araç Kutusu",
+    "screen_hint": "Keşfetmek için kaydır",
+    "section_kicker": "DÜRTÜ ANINDA DENE",
+    "segment_all": "Tümü",
+    "segment_favorites": "Favoriler",
+    "favorites_empty_title": "Henüz favori yok",
+    "favorites_empty_hint": "Bir tekniği hızlıca bulmak için kalbe dokun, burada dursun.",
+    "favorite_add": "Favorilere ekle",
+    "favorite_remove": "Favorilerden çıkar",
+    "card_position": "{{current}} / {{total}}",
+    "type_breathing": "Nefes",
+    "type_mindfulness": "Farkındalık",
+    "type_grounding": "Topraklanma",
+    "type_body_scan": "Beden taraması",
+    "type_ride_the_wave": "Dürtü sörfü",
+    "meta": {
+      "breathing_478": "4 döngü",
+      "urge_surfing": "Geçmesini bekle",
+      "grounding_54321": "5 duyu",
+      "body_scan": "Baştan ayağa",
+      "ride_the_wave": "Yüksel ve sön",
+      "fake_feed": "Çekimi fark et"
+    },
+    "duration_minutes": "{{minutes}} dk",
+    "start": "Başla",
+    "quit": "Çık",
+    "next": "İleri",
+    "done": "Bitir",
+    "how_did_this_feel": "Nasıl hissettirdi?",
+    "feedback_skip": "Atla",
+    "try_a_technique": "Bir teknik dene",
+    "feedback": {
+      "much_better": "Çok daha iyi",
+      "better": "Daha iyi",
+      "same": "Aynı",
+      "worse": "Daha kötü"
+    },
+    "techniques": {
+      "breathing_478": {
+        "name": "4-7-8 Nefes",
+        "short_description": "Bedenini sakinleştir",
+        "long_description": "4 say nefes al, 7 say tut, 8 say ver. Uzun verilen nefes, parasempatik sinir sistemini devreye sokar."
+      },
+      "urge_surfing": {
+        "name": "Dürtü Sörfü",
+        "short_description": "Dalgayı sür",
+        "long_description": "Dürtüye bir dalga gibi bak — yükselir, zirve yapar, söner. Ona göre davranman gerekmez. Sadece izle."
+      },
+      "grounding_54321": {
+        "name": "5-4-3-2-1 Topraklanma",
+        "short_description": "Şimdiye dön",
+        "long_description": "Gördüğün 5, dokunduğun 4, duyduğun 3, kokladığın 2, tadını aldığın 1 şeyi fark et. Seni dürtü döngüsünden çıkarır."
+      },
+      "body_scan": {
+        "name": "Beden Taraması",
+        "short_description": "Gerginliği bul",
+        "long_description": "Baştan ayağa yavaşça tara. Gerginliğin nerede durduğunu fark et. Yargılamadan, sadece farkında ol."
+      },
+      "ride_the_wave": {
+        "name": "Dalgayı Sürmek",
+        "short_description": "Yükselişini ve sönüşünü izle",
+        "long_description": "Dürtü tek bir dalgadır: yükselir, zirve yapar, sen ona uymazsan kendiliğinden söner. Bir dalganın geçişini izle ve geçici olduğunu kendin gör.",
+        "wave_rising": "Dürtü yükseliyor. Onunla savaşma, sadece izle.",
+        "wave_near_peak": "En zor an bu. Bundan daha kötü olmayacak.",
+        "wave_peak": "Zirvedesin. Buradan sonra sadece söner.",
+        "wave_early_fade": "Geçtiğini hisset. Dalga gücünü kaybediyor.",
+        "wave_late_fade": "Neredeyse bitti. Ona uymadın.",
+        "wave_final": "Dalgayı atlattın.",
+        "by_addiction": {
+          "nicotine": {
+            "wave_late_fade": "Neredeyse bitti. Yakmadın."
+          },
+          "alcohol": {
+            "wave_near_peak": "En güçlü çekim bu. Daha kötü olmayacak.",
+            "wave_early_fade": "Geçtiğini hisset. Dürtü tutuşunu gevşetiyor.",
+            "wave_late_fade": "Neredeyse bitti. Bardağı doldurmadın."
+          },
+          "vape": {
+            "wave_near_peak": "En zor an bu. Daha kötü olmayacak.",
+            "wave_late_fade": "Neredeyse bitti. Ona uzanmadın."
+          },
+          "pmo": {
+            "wave_near_peak": "En zor an bu. Daha kötü olmayacak.",
+            "wave_early_fade": "Geçtiğini hisset. Dürtü gücünü kaybediyor.",
+            "wave_late_fade": "Neredeyse bitti. Ona uymadın."
+          }
+        }
+      },
+      "fake_feed": {
+        "name": "Sahte Akış",
+        "short_description": "Biten bir akış",
+        "long_description": "Başparmağın kaydırmak istiyor. Bu, ona güvenli bir yer veriyor: kısa, sonlu bir akış. On kart, sonra duruyor. Yenileme yok, yüklenecek bir şey yok. Mesele bitişte — akışlar bitebilir. Sonsuz akışlar sadece kendi sonlarını saklar.",
+        "cards": {
+          "invitation": "Aşağı kaydır.",
+          "speed_mirror": "Çekimi fark et.",
+          "thumb": "Başparmağını fark et.",
+          "number": "Günde yaklaşık 90 metre kaydırıyorsun.",
+          "empty_search": "Burada hiçbir şey yok. Amaç bu.",
+          "slow_pulse": "Bununla yavaşla.",
+          "hold": "Burada seni bekleyen hiçbir şey yok.",
+          "winding_down": "Bu akış tükeniyor.",
+          "bottom": "En alta geldin. Normalde bir dip olmaz.",
+          "end": "Her kaydırmanın bir sonu var. Sonsuz akışlar sadece sonlarını saklar. Şimdi telefonu bırak."
+        },
+        "pulse_hint": "Daireyi doldurmak için yavaşça sürükle. Acele edersen dolmaz.",
+        "hold_hint": "Basılı tut. Akışın solmasına izin ver.",
+        "hold_done": "Duraklamanın kontrolü sende.",
+        "skip": "Atla",
+        "number_card": {
+          "distance_label": "metre kaydırıldı bugün",
+          "videos_label": "kısa video, bugün",
+          "context_distance": "≈ Özgürlük Anıtı. Her gün.",
+          "context_videos": "≈ Yılının 15 günü, akışa gitti."
+        }
+      }
+    },
+    "type_fake_feed": "Sonlu akış",
+    "go_to_card_a11y": "{{count}} karttan {{index}}. karta git"
+  },
+  "breathing": {
+    "inhale": "Nefes al",
+    "hold": "Tut",
+    "exhale": "Nefes ver",
+    "cycle_of": "Döngü {{current}} / {{total}}"
+  },
+  "urge_surfing": {
+    "intro": "Dürtüne bir dalga gibi bak",
+    "rising": "Yükseliyor",
+    "peaking": "Zirvede",
+    "falling": "Sönüyor",
+    "gone": "Geçti",
+    "instruction": "Onunla savaşma. Sadece izle."
+  },
+  "grounding": {
+    "step_5": "Görebildiğin 5 şeyi fark et",
+    "step_4": "Dokunabildiğin 4 şeyi fark et",
+    "step_3": "Duyabildiğin 3 şeyi fark et",
+    "step_2": "Koklayabildiğin 2 şeyi fark et",
+    "step_1": "Tadını alabildiğin 1 şeyi fark et",
+    "checkbox_item": "Fark ettim"
+  },
+  "presence": {
+    "you_and_others": "Sen ve {{count}} kişi daha şu an direniyorsunuz",
+    "among_resisting": "Direnenlerin arasındasın"
+  },
+  "trigger_map": {
+    "section_kicker": "FİTİLİ NE ATEŞLİYOR",
+    "period": {
+      "7d": "Son 7 gün",
+      "30d": "Son 30 gün",
+      "all": "Tüm zamanlar"
+    },
+    "heatmap": {
+      "title": "Dürtüler ne zaman geliyor",
+      "subtitle": "Koyu = daha çok dürtü",
+      "days": {
+        "mon": "Pzt",
+        "tue": "Sal",
+        "wed": "Çar",
+        "thu": "Per",
+        "fri": "Cum",
+        "sat": "Cmt",
+        "sun": "Paz"
+      },
+      "days_long": {
+        "mon": "Pazartesi",
+        "tue": "Salı",
+        "wed": "Çarşamba",
+        "thu": "Perşembe",
+        "fri": "Cuma",
+        "sat": "Cumartesi",
+        "sun": "Pazar"
+      },
+      "cell_detail_title": "{{day}}, {{hour}}:00",
+      "cell_cravings_count": "{{count}} dürtü",
+      "cell_top_triggers": "ANA TETİKLEYİCİLER",
+      "cell_avg_intensity": "Ort. yoğunluk: {{level}}",
+      "cell_no_triggers": "Kayıtlı tetikleyici yok"
+    },
+    "peak_hours": {
+      "title": "En zor saatlerin",
+      "subtitle": "İlk 3 zaman aralığı",
+      "row_range": "{{day}} {{startHour}}:00–{{endHour}}:00",
+      "row_count": "{{count}} dürtü"
+    },
+    "distribution": {
+      "title": "Tetikleyicilerin ({{period}})",
+      "mostly": "Çoğunlukla {{level}}",
+      "percent": "%{{percent}}",
+      "no_triggers": "Henüz kayıtlı tetikleyici yok"
+    },
+    "empty": {
+      "zero_title": "Henüz takip edilen dürtü yok",
+      "zero_body": "İlk dürtün bu görünümü açar. Küreye dokun ve dürtü geldiğinde kaydet.",
+      "sparse_title": "Daha yeni başlıyorsun",
+      "sparse_body": "Takibe devam et — birkaç seans sonra örüntüler görünür olur."
+    },
+    "free_gate": {
+      "kicker": "CRAVE PREMIUM",
+      "title": "Dürtülerini neyin tetiklediğini gör",
+      "body": "Premium, hangi tetikleyicilerin seni en çok zorladığını ve her biri için ne yapacağını gösterir.",
+      "cta": "Premium ile aç",
+      "trial": "7 gün ücretsiz · İstediğin zaman iptal et"
+    },
+    "intensity_levels": {
+      "mild": "hafif",
+      "moderate": "orta",
+      "strong": "güçlü",
+      "very_strong": "çok güçlü",
+      "unbearable": "dayanılmaz"
+    },
+    "error": {
+      "load_failed": "Verilerin yüklenemedi — yenilemek için aşağı çek."
+    },
+    "legend_less": "Az",
+    "legend_more": "Çok",
+    "cell_cravings": "{{count}} dürtü",
+    "cell_none": "dürtü yok",
+    "peak_cravings": "EN YOĞUN DÜRTÜLER",
+    "cravings_label": "DÜRTÜ"
+  },
+  "insights": {
+    "section_title": "Kişisel içgörüler",
+    "empty_message": "Geçmişin oluştukça içgörüler burada görünür",
+    "detail_show": "Ayrıntıları göster",
+    "detail_hide": "Ayrıntıları gizle",
+    "details_toggle": "Ayrıntılar",
+    "action": {
+      "open_toolkit": "Teknikleri gör"
+    },
+    "category_label": {
+      "time": "ZAMANLAMA",
+      "trigger": "TETİKLEYİCİ",
+      "technique": "TEKNİK",
+      "trend": "EĞİLİM"
+    },
+    "sublabel": {
+      "peak_hour": "EN ZOR SAAT",
+      "dominant_trigger": "ANA TETİKLEYİCİ",
+      "effective_technique": "EN ETKİLİ",
+      "weekend_concentration": "HAFTA SONU KAYMASI",
+      "rising_resistance": "GÜÇLENİYORSUN",
+      "silence_check": "SAKİN SERİ"
+    },
+    "hero": {
+      "value_hour": "{{hour}}",
+      "value_percent": "%{{percent}}",
+      "value_days": "{{days}}g",
+      "value_multiplier": "{{multiplier}}×",
+      "description_peak_hour": "Haftanın en çok dürtü gelen saati",
+      "description_dominant_trigger": "dürtülerinin kaynağı: {{trigger}}",
+      "description_effective_technique": "{{technique}} ile başarı oranı",
+      "description_weekend_concentration": "hafta sonu yoğunluğu, hafta içi ortalamasına kıyasla",
+      "description_rising_resistance": "bu hafta direncindeki artış",
+      "description_silence_check": "son dürtüden bu yana sakin geçen gün"
+    },
+    "peak_hour": {
+      "template": "{{hour}} en zor saatin",
+      "detail": "Bu saatte {{count}} dürtün var"
+    },
+    "dominant_trigger": {
+      "template": "Ana tetikleyicin: {{trigger}} (%{{percent}})",
+      "detail": "Diğer tüm nedenlerden daha sık karşına çıkıyor"
+    },
+    "effective_technique": {
+      "template": "Sana en iyi gelen: {{technique}}",
+      "detail": "Bunu %{{percent}} oranında olumlu değerlendirdin"
+    },
+    "weekend_concentration": {
+      "template": "Hafta sonları hafta içinden {{multiplier}} kat daha zor",
+      "detail": "Hafta sonu rutininde bir şey daha çok dürtü tetikliyor"
+    },
+    "rising_resistance": {
+      "template": "Bu hafta direnç oranın %{{percent}} arttı",
+      "detail": "Ne yapıyorsan — işe yarıyor"
+    },
+    "silence_check": {
+      "template": "{{days}} sakin gün — nasılsın?",
+      "detail": "Kayıtlı dürtü yok. Her şey yolunda mı?"
+    }
+  },
+  "body_scan": {
+    "intro": "Bedenini yavaşça tara",
+    "instruction": "Gerginliği fark et. Değiştirmeye çalışma — sadece izle.",
+    "tap_hint": "Devam etmek için herhangi bir yere dokun",
+    "regions": {
+      "head": "Baş ve yüz",
+      "neck": "Boyun ve omuzlar",
+      "chest": "Göğüs",
+      "arms": "Kollar ve eller",
+      "belly": "Karın",
+      "back": "Sırt",
+      "hips": "Kalça",
+      "legs": "Bacaklar ve ayaklar"
+    }
+  },
+  "premium": {
+    "cta": "Premium ile aç"
+  },
+  "paywall": {
+    "close": "Kapat",
+    "title": "Crave Premium",
+    "tagline": "Sayı ücretsiz. Hikâye senin.",
+    "feature_streakmap_title": "Tam seri haritan",
+    "feature_streakmap_body": "Direndiğin her gün, ilk güne kadar — sadece son iki hafta değil.",
+    "feature_triggers_title": "Dürtülerini ne besliyor",
+    "feature_triggers_body": "Hangi tetikleyicilerin seni en çok zorladığını ve her biri için ne yapacağını gör.",
+    "feature_comparison_title": "Nerede durduğunu gör",
+    "feature_comparison_body": "İlerlemeni, aynı şeye direnen herkesle anonim olarak karşılaştır.",
+    "feature_addictions_title": "Aynı anda 5'e kadar takip",
+    "feature_addictions_body": "Tek bir alışkanlık yerine birkaçıyla aynı anda mücadele et.",
+    "feature_protection_title": "Seri koruması",
+    "feature_protection_body": "Pes edersen serin sıfıra düşmek yerine yarıya iner — ayda {{count}} kereye kadar.",
+    "plan_annual_label": "Yıllık",
+    "plan_monthly_label": "Aylık",
+    "plan_monthly_note": "aylık faturalanır",
+    "best_value": "EN AVANTAJLI",
+    "trial_badge": "{{days}} gün ücretsiz",
+    "cta": "Premium'u başlat",
+    "cta_sub": "İstediğin zaman iptal et.",
+    "cta_sub_trial": "{{days}} gün ücretsiz, sonra {{price}} · İstediğin zaman iptal et.",
+    "restore": "Satın alımı geri yükle",
+    "not_live": "Satın alımlar henüz aktif değil — bu, Premium'un bir önizlemesi.",
+    "legal": "Yinelenen faturalandırma. Mağaza ayarlarından istediğin zaman iptal et."
+  },
   "craving_quotes": {
     "q0": "Geçen her saniye senin lehine.",
     "q1": "Bu dürtüden daha güçlüsün.",
@@ -7,5 +870,131 @@
     "q4": "Bunu seçtin — bu cesaret.",
     "q5": "Bir anlık sabır, pişmanlıktan kurtarır.",
     "q6": "Sen dürtü değilsin. Onu izleyensin."
+  },
+  "auth": {
+    "email_label": "E-POSTA",
+    "password_label": "ŞİFRE",
+    "email_placeholder": "seninadres@ornek.com",
+    "password_min_placeholder": "en az 6 karakter",
+    "show_password": "Şifreyi göster",
+    "hide_password": "Şifreyi gizle",
+    "sign_in": {
+      "title": "Hoş geldin",
+      "subtitle": "Giriş yap, kaldığın yerden devam et.",
+      "forgot": "Şifremi unuttum",
+      "submit": "Giriş yap",
+      "submitting": "Giriş yapılıyor...",
+      "no_account": "Hesabın yok mu?",
+      "sign_up_link": "Kayıt ol"
+    },
+    "sign_up": {
+      "title": "Hesap oluştur",
+      "subtitle": "Dürüst bir başlangıç. Tek bir e-posta yeter.",
+      "submit": "Hesap oluştur",
+      "submitting": "Oluşturuluyor...",
+      "legal": "Devam ederek kullanım koşullarını ve gizlilik politikasını kabul ediyorsun.",
+      "have_account": "Zaten hesabın var mı?",
+      "sign_in_link": "Giriş yap",
+      "check_email": "Hesabın oluşturuldu. E-posta adresine gönderdiğimiz onay linkine tıkla."
+    },
+    "forgot": {
+      "back": "Giriş",
+      "title": "Şifremi unuttum",
+      "subtitle": "E-posta adresini gir, sıfırlama bağlantısı yollayalım.",
+      "sent": "Sıfırlama bağlantısını {{email}} adresine gönderdik. Gelen kutunu (ve spam'i) kontrol et.",
+      "submit": "Bağlantı gönder",
+      "submitting": "Gönderiliyor...",
+      "back_to_sign_in": "Giriş ekranına dön"
+    },
+    "errors": {
+      "generic": "Bir hata oluştu. Tekrar deneyin.",
+      "invalid_credentials": "E-posta veya şifre hatalı.",
+      "email_not_confirmed": "E-postanı henüz onaylamadın. Gelen kutunu kontrol et.",
+      "already_registered": "Bu e-posta zaten kayıtlı. Giriş yapmayı dene.",
+      "password_short": "Şifre en az 6 karakter olmalı.",
+      "invalid_email": "Geçerli bir e-posta gir.",
+      "rate_limited": "Çok fazla deneme. Birkaç dakika bekle, tekrar dene.",
+      "network": "Bağlantı hatası. İnternetini kontrol et."
+    }
+  },
+  "username": {
+    "kicker": "NEREDEYSE BİTTİ",
+    "title": "Nasıl görünmek istersin?",
+    "subtitle": "İleride kıyaslama ve profil ekranında bu ad kullanılacak. Şimdi atlayabilirsin, sonra profil ekranından ayarlayabilirsin.",
+    "label": "KULLANICI ADI",
+    "placeholder": "ör. quiet_resister",
+    "helper": "{{min}}-{{max}} karakter. Harf, rakam, _ ve - kullanılabilir.",
+    "taken": "Bu kullanıcı adı zaten alınmış. Başka bir tane dene.",
+    "save_failed": "Kaydedilemedi. Tekrar deneyin.",
+    "cancel_sign_out": "Vazgeç ve çıkış yap",
+    "saving": "Kaydediliyor...",
+    "continue": "Devam et",
+    "skip": "Şimdilik atla"
+  },
+  "common": {
+    "error": "Hata",
+    "back": "Geri",
+    "you": "Sen",
+    "pts_unit": "puan",
+    "min_unit": "dk",
+    "points_value": "{{count}} puan",
+    "step_label": "ADIM",
+    "dismiss_notice": "Bildirimi kapat"
+  },
+  "time": {
+    "am": "ÖÖ",
+    "pm": "ÖS",
+    "ago_now": "şimdi",
+    "ago_min": "{{count}}dk önce",
+    "ago_hr": "{{count}}sa önce",
+    "ago_yesterday": "dün",
+    "ago_day": "{{count}}g önce",
+    "ago_week": "{{count}}h önce",
+    "ago_month": "{{count}}ay önce",
+    "ago_year": "{{count}}y önce"
+  },
+  "date": {
+    "month_short": {
+      "jan": "Oca",
+      "feb": "Şub",
+      "mar": "Mar",
+      "apr": "Nis",
+      "may": "May",
+      "jun": "Haz",
+      "jul": "Tem",
+      "aug": "Ağu",
+      "sep": "Eyl",
+      "oct": "Eki",
+      "nov": "Kas",
+      "dec": "Ara"
+    },
+    "day_short": {
+      "mon": "Pzt",
+      "tue": "Sal",
+      "wed": "Çar",
+      "thu": "Per",
+      "fri": "Cum",
+      "sat": "Cmt",
+      "sun": "Paz"
+    },
+    "day_long": {
+      "mon": "Pazartesi",
+      "tue": "Salı",
+      "wed": "Çarşamba",
+      "thu": "Perşembe",
+      "fri": "Cuma",
+      "sat": "Cumartesi",
+      "sun": "Pazar"
+    },
+    "day_initial": {
+      "mon": "P",
+      "tue": "S",
+      "wed": "Ç",
+      "thu": "P",
+      "fri": "C",
+      "sat": "C",
+      "sun": "P"
+    },
+    "short_format": "{{day}} {{month}}"
   }
 }

@@ -27,6 +27,8 @@ import {
   ADDICTIONS_ACTIVE_KEY as STORAGE_KEY_ACTIVE,
   ADDICTIONS_SEEDED_KEY as DEFAULTS_SEEDED_KEY,
 } from '@/lib/localState';
+import { t } from '@/lib/i18n';
+import { useLanguage } from '@/lib/useLanguage';
 
 /**
  * Faz 2 model. State = which catalog ids the user has currently
@@ -79,6 +81,7 @@ const DEFAULT_ADDICTION_IDS: readonly string[] = [
 export function AddictionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const isPremium = useIsPremium();
+  const lang = useLanguage();
   const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
   // Don't persist back to disk until the initial read finishes; the
   // first render otherwise overwrites the saved blob with an empty set.
@@ -211,7 +214,7 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
         await activateUserAddiction(user.id, id);
       } catch {
         setActiveIds(snapshot);
-        throw new Error('Could not add. Check your connection.');
+        throw new Error(t('errors.add_failed'));
       }
     },
     [activeIds, limit, user]
@@ -257,7 +260,7 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
           ]);
         } catch {
           setActiveIds(snapshot);
-          throw new Error('Could not save your choice. Check your connection.');
+          throw new Error(t('errors.save_choice_failed'));
         }
       }
 
@@ -283,7 +286,9 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
       ADDICTION_CATALOG.filter((entry) => activeIds.has(entry.id)).map(
         toAddiction
       ),
-    [activeIds]
+    // `lang`: names are resolved through i18n, so rebuild on a language switch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `lang` re-runs the i18n lookups
+    [activeIds, lang]
   );
 
   return (

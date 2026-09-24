@@ -20,6 +20,8 @@ import {
   coreText,
   hexAlpha,
 } from './coreTheme';
+import { t } from '@/lib/i18n';
+import { formatNumber } from '@/lib/numberFormat';
 
 /**
  * One "FEEDING THE CORE" row.
@@ -87,7 +89,11 @@ export function FeedingRow({
         onPress={onPress}
         style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
         accessibilityRole="button"
-        accessibilityLabel={`${addiction.name} — ${rankName}, ${score}`}
+        accessibilityLabel={t('profile.feeding_row_a11y', {
+          name: addiction.name,
+          rank: rankName,
+          score,
+        })}
       >
         <IconSquare hue={hue} addictionId={addiction.id} />
 
@@ -126,7 +132,7 @@ export function FeedingRow({
               {rankName}
             </Text>
             <Text style={styles.metaDot}> · </Text>
-            {score.toLocaleString('en-US')}
+            {formatNumber(score)}
           </Text>
         </View>
 

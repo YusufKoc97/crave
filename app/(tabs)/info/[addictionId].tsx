@@ -189,7 +189,7 @@ function Header({
         hitSlop={10}
         style={styles.backBtn}
         accessibilityRole="button"
-        accessibilityLabel="Back"
+        accessibilityLabel={t('common.back')}
       >
         <Ionicons
           name="chevron-back"
@@ -270,7 +270,7 @@ function JourneyPane({ addiction }: { addiction: Addiction }) {
             await addAddiction(addiction.id);
             await refresh();
           } catch (e) {
-            Alert.alert('Error', (e as Error).message);
+            Alert.alert(t('common.error'), (e as Error).message);
           }
         }}
       />

@@ -421,7 +421,7 @@ export function StandingCard({
             pillStyle,
           ]}
         >
-          <Text style={styles.youPillText}>You</Text>
+          <Text style={styles.youPillText}>{t('common.you')}</Text>
         </Animated.View>
 
         {/* Axis labels */}

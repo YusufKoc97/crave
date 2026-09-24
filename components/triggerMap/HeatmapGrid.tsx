@@ -254,7 +254,9 @@ export function HeatmapGrid({
                   }}
                   accessibilityRole="button"
                   accessibilityLabel={
-                    cell.count > 0 ? `${cell.count} cravings` : `no cravings`
+                    cell.count > 0
+                      ? t('trigger_map.cell_cravings', { count: cell.count })
+                      : t('trigger_map.cell_none')
                   }
                 />
               ))}
@@ -264,7 +266,7 @@ export function HeatmapGrid({
       )}
 
       <View style={styles.legendRow}>
-        <Text style={styles.legendLabel}>Less</Text>
+        <Text style={styles.legendLabel}>{t('trigger_map.legend_less')}</Text>
         <View style={styles.legendSwatchRow}>
           {[0, 1, 3, 5].map((count) => (
             <View
@@ -276,7 +278,7 @@ export function HeatmapGrid({
             />
           ))}
         </View>
-        <Text style={styles.legendLabel}>More</Text>
+        <Text style={styles.legendLabel}>{t('trigger_map.legend_more')}</Text>
       </View>
     </Animated.View>
   );

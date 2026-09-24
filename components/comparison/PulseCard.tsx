@@ -23,6 +23,7 @@ import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
 import { COMP, compColors, compHexAlpha } from './comparisonTheme';
 import type { PulseData } from './__mockData';
+import { formatNumber } from '@/lib/numberFormat';
 
 /**
  * Community Pulse — the "living stats strip" that sits at the top
@@ -374,7 +375,7 @@ function CountUpText({
     };
   }, [target, delay, reduced]);
 
-  const formatted = display.toLocaleString('en-US') + suffix;
+  const formatted = formatNumber(display) + suffix;
   return <Text style={style}>{formatted}</Text>;
 }
 

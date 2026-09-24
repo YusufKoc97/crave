@@ -17,6 +17,7 @@ import { RankEmblem, rankEmblemColor } from '@/components/ranks/RankEmblem';
 import { CountUp } from './CountUp';
 import { CORE_ANIM, coreNeon, coreText, neon } from './coreTheme';
 import { HERO_SIZE, RING_C, RING_R } from './coreMath';
+import { formatNumber } from '@/lib/numberFormat';
 
 /**
  * "The Core" — the Profile hero.
@@ -108,7 +109,7 @@ export function CoreHero({
         <CountUp
           target={totalPoints}
           delay={260}
-          format={(v) => v.toLocaleString('en-US')}
+          format={(v) => formatNumber(v)}
           style={styles.pointsValue}
         />
         <Text style={styles.pointsUnit}>{t('profile.points_unit')}</Text>
@@ -119,7 +120,7 @@ export function CoreHero({
           ? t('profile.core_dormant_hint')
           : pointsToNext != null && nextRankName
             ? t('profile.core_points_to_next', {
-                points: pointsToNext.toLocaleString('en-US'),
+                points: formatNumber(pointsToNext),
                 rank: nextRankName,
               })
             : t('profile.core_at_ceiling')}

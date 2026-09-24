@@ -30,6 +30,8 @@ import Animated, {
 import { Calendar, Clock, Waves, type LucideIcon } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
+import { clockTitleParams } from '@/lib/timeFormat';
+import { DAY_KEYS } from '@/lib/dateNames';
 import { COMP, compColors, compHexAlpha } from './comparisonTheme';
 import { LockedBlur } from '@/components/ui/LockedBlur';
 import type { PatternsData } from './__mockData';
@@ -131,29 +133,16 @@ export function PatternCard({
   // ─────────────────── Title copy ───────────────────
   let title: string;
   if (kind === 'clock') {
-    const start = data.clock.startHour;
-    const end = data.clock.endHour;
-    const to12 = (h: number) => (h % 12 || 12).toString();
-    const ampm = end < 12 ? 'AM' : 'PM';
-    title = t('comparison.pattern.clock_title', {
-      start: to12(start),
-      end: to12(end),
-      ampm,
-    });
+    title = t(
+      'comparison.pattern.clock_title',
+      clockTitleParams(data.clock.startHour, data.clock.endHour)
+    );
   } else if (kind === 'wave') {
     title = t('comparison.pattern.wave_title', {
       technique: data.wave.techniqueLabel,
     });
   } else {
-    const dayName = [
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ][data.bar.hardestDayIdx];
+    const dayName = t(`date.day_long.${DAY_KEYS[data.bar.hardestDayIdx]}`);
     title = t('comparison.pattern.bar_title', { day: dayName });
   }
 

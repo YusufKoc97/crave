@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { isValidEmail, translateAuthError } from '@/lib/auth';
 import { useAuth } from '@/context/AuthContext';
+import { t } from '@/lib/i18n';
 
 export default function SignInScreen() {
   const { applySession } = useAuth();
@@ -50,20 +51,18 @@ export default function SignInScreen() {
     <View style={styles.root}>
       <View style={styles.center}>
         <Text style={styles.brand}>CRAVE</Text>
-        <Text style={styles.title}>Hoş geldin</Text>
-        <Text style={styles.subtitle}>
-          Giriş yap, kaldığın yerden devam et.
-        </Text>
+        <Text style={styles.title}>{t('auth.sign_in.title')}</Text>
+        <Text style={styles.subtitle}>{t('auth.sign_in.subtitle')}</Text>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>E-POSTA</Text>
+          <Text style={styles.label}>{t('auth.email_label')}</Text>
           <TextInput
             value={email}
             onChangeText={(v) => {
               setEmail(v);
               if (error) setError(null);
             }}
-            placeholder="seninadres@ornek.com"
+            placeholder={t('auth.email_placeholder')}
             placeholderTextColor="#3D5470"
             style={styles.input}
             autoCapitalize="none"
@@ -76,7 +75,7 @@ export default function SignInScreen() {
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>ŞİFRE</Text>
+          <Text style={styles.label}>{t('auth.password_label')}</Text>
           <View style={styles.passwordWrap}>
             <TextInput
               value={password}
@@ -101,7 +100,7 @@ export default function SignInScreen() {
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={
-                showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'
+                showPassword ? t('auth.hide_password') : t('auth.show_password')
               }
             >
               <Ionicons
@@ -118,7 +117,7 @@ export default function SignInScreen() {
           hitSlop={6}
           style={styles.forgotBtn}
         >
-          <Text style={styles.forgotText}>Şifremi unuttum</Text>
+          <Text style={styles.forgotText}>{t('auth.sign_in.forgot')}</Text>
         </Pressable>
 
         {error && (
@@ -140,7 +139,7 @@ export default function SignInScreen() {
             <View style={styles.btnLoading}>
               <ActivityIndicator color="#7DC3FF" size="small" />
               <Text style={[styles.submitText, { color: '#7DC3FF' }]}>
-                Giriş yapılıyor...
+                {t('auth.sign_in.submitting')}
               </Text>
             </View>
           ) : (
@@ -150,19 +149,21 @@ export default function SignInScreen() {
                 { color: canSubmit ? '#7DC3FF' : '#3D5470' },
               ]}
             >
-              Giriş yap
+              {t('auth.sign_in.submit')}
             </Text>
           )}
         </Pressable>
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Hesabın yok mu?</Text>
+        <Text style={styles.footerText}>{t('auth.sign_in.no_account')}</Text>
         <Pressable
           onPress={() => router.replace('/(auth)/sign-up')}
           hitSlop={8}
         >
-          <Text style={styles.footerLink}>Kayıt ol</Text>
+          <Text style={styles.footerLink}>
+            {t('auth.sign_in.sign_up_link')}
+          </Text>
         </Pressable>
       </View>
     </View>

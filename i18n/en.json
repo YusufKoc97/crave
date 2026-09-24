@@ -74,12 +74,15 @@
     "confirm": "Remove"
   },
   "errors": {
-    "addiction_limit_reached": "Remove an addiction or upgrade to premium to add more"
+    "addiction_limit_reached": "Remove an addiction or upgrade to premium to add more",
+    "add_failed": "Could not add. Check your connection.",
+    "save_choice_failed": "Could not save your choice. Check your connection."
   },
   "home": {
     "empty_subtitle": "Tap the plus button below to choose from the catalog.",
     "empty_cta": "Add addiction",
-    "add_addiction_a11y": "Add addiction"
+    "add_addiction_a11y": "Add addiction",
+    "resist": "RESIST"
   },
   "onboarding": {
     "welcome": {
@@ -138,8 +141,12 @@
       "rank_label": "Current rank",
       "progress_label": "Progress to First Step",
       "progress_hint": "100 pts to First Step",
-      "cta": "Enter Crave"
-    }
+      "cta": "Enter Crave",
+      "error_title": "Couldn't finish setup",
+      "error_body": "We couldn’t save your choice. Please check your connection and try again."
+    },
+    "go_back_a11y": "Go back",
+    "progress_a11y": "Onboarding progress, step {{step}} of {{total}}"
   },
   "profile": {
     "my_addictions": "MY ADDICTIONS",
@@ -204,7 +211,8 @@
       "unlock_cta": "Unlock with Premium",
       "unlock_body": "See your whole map, all the way back to day one.",
       "last_14": "LAST 14 DAYS"
-    }
+    },
+    "feeding_row_a11y": "{{name}} — {{rank}}, {{score}}"
   },
   "active": {
     "resist": "I Resisted",
@@ -212,7 +220,10 @@
     "points_earned": "points earned",
     "finish": "Finish",
     "streak_protected_title": "Streak protected",
-    "streak_protected_body": "Your streak held instead of resetting."
+    "streak_protected_body": "Your streak held instead of resetting.",
+    "craving_fallback": "Craving",
+    "cycle_tag": "CYCLE {{cycle}} · +{{bonus}} EARNED",
+    "points_live": "+{{points}} pts"
   },
   "trigger_capture": {
     "resist_title": "Nice work — one more thing",
@@ -390,7 +401,11 @@
     "not_tracked": "Not tracked",
     "current_rank_prefix": "",
     "empty_tracking": "Nothing tracked yet — pick one below.",
-    "rank_maxed": "Maxed"
+    "rank_maxed": "Maxed",
+    "details_a11y": "{{name}} details",
+    "start_tracking_a11y": "Start tracking {{name}}",
+    "track_pill": "+ Track",
+    "start_failed_title": "Could not start tracking"
   },
   "landing": {
     "start_tracking_title": "Not tracking {{name}} yet",
@@ -638,7 +653,8 @@
         }
       }
     },
-    "type_fake_feed": "Finite feed"
+    "type_fake_feed": "Finite feed",
+    "go_to_card_a11y": "Go to card {{index}} of {{count}}"
   },
   "breathing": {
     "inhale": "Breathe in",
@@ -734,7 +750,13 @@
     },
     "error": {
       "load_failed": "Couldn't load your data — pull to refresh."
-    }
+    },
+    "legend_less": "Less",
+    "legend_more": "More",
+    "cell_cravings": "{{count}} cravings",
+    "cell_none": "no cravings",
+    "peak_cravings": "PEAK CRAVINGS",
+    "cravings_label": "CRAVINGS"
   },
   "insights": {
     "section_title": "Personal insights",
@@ -848,5 +870,131 @@
     "q4": "You chose this — that takes courage.",
     "q5": "A moment of patience saves you from regret.",
     "q6": "You are not the urge. You are the one watching it."
+  },
+  "auth": {
+    "email_label": "EMAIL",
+    "password_label": "PASSWORD",
+    "email_placeholder": "you@example.com",
+    "password_min_placeholder": "at least 6 characters",
+    "show_password": "Show password",
+    "hide_password": "Hide password",
+    "sign_in": {
+      "title": "Welcome back",
+      "subtitle": "Sign in and pick up where you left off.",
+      "forgot": "Forgot my password",
+      "submit": "Sign in",
+      "submitting": "Signing in...",
+      "no_account": "Don't have an account?",
+      "sign_up_link": "Sign up"
+    },
+    "sign_up": {
+      "title": "Create account",
+      "subtitle": "An honest start. One email is enough.",
+      "submit": "Create account",
+      "submitting": "Creating...",
+      "legal": "By continuing you accept the terms of use and the privacy policy.",
+      "have_account": "Already have an account?",
+      "sign_in_link": "Sign in",
+      "check_email": "Your account is created. Tap the confirmation link we sent to your email."
+    },
+    "forgot": {
+      "back": "Sign in",
+      "title": "Forgot my password",
+      "subtitle": "Enter your email and we'll send you a reset link.",
+      "sent": "We sent the reset link to {{email}}. Check your inbox (and spam).",
+      "submit": "Send link",
+      "submitting": "Sending...",
+      "back_to_sign_in": "Back to sign in"
+    },
+    "errors": {
+      "generic": "Something went wrong. Please try again.",
+      "invalid_credentials": "Wrong email or password.",
+      "email_not_confirmed": "You haven't confirmed your email yet. Check your inbox.",
+      "already_registered": "This email is already registered. Try signing in.",
+      "password_short": "Password must be at least 6 characters.",
+      "invalid_email": "Enter a valid email address.",
+      "rate_limited": "Too many attempts. Wait a few minutes and try again.",
+      "network": "Connection error. Check your internet."
+    }
+  },
+  "username": {
+    "kicker": "ALMOST DONE",
+    "title": "How do you want to appear?",
+    "subtitle": "This name will be used in comparisons and on your profile later. You can skip for now and set it from your profile.",
+    "label": "USERNAME",
+    "placeholder": "e.g. quiet_resister",
+    "helper": "{{min}}-{{max}} characters. Letters, numbers, _ and - are allowed.",
+    "taken": "That username is already taken. Try another one.",
+    "save_failed": "Couldn't save. Please try again.",
+    "cancel_sign_out": "Cancel and sign out",
+    "saving": "Saving...",
+    "continue": "Continue",
+    "skip": "Skip for now"
+  },
+  "common": {
+    "error": "Error",
+    "back": "Back",
+    "you": "You",
+    "pts_unit": "pts",
+    "min_unit": "min",
+    "points_value": "{{count}} pts",
+    "step_label": "STEP",
+    "dismiss_notice": "Dismiss notification"
+  },
+  "time": {
+    "am": "AM",
+    "pm": "PM",
+    "ago_now": "just now",
+    "ago_min": "{{count}}m ago",
+    "ago_hr": "{{count}}h ago",
+    "ago_yesterday": "yesterday",
+    "ago_day": "{{count}}d ago",
+    "ago_week": "{{count}}w ago",
+    "ago_month": "{{count}}mo ago",
+    "ago_year": "{{count}}y ago"
+  },
+  "date": {
+    "month_short": {
+      "jan": "Jan",
+      "feb": "Feb",
+      "mar": "Mar",
+      "apr": "Apr",
+      "may": "May",
+      "jun": "Jun",
+      "jul": "Jul",
+      "aug": "Aug",
+      "sep": "Sep",
+      "oct": "Oct",
+      "nov": "Nov",
+      "dec": "Dec"
+    },
+    "day_short": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    },
+    "day_long": {
+      "mon": "Monday",
+      "tue": "Tuesday",
+      "wed": "Wednesday",
+      "thu": "Thursday",
+      "fri": "Friday",
+      "sat": "Saturday",
+      "sun": "Sunday"
+    },
+    "day_initial": {
+      "mon": "M",
+      "tue": "T",
+      "wed": "W",
+      "thu": "T",
+      "fri": "F",
+      "sat": "S",
+      "sun": "S"
+    },
+    "short_format": "{{month}} {{day}}"
   }
 }

@@ -39,7 +39,7 @@ export function GlassBackButton({ onPress }: { onPress: () => void }) {
       style={styles.backBtn}
       hitSlop={10}
       accessibilityRole="button"
-      accessibilityLabel="Back"
+      accessibilityLabel={t('common.back')}
     >
       <ChevronLeft color="#ffffff" size={20} strokeWidth={2.4} />
     </Pressable>
@@ -135,7 +135,10 @@ export function DotNavigation({
             onPress={() => onDotPress(i)}
             hitSlop={12}
             accessibilityRole="button"
-            accessibilityLabel={`Go to card ${i + 1} of ${count}`}
+            accessibilityLabel={t('toolkit.go_to_card_a11y', {
+              index: i + 1,
+              count,
+            })}
             accessibilityState={{ selected: isActive }}
           >
             <View

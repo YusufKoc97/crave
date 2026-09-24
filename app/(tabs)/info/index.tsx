@@ -73,7 +73,7 @@ export default function InfoScreen() {
       await addAddiction(addictionId);
       await refresh();
     } catch (e) {
-      Alert.alert('Could not start tracking', (e as Error).message);
+      Alert.alert(t('info.start_failed_title'), (e as Error).message);
     }
     // No navigation on success — the card just animates into the
     // TRACKING section on the next render. If we ever want to whisk

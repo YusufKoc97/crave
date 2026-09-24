@@ -14,6 +14,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useTriggersAccent } from './triggersAccent';
+import { formatNumber } from '@/lib/numberFormat';
 
 /**
  * Shared motion + in-card atmosphere for the Triggers sub-tab.
@@ -201,7 +202,7 @@ export function CountUpText({
   const text =
     decimals > 0
       ? display.toFixed(decimals)
-      : Math.round(display).toLocaleString('en-US');
+      : formatNumber(Math.round(display));
 
   return (
     <Animated.Text style={style}>{`${prefix}${text}${suffix}`}</Animated.Text>

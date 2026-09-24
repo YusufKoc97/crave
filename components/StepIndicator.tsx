@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { t } from '@/lib/i18n';
 
 /**
  * Two-segment progress indicator used at the top of every onboarding
@@ -38,7 +39,8 @@ export function StepIndicator({
         })}
       </View>
       <Text style={styles.label}>
-        ADIM {step} <Text style={styles.labelDim}>/ {total}</Text>
+        {t('common.step_label')} {step}{' '}
+        <Text style={styles.labelDim}>/ {total}</Text>
       </Text>
     </View>
   );

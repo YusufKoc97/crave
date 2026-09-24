@@ -42,7 +42,7 @@ export default function HowItWorksScreen() {
     {
       n: '4',
       label: t('onboarding.how.step4'),
-      detail: '+12 pts',
+      detail: t('common.points_value', { count: '+12' }),
       detailColor: dsColors.accentBlue,
     },
   ];

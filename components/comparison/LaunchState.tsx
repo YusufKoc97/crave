@@ -3,6 +3,7 @@ import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { Flag, Sunrise } from 'lucide-react-native';
 import type { Addiction } from '@/constants/addictions';
 import { t } from '@/lib/i18n';
+import { DAY_KEYS } from '@/lib/dateNames';
 import { compColors, compHexAlpha } from './comparisonTheme';
 import { DistributionCard } from './DistributionCard';
 import { PatternCard } from './PatternCard';
@@ -34,7 +35,7 @@ import type {
  * that nothing on them reads as a real number.
  */
 const PREVIEW_BLUR = 34;
-const PREVIEW_METRICS: DistributionMetric[] = [
+const previewMetrics = (): DistributionMetric[] => [
   {
     key: 'resistance_rate',
     labelKey: 'comparison.metric.resistance_rate',
@@ -45,19 +46,19 @@ const PREVIEW_METRICS: DistributionMetric[] = [
     avgLabel: '55%',
     sd: 15,
     tone: 'good',
-    deltaLabel: '+5 pts',
+    deltaLabel: `+5 ${t('common.pts_unit')}`,
   },
   {
     key: 'hold_out',
     labelKey: 'comparison.metric.hold_out',
     icon: 'timer',
     youNum: 10,
-    unit: 'min',
+    unit: t('common.min_unit'),
     avg: 9,
-    avgLabel: '9 min',
+    avgLabel: `9 ${t('common.min_unit')}`,
     sd: 5,
     tone: 'good',
-    deltaLabel: '+1 min',
+    deltaLabel: `+1 ${t('common.min_unit')}`,
   },
   {
     key: 'cravings_week',
@@ -68,20 +69,23 @@ const PREVIEW_METRICS: DistributionMetric[] = [
     avgLabel: '12',
     sd: 6,
     tone: 'neutral',
-    deltaLabel: 'on par',
+    deltaLabel: t('comparison.delta_same'),
     note: 'comparison.cravings_note',
   },
 ];
 const PREVIEW_STANDING: StandingData = { percentPos: 62, tone: 'high' };
-const PREVIEW_PATTERNS: PatternsData = {
+const previewPatterns = (): PatternsData => ({
   clock: { startHour: 19, endHour: 22, sharePct: 30 },
-  wave: { techniqueLabel: 'Urge Surfing', successPct: 60 },
+  wave: {
+    techniqueLabel: t('toolkit.techniques.urge_surfing.name'),
+    successPct: 60,
+  },
   bar: {
     values: [4, 7, 5, 6, 8, 3, 2],
     hardestDayIdx: 4,
-    labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+    labels: DAY_KEYS.map((k) => t(`date.day_initial.${k}`)),
   },
-};
+});
 
 const PITCH_BENEFITS = (): PitchBenefit[] => [
   { label: t('comparison.pitch_f1'), Icon: Trophy },
@@ -190,7 +194,7 @@ export function LaunchState({ addiction, count, onUpgrade }: Props) {
       <View pointerEvents="none">
         <SectionHeader label={t('comparison.you_vs_community')} />
         <View style={styles.previewStack}>
-          {PREVIEW_METRICS.map((metric, i) => (
+          {previewMetrics().map((metric, i) => (
             <DistributionCard
               key={metric.key}
               metric={metric}
@@ -215,7 +219,7 @@ export function LaunchState({ addiction, count, onUpgrade }: Props) {
             <PatternCard
               key={kind}
               kind={kind}
-              data={PREVIEW_PATTERNS}
+              data={previewPatterns()}
               addiction={addiction}
               index={i}
               locked

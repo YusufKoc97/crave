@@ -1,3 +1,4 @@
+/* global console, process */
 // Lists English strings that i18n/tr.json hasn't translated yet, grouped by
 // top-level section:  npm run i18n:missing
 import { readFileSync } from 'node:fs';

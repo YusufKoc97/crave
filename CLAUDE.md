@@ -76,10 +76,10 @@ constants/
 
 i18n/
   en.json              ─ Source-of-truth dictionary; every string is added here first
-  tr.json              ─ Turkish, partial by design — a missing key falls back to
-                         English. Check progress: `npm run i18n:missing`.
-                         Turkish stays DEV-only until `TR_READY` (lib/i18nCore.ts)
-                         is flipped to true (test enforces completeness then).
+  tr.json              ─ Turkish, complete (parity with en.json). New strings go in
+                         BOTH files; `npm run i18n:missing` lists any gap and a test
+                         rejects t('key') calls whose key isn't in en.json. Turkish
+                         stays DEV-only until `TR_READY` (lib/i18nCore.ts) is true.
 
 context/
   AuthContext.tsx      ─ Supabase session + signOut

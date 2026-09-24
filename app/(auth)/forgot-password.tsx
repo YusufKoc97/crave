@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { isValidEmail, translateAuthError } from '@/lib/auth';
 import { useKeyboardShortcut } from '@/lib/useKeyboardShortcut';
+import { t } from '@/lib/i18n';
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
@@ -50,24 +51,22 @@ export default function ForgotPasswordScreen() {
           hitSlop={8}
         >
           <Ionicons name="chevron-back" size={18} color="#7BA8C8" />
-          <Text style={styles.backText}>Giriş</Text>
+          <Text style={styles.backText}>{t('auth.forgot.back')}</Text>
         </Pressable>
 
         <Text style={styles.brand}>CRAVE</Text>
-        <Text style={styles.title}>Şifremi unuttum</Text>
-        <Text style={styles.subtitle}>
-          E-posta adresini gir, sıfırlama bağlantısı yollayalım.
-        </Text>
+        <Text style={styles.title}>{t('auth.forgot.title')}</Text>
+        <Text style={styles.subtitle}>{t('auth.forgot.subtitle')}</Text>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>E-POSTA</Text>
+          <Text style={styles.label}>{t('auth.email_label')}</Text>
           <TextInput
             value={email}
             onChangeText={(v) => {
               setEmail(v);
               if (error) setError(null);
             }}
-            placeholder="seninadres@ornek.com"
+            placeholder={t('auth.email_placeholder')}
             placeholderTextColor="#3D5470"
             style={styles.input}
             autoCapitalize="none"
@@ -92,8 +91,7 @@ export default function ForgotPasswordScreen() {
           <View style={styles.infoBox}>
             <Ionicons name="mail-outline" size={14} color="#7DC3FF" />
             <Text style={styles.infoText}>
-              Sıfırlama bağlantısını {email.trim().toLowerCase()} adresine
-              gönderdik. Gelen kutunu (ve spam'i) kontrol et.
+              {t('auth.forgot.sent', { email: email.trim().toLowerCase() })}
             </Text>
           </View>
         )}
@@ -111,7 +109,7 @@ export default function ForgotPasswordScreen() {
               <View style={styles.btnLoading}>
                 <ActivityIndicator color="#7DC3FF" size="small" />
                 <Text style={[styles.submitText, { color: '#7DC3FF' }]}>
-                  Gönderiliyor...
+                  {t('auth.forgot.submitting')}
                 </Text>
               </View>
             ) : (
@@ -121,7 +119,7 @@ export default function ForgotPasswordScreen() {
                   { color: canSubmit ? '#7DC3FF' : '#3D5470' },
                 ]}
               >
-                Bağlantı gönder
+                {t('auth.forgot.submit')}
               </Text>
             )}
           </Pressable>
@@ -133,7 +131,7 @@ export default function ForgotPasswordScreen() {
             style={[styles.submitBtn, styles.submitBtnActive]}
           >
             <Text style={[styles.submitText, { color: '#7DC3FF' }]}>
-              Giriş ekranına dön
+              {t('auth.forgot.back_to_sign_in')}
             </Text>
           </Pressable>
         )}

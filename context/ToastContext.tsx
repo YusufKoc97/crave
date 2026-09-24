@@ -16,6 +16,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { t } from '@/lib/i18n';
 
 /**
  * App-wide toast queue. Up to MAX_VISIBLE toasts can stack at once;
@@ -145,7 +146,7 @@ function ToastItem({
       <Pressable
         onPress={onDismiss}
         accessibilityRole="button"
-        accessibilityLabel="Bildirimi kapat"
+        accessibilityLabel={t('common.dismiss_notice')}
         style={styles.toastBody}
         hitSlop={4}
       >

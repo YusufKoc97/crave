@@ -13,6 +13,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { NeonRing } from '@/components/NeonRing';
+import { t } from '@/lib/i18n';
 
 /**
  * The resistance orb — the single source of truth for the "RESIST" core
@@ -207,7 +208,7 @@ export function ResistanceOrb({
             style={[styles.orb, BREATH_STYLE_ORB]}
           >
             <Animated.Text style={[styles.orbText, orbTextStyle]}>
-              RESIST
+              {t('home.resist')}
             </Animated.Text>
           </Pressable>
         </Animated.View>

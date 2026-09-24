@@ -13,6 +13,7 @@ import Svg, {
 import { DAY_KEYS } from '@/constants/heatmap';
 import type { TriggerMapPeak, TriggerMapTrigger } from '@/lib/triggerMap';
 import { t } from '@/lib/i18n';
+import { formatHourRange } from '@/lib/timeFormat';
 import {
   ADDICTION_TRIGGERS,
   COMMON_TRIGGERS,
@@ -67,27 +68,6 @@ const ARC_STROKE_MIN = 3;
 const ARC_STROKE_MAX = 14;
 /** How many hours around each peak to include in its window. */
 const PEAK_WINDOW_RADIUS = 1;
-
-function formatHour12(hour: number): string {
-  const h = ((hour % 24) + 24) % 24;
-  const suffix = h < 12 ? 'AM' : 'PM';
-  const twelve = h % 12 === 0 ? 12 : h % 12;
-  return `${twelve}${suffix}`;
-}
-
-/**
- * "7-10 PM" style range label. `startHour` inclusive, `endHourExc`
- * is one PAST the last window hour so a 3-hour cluster (hours
- * 19, 20, 21) reads as "7-10 PM".
- */
-function formatWindowLabel(startHour: number, endHourExc: number): string {
-  const startSuffix = ((startHour % 24) + 24) % 24 < 12 ? 'AM' : 'PM';
-  const endSuffix = ((endHourExc % 24) + 24) % 24 < 12 ? 'AM' : 'PM';
-  const start12 = (startHour % 12 || 12).toString();
-  const end12 = (endHourExc % 12 || 12).toString();
-  if (startSuffix === endSuffix) return `${start12}-${end12} ${endSuffix}`;
-  return `${start12} ${startSuffix} - ${end12} ${endSuffix}`;
-}
 
 export function PeakHoursList({
   peaks,
@@ -166,7 +146,7 @@ export function PeakHoursList({
             key={`${peak.day}-${peak.hour}`}
             rank={idx + 1}
             dayLabel={dayLabel}
-            rangeLabel={formatWindowLabel(peak.startHour, peak.endHourInc + 1)}
+            rangeLabel={formatHourRange(peak.startHour, peak.endHourInc + 1)}
             count={peak.windowCount}
             hourlyCounts={peak.hourlyCounts}
             windowStart={peak.startHour}
@@ -330,7 +310,7 @@ function RadialClock({
           letterSpacing="1.4"
           textAnchor="middle"
         >
-          PEAK CRAVINGS
+          {t('trigger_map.peak_cravings')}
         </SvgText>
       </G>
     </Svg>
@@ -442,7 +422,7 @@ function PeakCard({
             style={styles.countText}
           />
           <Text style={[styles.cravingsLabel, { color: alpha(0.75) }]}>
-            CRAVINGS
+            {t('trigger_map.cravings_label')}
           </Text>
         </View>
       </View>
@@ -723,4 +703,3 @@ const styles = StyleSheet.create({
 // Kept for API compat with earlier callers that formatted rows
 // externally — not used by this component but exported so tests
 // or shared utilities can reuse the 12h formatter.
-export { formatHour12 };

@@ -10,6 +10,7 @@ import {
 import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { setUsername as persistUsername } from '@/lib/profile';
+import { t } from '@/lib/i18n';
 
 async function handleSignOut(signOut: () => Promise<void>) {
   try {
@@ -57,9 +58,9 @@ export default function SetupUsernameScreen() {
       // and translate the failure.
       const code = (e as { code?: string }).code;
       if (code === '23505') {
-        setError('Bu kullanıcı adı zaten alınmış. Başka bir tane dene.');
+        setError(t('username.taken'));
       } else {
-        setError('Kaydedilemedi. Tekrar deneyin.');
+        setError(t('username.save_failed'));
       }
       setSaving(false);
     }
@@ -68,22 +69,19 @@ export default function SetupUsernameScreen() {
   return (
     <View style={styles.root}>
       <View style={styles.center}>
-        <Text style={styles.kicker}>NEREDEYSE BİTTİ</Text>
-        <Text style={styles.title}>Nasıl görünmek istersin?</Text>
-        <Text style={styles.subtitle}>
-          İleride kıyaslama ve profil ekranında bu ad kullanılacak. Şimdi
-          atlayabilirsin, sonra profil ekranından ayarlayabilirsin.
-        </Text>
+        <Text style={styles.kicker}>{t('username.kicker')}</Text>
+        <Text style={styles.title}>{t('username.title')}</Text>
+        <Text style={styles.subtitle}>{t('username.subtitle')}</Text>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>KULLANICI ADI</Text>
+          <Text style={styles.label}>{t('username.label')}</Text>
           <TextInput
             value={value}
             onChangeText={(v) => {
               setValue(v.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, MAX_LEN));
               if (error) setError(null);
             }}
-            placeholder="ör. quiet_resister"
+            placeholder={t('username.placeholder')}
             placeholderTextColor="#3D5470"
             style={styles.input}
             autoCapitalize="none"
@@ -94,7 +92,7 @@ export default function SetupUsernameScreen() {
             onSubmitEditing={submit}
           />
           <Text style={styles.helper}>
-            {MIN_LEN}-{MAX_LEN} karakter. Harf, rakam, _ ve - kullanılabilir.
+            {t('username.helper', { min: MIN_LEN, max: MAX_LEN })}
           </Text>
         </View>
 
@@ -107,7 +105,9 @@ export default function SetupUsernameScreen() {
           hitSlop={8}
           style={styles.signOutLink}
         >
-          <Text style={styles.signOutLinkText}>Vazgeç ve çıkış yap</Text>
+          <Text style={styles.signOutLinkText}>
+            {t('username.cancel_sign_out')}
+          </Text>
         </Pressable>
         <Pressable
           onPress={submit}
@@ -125,7 +125,7 @@ export default function SetupUsernameScreen() {
             <View style={styles.btnLoading}>
               <ActivityIndicator color="#7DC3FF" size="small" />
               <Text style={[styles.submitText, { color: '#7DC3FF' }]}>
-                Kaydediliyor...
+                {t('username.saving')}
               </Text>
             </View>
           ) : (
@@ -135,7 +135,7 @@ export default function SetupUsernameScreen() {
                 { color: canSubmit ? '#7DC3FF' : '#3D5470' },
               ]}
             >
-              Devam et
+              {t('username.continue')}
             </Text>
           )}
         </Pressable>
@@ -148,7 +148,7 @@ export default function SetupUsernameScreen() {
           hitSlop={8}
           style={styles.skipLink}
         >
-          <Text style={styles.skipLinkText}>Şimdilik atla</Text>
+          <Text style={styles.skipLinkText}>{t('username.skip')}</Text>
         </Pressable>
       </View>
     </View>

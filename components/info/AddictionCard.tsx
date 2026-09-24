@@ -29,6 +29,7 @@ import {
   UNTRACKED_BORDER,
   hexAlpha,
 } from './cardStyle';
+import { t } from '@/lib/i18n';
 
 /**
  * Info-tab addiction card — mirrors the design handoff spec.
@@ -108,7 +109,7 @@ export function AddictionCard({
         onPress={onPress}
         style={({ pressed }) => [styles.body, pressed && styles.pressedBody]}
         accessibilityRole="button"
-        accessibilityLabel={`${addiction.name} details`}
+        accessibilityLabel={t('info.details_a11y', { name: addiction.name })}
       >
         <View style={styles.iconWrap}>
           <Svg
@@ -184,7 +185,7 @@ export function AddictionCard({
             {tracked && (
               <Text style={{ color: TEXT_STATUS_MUTED, fontWeight: '600' }}>
                 {' '}
-                · {score} pts
+                · {t('common.points_value', { count: score })}
               </Text>
             )}
           </Text>
@@ -202,10 +203,12 @@ export function AddictionCard({
             },
           ]}
           accessibilityRole="button"
-          accessibilityLabel={`Start tracking ${addiction.name}`}
+          accessibilityLabel={t('info.start_tracking_a11y', {
+            name: addiction.name,
+          })}
         >
           <Text style={[styles.trackPillText, { color: hexAlpha(hue, 0.9) }]}>
-            + Track
+            {t('info.track_pill')}
           </Text>
         </Pressable>
       )}

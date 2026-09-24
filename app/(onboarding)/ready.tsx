@@ -70,8 +70,8 @@ export default function ReadyScreen() {
       // through onboarding on the next cold launch.
       console.warn('onboarding completion failed', e);
       Alert.alert(
-        "Couldn't finish setup",
-        'We couldn’t save your choice. Please check your connection and try again.'
+        t('onboarding.ready.error_title'),
+        t('onboarding.ready.error_body')
       );
       setSubmitting(false);
     }
@@ -106,7 +106,9 @@ export default function ReadyScreen() {
                 {t('onboarding.ready.rank_label')}
               </Text>
               <Text style={styles.cardValue}>
-                {selected ? `${selected.name} · ` : ''}Base · 0 pts
+                {selected ? `${selected.name} · ` : ''}
+                {t('ranks.traveler.name')} ·{' '}
+                {t('common.points_value', { count: 0 })}
               </Text>
             </View>
             <View style={styles.cardIcon}>

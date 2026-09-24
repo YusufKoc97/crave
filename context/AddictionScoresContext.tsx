@@ -19,6 +19,7 @@ import {
   type Rank,
   type RankRow,
 } from '@/constants/rankLadder';
+import { useLanguage } from '@/lib/useLanguage';
 
 /**
  * Faz 4 — per-addiction score + unlocked-rank hydration for the
@@ -106,6 +107,9 @@ function zeroView(addictionId: string): JourneyView {
 
 export function AddictionScoresProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  // Rank names are resolved through i18n when the views are built, so the
+  // views must be rebuilt when the language changes.
+  const lang = useLanguage();
   const [scores, setScores] = useState<ScoreRow[]>([]);
   const [unlocks, setUnlocks] = useState<UnlockRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -197,7 +201,8 @@ export function AddictionScoresProvider({ children }: { children: ReactNode }) {
       };
     }
     return out;
-  }, [scores, unlocks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `lang` re-runs the i18n lookups
+  }, [scores, unlocks, lang]);
 
   const viewFor = useCallback(
     (addictionId: string) => views[addictionId] ?? zeroView(addictionId),

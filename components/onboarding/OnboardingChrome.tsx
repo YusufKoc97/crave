@@ -22,6 +22,7 @@ import {
   hexAlpha,
 } from '@/constants/designSystem';
 import { AmbientGlow } from '@/components/ui/AmbientGlow';
+import { t } from '@/lib/i18n';
 
 /**
  * Shared chrome for the 5-screen onboarding flow. Rebuilds the FireVibe
@@ -117,7 +118,7 @@ export function ObHeader({
           onPress={onBack}
           hitSlop={10}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('onboarding.go_back_a11y')}
           style={styles.backBtn}
         >
           <ChevronLeft
@@ -151,7 +152,10 @@ export function ObProgress({
     <View
       style={styles.progress}
       accessibilityRole="progressbar"
-      accessibilityLabel={`Onboarding progress, step ${index + 1} of ${total}`}
+      accessibilityLabel={t('onboarding.progress_a11y', {
+        step: index + 1,
+        total,
+      })}
     >
       {Array.from({ length: total }, (_, i) => {
         const active = i === index;

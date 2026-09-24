@@ -629,7 +629,7 @@ export default function ActiveSession() {
           style={styles.backBtn}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel="Geri"
+          accessibilityLabel={t('common.back')}
         >
           <Text style={styles.backArrow}>‹</Text>
         </Pressable>
@@ -642,11 +642,14 @@ export default function ActiveSession() {
           <AddictionGlyph size={36} color={accentColor} strokeWidth={2} />
         </View>
         <Text style={styles.addictionName}>
-          {(params.name ?? 'Craving').toUpperCase()}
+          {(params.name ?? t('active.craving_fallback')).toUpperCase()}
         </Text>
         {completedCycles > 0 && (
           <Text style={[styles.cycleTag, { color: accentColor }]}>
-            CYCLE {completedCycles + 1} · +{cycleBonus} EARNED
+            {t('active.cycle_tag', {
+              cycle: completedCycles + 1,
+              bonus: cycleBonus,
+            })}
           </Text>
         )}
       </View>
@@ -693,7 +696,7 @@ export default function ActiveSession() {
               </Text>
             </View>
             <Text style={[styles.pointsText, { color: accentColor }]}>
-              +{points} pts
+              {t('active.points_live', { points })}
             </Text>
           </View>
 

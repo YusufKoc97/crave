@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import en from '@/i18n/en.json';
 import tr from '@/i18n/tr.json';
@@ -23,7 +25,8 @@ describe('translate', () => {
   });
 
   it('falls back to English when the language lacks the key', () => {
-    expect(translate(TREES, 'tr', 'premium.cta')).toBe(
+    // A language with no strings at all falls back to English throughout.
+    expect(translate({ en, tr: {} }, 'tr', 'premium.cta')).toBe(
       translate(TREES, 'en', 'premium.cta')
     );
   });
@@ -74,5 +77,34 @@ describe('Turkish translation file', () => {
     const missing = Object.keys(enFlat).filter((k) => !(k in trFlat));
     if (TR_READY) expect(missing).toEqual([]);
     else expect(TR_READY).toBe(false); // in-progress: see `npm run i18n:missing`
+  });
+});
+
+/** Every .ts/.tsx under the app source folders. */
+function sourceFiles(dir: string, out: string[] = []): string[] {
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules') continue;
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) sourceFiles(p, out);
+    else if (/\.tsx?$/.test(name)) out.push(p);
+  }
+  return out;
+}
+
+describe('t() call sites', () => {
+  it('only reference keys that exist in en.json', () => {
+    const missing: string[] = [];
+    for (const dir of ['app', 'components', 'constants', 'context', 'lib']) {
+      for (const file of sourceFiles(dir)) {
+        const src = readFileSync(file, 'utf8');
+        for (const m of src.matchAll(/\bt\(\s*(['"])([A-Za-z0-9_.]+)\1/g)) {
+          const key = m[2];
+          // A trailing dot means the key is built at runtime (`t('a.' + b)`).
+          if (key.endsWith('.')) continue;
+          if (!(key in enFlat)) missing.push(`${file}: ${key}`);
+        }
+      }
+    }
+    expect(missing).toEqual([]);
   });
 });

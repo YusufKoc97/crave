@@ -1,5 +1,6 @@
 import type { ComparisonStatsResult } from '@/shared/comparisonStats';
 import { t } from '@/lib/i18n';
+import { DAY_KEYS } from '@/lib/dateNames';
 import {
   COMMON_TRIGGERS,
   ADDICTION_TRIGGERS,
@@ -48,7 +49,7 @@ function resolveTechniqueLabel(id: string): string {
 }
 
 /** Weekday initials, Mon..Sun — matches the bar's Mon-based indexing. */
-const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const dayLabels = () => DAY_KEYS.map((k) => t(`date.day_initial.${k}`));
 
 function mapPulse(r: ComparisonStatsResult, addictionId: string): PulseData {
   const top = r.pulse.topTrigger;
@@ -109,7 +110,7 @@ function mapDistribution(r: ComparisonStatsResult): DistributionMetric[] {
       // zero-variance cohort would blow up to ±Infinity, so floor it.
       sd: Math.max(1, rate.sd),
       tone: rate.tone,
-      deltaLabel: `${signed(rate.delta, '')} pts`,
+      deltaLabel: `${signed(rate.delta, '')} ${t('common.pts_unit')}`,
     });
   }
 
@@ -120,12 +121,12 @@ function mapDistribution(r: ComparisonStatsResult): DistributionMetric[] {
       labelKey: 'comparison.metric.hold_out',
       icon: 'timer',
       youNum: hold.youNum,
-      unit: 'min',
+      unit: t('common.min_unit'),
       avg: hold.avg,
-      avgLabel: `${hold.avg} min`,
+      avgLabel: `${hold.avg} ${t('common.min_unit')}`,
       sd: Math.max(1, hold.sd),
       tone: hold.tone,
-      deltaLabel: `${signed(hold.delta, '')} min`,
+      deltaLabel: `${signed(hold.delta, '')} ${t('common.min_unit')}`,
     });
   }
 
@@ -175,7 +176,7 @@ function mapPatterns(
     bar: {
       values: r.patterns.bar.values,
       hardestDayIdx: r.patterns.bar.hardestDayIdx,
-      labels: DAY_LABELS,
+      labels: dayLabels(),
     },
   };
 }

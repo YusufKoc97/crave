@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { isValidEmail, translateAuthError } from '@/lib/auth';
 import { useAuth } from '@/context/AuthContext';
+import { t } from '@/lib/i18n';
 
 export default function SignUpScreen() {
   const { applySession } = useAuth();
@@ -41,9 +42,7 @@ export default function SignUpScreen() {
     }
     if (!data.session) {
       // Email confirmation is on — let the user know to check their inbox.
-      setInfo(
-        'Hesabın oluşturuldu. E-posta adresine gönderdiğimiz onay linkine tıkla.'
-      );
+      setInfo(t('auth.sign_up.check_email'));
       setSubmitting(false);
       return;
     }
@@ -60,20 +59,18 @@ export default function SignUpScreen() {
     <View style={styles.root}>
       <View style={styles.center}>
         <Text style={styles.brand}>CRAVE</Text>
-        <Text style={styles.title}>Hesap oluştur</Text>
-        <Text style={styles.subtitle}>
-          Dürüst bir başlangıç. Tek bir e-posta yeter.
-        </Text>
+        <Text style={styles.title}>{t('auth.sign_up.title')}</Text>
+        <Text style={styles.subtitle}>{t('auth.sign_up.subtitle')}</Text>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>E-POSTA</Text>
+          <Text style={styles.label}>{t('auth.email_label')}</Text>
           <TextInput
             value={email}
             onChangeText={(v) => {
               setEmail(v);
               if (error) setError(null);
             }}
-            placeholder="seninadres@ornek.com"
+            placeholder={t('auth.email_placeholder')}
             placeholderTextColor="#3D5470"
             style={styles.input}
             autoCapitalize="none"
@@ -86,7 +83,7 @@ export default function SignUpScreen() {
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>ŞİFRE</Text>
+          <Text style={styles.label}>{t('auth.password_label')}</Text>
           <View style={styles.passwordWrap}>
             <TextInput
               value={password}
@@ -94,7 +91,7 @@ export default function SignUpScreen() {
                 setPassword(v);
                 if (error) setError(null);
               }}
-              placeholder="en az 6 karakter"
+              placeholder={t('auth.password_min_placeholder')}
               placeholderTextColor="#3D5470"
               style={[styles.input, styles.passwordInput]}
               secureTextEntry={!showPassword}
@@ -111,7 +108,7 @@ export default function SignUpScreen() {
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={
-                showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'
+                showPassword ? t('auth.hide_password') : t('auth.show_password')
               }
             >
               <Ionicons
@@ -149,7 +146,7 @@ export default function SignUpScreen() {
             <View style={styles.btnLoading}>
               <ActivityIndicator color="#7DC3FF" size="small" />
               <Text style={[styles.submitText, { color: '#7DC3FF' }]}>
-                Oluşturuluyor...
+                {t('auth.sign_up.submitting')}
               </Text>
             </View>
           ) : (
@@ -159,24 +156,23 @@ export default function SignUpScreen() {
                 { color: canSubmit ? '#7DC3FF' : '#3D5470' },
               ]}
             >
-              Hesap oluştur
+              {t('auth.sign_up.submit')}
             </Text>
           )}
         </Pressable>
 
-        <Text style={styles.legal}>
-          Devam ederek kullanım koşullarını ve gizlilik politikasını kabul
-          ediyorsun.
-        </Text>
+        <Text style={styles.legal}>{t('auth.sign_up.legal')}</Text>
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>Zaten hesabın var mı?</Text>
+        <Text style={styles.footerText}>{t('auth.sign_up.have_account')}</Text>
         <Pressable
           onPress={() => router.replace('/(auth)/sign-in')}
           hitSlop={8}
         >
-          <Text style={styles.footerLink}>Giriş yap</Text>
+          <Text style={styles.footerLink}>
+            {t('auth.sign_up.sign_in_link')}
+          </Text>
         </Pressable>
       </View>
     </View>
