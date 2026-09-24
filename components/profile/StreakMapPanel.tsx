@@ -53,8 +53,9 @@ const FAINT = '#5c6a86';
 const CELL = 15;
 const GAP = 3;
 const COL_W = CELL + GAP;
-const DAY_LABEL_W = 22;
+const DAY_LABEL_W = 26;
 const RADIUS = 3;
+const LOCK_RADIUS = 5;
 
 const LEVEL_BG = [
   'rgba(255,255,255,0.05)',
@@ -78,7 +79,7 @@ const MONTHS = [
   'Nov',
   'Dec',
 ];
-const DAY_NAMES: Record<number, string> = { 0: 'Mon', 2: 'Wed', 4: 'Fri' };
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 function todayMidnight(): number {
   const d = new Date();
@@ -138,14 +139,28 @@ function DayCell({
   todayMs,
   selectedMs,
   onSelect,
+  lockedBeforeMs,
 }: {
   slot: Slot;
   todayMs: number;
   selectedMs: number | null;
   onSelect: (day: StreakDay) => void;
+  /** Days older than this are locked (free tier): drawn from the real
+   *  data, but not tappable — the blur layer sits on top of them. */
+  lockedBeforeMs: number;
 }) {
   if (!slot) return <View style={styles.cellSpacer} />;
   const { day } = slot;
+
+  if (day.dateMs < lockedBeforeMs) {
+    return day.giveIn ? (
+      <View style={styles.giveIn}>
+        <Slash />
+      </View>
+    ) : (
+      <View style={[styles.cell, { backgroundColor: LEVEL_BG[day.level] }]} />
+    );
+  }
 
   const isToday = day.dateMs === todayMs;
   const isSelected = day.dateMs === selectedMs;
@@ -182,48 +197,10 @@ function DayLabels() {
       {Array.from({ length: 7 }).map((_, r) => (
         <View key={r} style={styles.dayLabelCell}>
           <Text style={styles.dayLabelText} numberOfLines={1}>
-            {DAY_NAMES[r] ?? ''}
+            {DAY_NAMES[r]}
           </Text>
         </View>
       ))}
-    </View>
-  );
-}
-
-// ─────────────────────── Ghost history (blurred teaser) ───────────────────────
-
-const GHOST_WEEKS = 10;
-
-// Deterministic pseudo-activity so the teaser has visual texture (not a
-// flat wall of one colour) without pretending to be real history — it's
-// always shown blurred, never crisp.
-function ghostLevel(col: number, row: number): number {
-  const v = Math.abs(Math.sin(col * 12.9898 + row * 78.233)) * 5;
-  return Math.min(4, Math.floor(v));
-}
-
-function GhostColumns({ weeks }: { weeks: number }) {
-  const cols = useMemo(() => Array.from({ length: weeks }), [weeks]);
-  return (
-    <View style={styles.columnsRow}>
-      {cols.map((_, ci) => (
-        <View key={ci} style={styles.column}>
-          {Array.from({ length: 7 }).map((_, ri) => (
-            <GhostCell key={ri} level={ghostLevel(ci, ri)} />
-          ))}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-// The blurred stretch of "older" weeks that sits to the left of the real,
-// crisp recent days — teases that history exists beyond the free window.
-function GhostHistory() {
-  return (
-    <View style={styles.ghostHistoryWrap} pointerEvents="none">
-      <GhostColumns weeks={GHOST_WEEKS} />
-      <LockedBlur intensity={12} radius={10} />
     </View>
   );
 }
@@ -256,11 +233,13 @@ function Columns({
   todayMs,
   selectedMs,
   onSelect,
+  lockedBeforeMs,
 }: {
   columns: Slot[][];
   todayMs: number;
   selectedMs: number | null;
   onSelect: (day: StreakDay) => void;
+  lockedBeforeMs: number;
 }) {
   return (
     <View style={styles.columnsRow}>
@@ -273,10 +252,132 @@ function Columns({
               todayMs={todayMs}
               selectedMs={selectedMs}
               onSelect={onSelect}
+              lockedBeforeMs={lockedBeforeMs}
             />
           ))}
         </View>
       ))}
+    </View>
+  );
+}
+
+// Where the blur goes for a free user: every column that holds ONLY locked
+// days (one block), plus the leading locked rows of the single boundary
+// column that mixes locked and free days. At most two BlurViews however
+// long the history is.
+function computeLock(columns: Slot[][], lockedBeforeMs: number) {
+  const isLocked = (s: Slot) => !!s && s.day.dateMs < lockedBeforeMs;
+  const isFree = (s: Slot) => !!s && s.day.dateMs >= lockedBeforeMs;
+  let fullCols = 0;
+  while (
+    fullCols < columns.length &&
+    !columns[fullCols].some(isFree) &&
+    columns[fullCols].some(isLocked)
+  ) {
+    fullCols += 1;
+  }
+  let prefixRows = 0;
+  const boundary = columns[fullCols];
+  if (boundary && boundary.some(isLocked)) {
+    while (prefixRows < 7 && !isFree(boundary[prefixRows])) prefixRows += 1;
+  }
+  return { fullCols, prefixRows };
+}
+
+/**
+ * The day grid shared by the free and premium states — same columns, same
+ * weekday rows, same month row, so what a free user sees is literally the
+ * premium map with the old part blurred. `lockedBeforeMs` (free only)
+ * marks the cut-off; omit it (0) for the full, unlocked map.
+ */
+function HistoryGrid({
+  days,
+  todayMs,
+  selectedMs,
+  onSelect,
+  lockedBeforeMs = 0,
+}: {
+  days: StreakDay[];
+  todayMs: number;
+  selectedMs: number | null;
+  onSelect: (day: StreakDay) => void;
+  lockedBeforeMs?: number;
+}) {
+  const columns = useMemo(() => toColumns(days), [days]);
+  const lock = useMemo(
+    () => computeLock(columns, lockedBeforeMs),
+    [columns, lockedBeforeMs]
+  );
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Open on today (newest week, right edge).
+  useEffect(() => {
+    const id = setTimeout(
+      () => scrollRef.current?.scrollToEnd({ animated: false }),
+      0
+    );
+    return () => clearTimeout(id);
+  }, [columns.length]);
+
+  return (
+    <View style={styles.fullRow}>
+      {/* Weekday labels stay fixed (GitHub-style) while the grid scrolls
+          — a spacer keeps their 7 rows aligned below the month row. */}
+      <View>
+        <View style={styles.monthSpacer} />
+        <DayLabels />
+      </View>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.gridScrollPad}
+      >
+        <View>
+          <MonthRow columns={columns} />
+          <View style={styles.gridBody}>
+            <Columns
+              columns={columns}
+              todayMs={todayMs}
+              selectedMs={selectedMs}
+              onSelect={onSelect}
+              lockedBeforeMs={lockedBeforeMs}
+            />
+            {lock.fullCols > 0 ? (
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.lockBlock,
+                  {
+                    left: 0,
+                    top: 0,
+                    width: lock.fullCols * COL_W - GAP,
+                    height: 7 * COL_W - GAP,
+                  },
+                ]}
+              >
+                <LockedBlur intensity={14} radius={LOCK_RADIUS} />
+              </View>
+            ) : null}
+            {lock.prefixRows > 0 ? (
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.lockBlock,
+                  {
+                    left: lock.fullCols * COL_W,
+                    top: 0,
+                    width: CELL,
+                    height: lock.prefixRows * COL_W - GAP,
+                  },
+                ]}
+              >
+                <LockedBlur intensity={14} radius={LOCK_RADIUS} />
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -434,6 +535,7 @@ function LowDataState({
           todayMs={todayMs}
           selectedMs={selectedMs}
           onSelect={onSelect}
+          lockedBeforeMs={0}
         />
       </View>
       <View style={styles.copyBlock}>
@@ -465,19 +567,10 @@ function FreeState({
   onSelect: (day: StreakDay) => void;
   onUnlock: () => void;
 }) {
-  const columns = useMemo(() => toColumns(days.slice(-FREE_WINDOW)), [days]);
-  const scrollRef = useRef<ScrollView>(null);
-
-  // Open on today (newest week, right edge) — the crisp part, with the
-  // blurred teaser one swipe away to the left.
-  useEffect(() => {
-    const id = setTimeout(
-      () => scrollRef.current?.scrollToEnd({ animated: false }),
-      0
-    );
-    return () => clearTimeout(id);
-  }, [columns.length]);
-
+  // Everything older than the last FREE_WINDOW days is locked: real data,
+  // drawn in place, but blurred and not tappable.
+  const lockedBeforeMs =
+    days.length > FREE_WINDOW ? days[days.length - FREE_WINDOW].dateMs : 0;
   return (
     <>
       <Header
@@ -489,27 +582,15 @@ function FreeState({
       />
       <Caption selected={selected} />
       <Legend />
-      <View style={styles.fullRow}>
-        <DayLabels />
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.gridScrollPad}
-        >
-          <View style={styles.freeGridRow}>
-            <GhostHistory />
-            <Columns
-              columns={columns}
-              todayMs={todayMs}
-              selectedMs={selectedMs}
-              onSelect={onSelect}
-            />
-          </View>
-        </ScrollView>
-      </View>
+      <HistoryGrid
+        days={days}
+        todayMs={todayMs}
+        selectedMs={selectedMs}
+        onSelect={onSelect}
+        lockedBeforeMs={lockedBeforeMs}
+      />
 
-      {/* Premium lock — the blurred grid above is the teaser. */}
+      {/* Premium lock — the blurred part of the grid above is the teaser. */}
       <Pressable
         onPress={onUnlock}
         style={({ pressed }) => [
@@ -549,47 +630,17 @@ function FullState({
   selected: StreakDay | null;
   onSelect: (day: StreakDay) => void;
 }) {
-  const columns = useMemo(() => toColumns(days), [days]);
-  const scrollRef = useRef<ScrollView>(null);
-
-  // Open on today (newest week, right edge).
-  useEffect(() => {
-    const id = setTimeout(
-      () => scrollRef.current?.scrollToEnd({ animated: false }),
-      0
-    );
-    return () => clearTimeout(id);
-  }, [columns.length]);
-
   return (
     <>
       <Header />
       <Caption selected={selected} />
       <Legend />
-      <View style={styles.fullRow}>
-        {/* Weekday labels stay fixed (GitHub-style) while the grid scrolls
-            — a spacer keeps their 7 rows aligned below the month row. */}
-        <View>
-          <View style={styles.monthSpacer} />
-          <DayLabels />
-        </View>
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.gridScrollPad}
-        >
-          <View>
-            <MonthRow columns={columns} />
-            <Columns
-              columns={columns}
-              todayMs={todayMs}
-              selectedMs={selectedMs}
-              onSelect={onSelect}
-            />
-          </View>
-        </ScrollView>
-      </View>
+      <HistoryGrid
+        days={days}
+        todayMs={todayMs}
+        selectedMs={selectedMs}
+        onSelect={onSelect}
+      />
     </>
   );
 }
@@ -796,8 +847,12 @@ const styles = StyleSheet.create({
     fontSize: 8.5,
     fontWeight: '600',
   },
+  // Fixed height: month labels are absolutely positioned, so without it
+  // the row collapses to 0 and the weekday labels (offset by monthSpacer =
+  // height + marginBottom = 16) drift below the grid rows.
   monthRow: {
     flexDirection: 'row',
+    height: 11,
     marginBottom: 5,
   },
   monthCell: {
@@ -820,15 +875,13 @@ const styles = StyleSheet.create({
   monthSpacer: {
     height: 16,
   },
-  freeGridRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: COL_W,
-  },
-  ghostHistoryWrap: {
+  gridBody: {
     position: 'relative',
+  },
+  lockBlock: {
+    position: 'absolute',
     overflow: 'hidden',
-    borderRadius: 10,
+    borderRadius: LOCK_RADIUS,
   },
 
   // Empty / loading
