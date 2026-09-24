@@ -938,7 +938,11 @@ const styles = StyleSheet.create({
     backgroundColor: dsColors.bgBase,
   },
   topBar: {
-    paddingTop: 56,
+    // On iOS this screen is a modal sheet whose top edge already sits below
+    // the status bar, so the back button hugs the corner with the SAME gap
+    // on top as on the left (a 56 top inset left it floating far below).
+    // Elsewhere the screen is full-height and needs the status-bar room.
+    paddingTop: Platform.OS === 'ios' ? 20 : 56,
     paddingHorizontal: 20,
   },
   backBtn: {
