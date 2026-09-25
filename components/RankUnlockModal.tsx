@@ -7,7 +7,16 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  FeGaussianBlur,
+  Filter,
+  G,
+  Path,
+  RadialGradient,
+  Stop,
+} from 'react-native-svg';
 import { RankEmblem, rankEmblemColor } from '@/components/ranks/RankEmblem';
 import { toRank, type Rank } from '@/constants/rankLadder';
 import { RANK_LADDER } from '@/shared/ranks';
@@ -22,13 +31,13 @@ import { t } from '@/lib/i18n';
  *
  * ONE interface for every rank (no per-tier layout split). What scales
  * with the rank instead is the LIGHT: a soft radial glow that grows in
- * behind the emblem and a bright arc that orbits it. The higher the
- * rank, the larger and brighter the glow and the faster the orbit —
+ * behind the emblem and blurred light rays that slowly turn. The higher the
+ * rank, the brighter the glow, the more rays and the faster they turn —
  * so crossing the ninth rank plainly feels bigger than the second
  * without a different screen. Deliberately restrained: a grow, a slow
- * orbit, a gentle pulse — no particle confetti.
+ * turn, a gentle pulse — no particle confetti.
  *
- * The orbit + pulse run on the Reanimated UI thread (native driver),
+ * The turn + pulse run on the Reanimated UI thread (native driver),
  * so the continuous motion stays cheap. NOTE (perf): still worth an
  * eyeball on a low-end Android — an always-rotating SVG plus the app's
  * own background is the heaviest this screen gets.
@@ -143,7 +152,7 @@ function Celebration({
           <View style={styles.badge}>
             <RankEmblem
               tier={rank.order - 1}
-              size={116}
+              size={240}
               haloBoost={1 + intensity * 0.4}
             />
           </View>
@@ -171,18 +180,89 @@ function Celebration({
 }
 
 /**
- * The celebration's only motion: a radial glow that grows in and
- * pulses, plus a bright arc orbiting the emblem. Both scale with
- * `intensity` (0 → early rank, 1 → final rank).
+ * The celebration's only motion: soft light rays fanning out from
+ * behind the emblem and slowly turning, over a radial glow that grows
+ * in and breathes. The rays are blurred (Gaussian) so they read as
+ * light, not as geometry, and fade to nothing toward their tips.
+ * Everything scales with `intensity` (0 → early rank, 1 → final rank):
+ * more rays, a brighter glow, a faster turn, and — from the mid ranks
+ * up — a second layer of rays counter-rotating behind the first.
+ *
+ * The blur is rasterised once by the SVG; the continuous motion is
+ * just a rotate transform on the UI thread, so it stays cheap.
  */
+const HALO_SIZE = 340;
+
+/** A fan of narrow tapered wedges from the centre out to the edge. */
+function rayPath(
+  cx: number,
+  cy: number,
+  r: number,
+  angle: number,
+  half: number
+) {
+  const a1 = angle - half;
+  const a2 = angle + half;
+  const x1 = cx + Math.cos(a1) * r;
+  const y1 = cy + Math.sin(a1) * r;
+  const x2 = cx + Math.cos(a2) * r;
+  const y2 = cy + Math.sin(a2) * r;
+  return `M${cx} ${cy}L${x1.toFixed(2)} ${y1.toFixed(2)}L${x2.toFixed(2)} ${y2.toFixed(2)}Z`;
+}
+
+function RayLayer({
+  color,
+  count,
+  id,
+  offset,
+  strength,
+}: {
+  color: string;
+  count: number;
+  id: string;
+  offset: number;
+  strength: number;
+}) {
+  const C = HALO_SIZE / 2;
+  return (
+    <Svg width={HALO_SIZE} height={HALO_SIZE}>
+      <Defs>
+        <RadialGradient
+          id={`${id}Fade`}
+          cx={C}
+          cy={C}
+          r={C}
+          gradientUnits="userSpaceOnUse"
+        >
+          <Stop offset="0" stopColor={color} stopOpacity={0.7 * strength} />
+          <Stop offset="0.55" stopColor={color} stopOpacity={0.28 * strength} />
+          <Stop offset="1" stopColor={color} stopOpacity={0} />
+        </RadialGradient>
+        <Filter id={`${id}Blur`} x="-20%" y="-20%" width="140%" height="140%">
+          <FeGaussianBlur stdDeviation="5" />
+        </Filter>
+      </Defs>
+      <G filter={`url(#${id}Blur)`}>
+        {Array.from({ length: count }, (_, i) => {
+          const angle = offset + (i / count) * Math.PI * 2;
+          // Alternate wide / narrow so the fan doesn't look mechanical.
+          const half = (i % 2 === 0 ? 0.11 : 0.06) * (6 / count + 0.5);
+          return (
+            <Path
+              key={i}
+              d={rayPath(C, C, C, angle, half)}
+              fill={`url(#${id}Fade)`}
+            />
+          );
+        })}
+      </G>
+    </Svg>
+  );
+}
+
 function RankHalo({ color, intensity }: { color: string; intensity: number }) {
-  const SIZE = 260;
-  const R = 96 + intensity * 8; // orbit radius
-  const STROKE = 3 + intensity * 3;
-  const CIRC = 2 * Math.PI * R;
-  // Arc grows from a short streak to a longer sweep with rank.
-  const arcLen = CIRC * (0.1 + intensity * 0.14);
-  const orbitMs = 5200 - intensity * 2600; // faster at higher ranks
+  const rays = 8 + Math.round(intensity * 6); // 8 → 14
+  const turnMs = 16000 - intensity * 7000; // faster at higher ranks
 
   const grow = useSharedValue(0);
   const spin = useSharedValue(0);
@@ -190,22 +270,22 @@ function RankHalo({ color, intensity }: { color: string; intensity: number }) {
 
   useEffect(() => {
     grow.value = withTiming(1, {
-      duration: 620,
+      duration: 700,
       easing: Easing.out(Easing.cubic),
     });
     spin.value = withRepeat(
-      withTiming(360, { duration: orbitMs, easing: Easing.linear }),
+      withTiming(360, { duration: turnMs, easing: Easing.linear }),
       -1
     );
     spin2.value = withRepeat(
-      withTiming(360, { duration: orbitMs * 1.6, easing: Easing.linear }),
+      withTiming(360, { duration: turnMs * 1.5, easing: Easing.linear }),
       -1
     );
-  }, [grow, spin, spin2, orbitMs]);
+  }, [grow, spin, spin2, turnMs]);
 
   const glowStyle = useAnimatedStyle(() => {
     // Grow-in, then a very gentle breathing pulse.
-    const pulse = 1 + 0.04 * Math.sin(spin.value * (Math.PI / 180) * 2);
+    const pulse = 1 + 0.04 * Math.sin(spin.value * (Math.PI / 180) * 3);
     return {
       opacity: grow.value,
       transform: [{ scale: (0.7 + grow.value * 0.3) * pulse }],
@@ -216,7 +296,7 @@ function RankHalo({ color, intensity }: { color: string; intensity: number }) {
     transform: [{ rotate: `${spin.value}deg` }],
   }));
   const spin2Style = useAnimatedStyle(() => ({
-    opacity: grow.value * 0.6,
+    opacity: grow.value * 0.75,
     transform: [{ rotate: `${-spin2.value}deg` }],
   }));
 
@@ -225,8 +305,8 @@ function RankHalo({ color, intensity }: { color: string; intensity: number }) {
   return (
     <View style={styles.haloWrap} pointerEvents="none">
       {/* Growing radial glow */}
-      <Animated.View style={[StyleSheet.absoluteFill, glowStyle]}>
-        <Svg width={SIZE} height={SIZE}>
+      <Animated.View style={[styles.haloLayer, glowStyle]}>
+        <Svg width={HALO_SIZE} height={HALO_SIZE}>
           <Defs>
             <RadialGradient id="rankGlow" cx="50%" cy="50%" r="50%">
               <Stop offset="0" stopColor={color} stopOpacity={glowOpacity} />
@@ -239,49 +319,37 @@ function RankHalo({ color, intensity }: { color: string; intensity: number }) {
             </RadialGradient>
           </Defs>
           <Circle
-            cx={SIZE / 2}
-            cy={SIZE / 2}
-            r={SIZE / 2}
+            cx={HALO_SIZE / 2}
+            cy={HALO_SIZE / 2}
+            r={HALO_SIZE / 2}
             fill="url(#rankGlow)"
           />
         </Svg>
       </Animated.View>
 
-      {/* Primary orbiting arc */}
-      <Animated.View style={[StyleSheet.absoluteFill, spinStyle]}>
-        <Svg width={SIZE} height={SIZE}>
-          <Circle
-            cx={SIZE / 2}
-            cy={SIZE / 2}
-            r={R}
-            stroke={color}
-            strokeWidth={STROKE}
-            strokeLinecap="round"
-            strokeDasharray={`${arcLen} ${CIRC}`}
-            fill="none"
-            opacity={0.9}
+      {/* Counter-rotating back layer — mid ranks and up. */}
+      {intensity > 0.4 ? (
+        <Animated.View style={[styles.haloLayer, spin2Style]}>
+          <RayLayer
+            color={color}
+            count={Math.max(6, rays - 2)}
+            id="rankRaysB"
+            offset={Math.PI / rays}
+            strength={0.7}
           />
-        </Svg>
-      </Animated.View>
-
-      {/* Counter-rotating faint second arc — only meaningful at higher
-          intensities, where it thickens the sense of orbiting light. */}
-      {intensity > 0.45 ? (
-        <Animated.View style={[StyleSheet.absoluteFill, spin2Style]}>
-          <Svg width={SIZE} height={SIZE}>
-            <Circle
-              cx={SIZE / 2}
-              cy={SIZE / 2}
-              r={R - 14}
-              stroke={color}
-              strokeWidth={STROKE * 0.7}
-              strokeLinecap="round"
-              strokeDasharray={`${arcLen * 0.7} ${CIRC}`}
-              fill="none"
-            />
-          </Svg>
         </Animated.View>
       ) : null}
+
+      {/* Main rays */}
+      <Animated.View style={[styles.haloLayer, spinStyle]}>
+        <RayLayer
+          color={color}
+          count={rays}
+          id="rankRaysA"
+          offset={0}
+          strength={0.85 + intensity * 0.15}
+        />
+      </Animated.View>
     </View>
   );
 }
@@ -309,8 +377,8 @@ const styles = StyleSheet.create({
       '0 20px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06)',
   },
   badgeArea: {
-    width: 260,
-    height: 260,
+    width: HALO_SIZE,
+    height: HALO_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -318,6 +386,11 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  haloLayer: {
+    position: 'absolute',
+    width: HALO_SIZE,
+    height: HALO_SIZE,
   },
   badge: {
     alignItems: 'center',
