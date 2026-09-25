@@ -28,7 +28,7 @@ import { useAddictions } from '@/context/AddictionsContext';
 import { ResistanceOrb, RESISTANCE_ORB_SIZE } from '@/components/ResistanceOrb';
 import { lucideIconFor } from '@/components/info/iconMap';
 import { RankReminderBanner } from '@/components/RankReminderBanner';
-import { drainRankReminders } from '@/lib/rankReminders';
+import { drainDueRankReminders, markBackgrounded } from '@/lib/rankReminders';
 import { t } from '@/lib/i18n';
 
 // The orb's fan-out "selecting" scale — the RESIST core shrinks to half
@@ -52,27 +52,36 @@ export default function HomeScreen() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [wiggleMode, setWiggleMode] = useState(false);
 
-  // Rank-up reminders banked while the user was mid-session. Surfaced
-  // as a top banner the "in case you missed it" way. We drain them when
-  // the HOME screen actually gains focus (not merely mounts): on a cold
-  // launch the app may restore straight into the active session, which
-  // would otherwise fire — and waste — the banner behind that screen.
-  // Draining on focus means it lands when the user is really looking at
-  // home. drainRankReminders clears as it reads, so each shows once.
+  // Rank-up reminders. The celebration modal already fired the moment a
+  // rank was crossed, so this banner is only the "welcome back" nudge:
+  // it surfaces after the user has left and returned to the app (cold
+  // start, or backgrounded then foregrounded) — never straight after the
+  // session that earned it. `drainDueRankReminders` enforces that.
+  //
+  // We only pull while HOME is what the user is looking at. If the app
+  // is foregrounded onto the active-session screen, draining then would
+  // fire (and waste) the banner behind it; the focus effect below picks
+  // it up when they actually land on home.
   const [reminderQueue, setReminderQueue] = useState<string[]>([]);
+  const homeFocused = useRef(false);
   const pullReminders = useCallback(() => {
-    void drainRankReminders().then((ids) => {
+    void drainDueRankReminders().then((ids) => {
       if (ids.length > 0) setReminderQueue(ids);
     });
   }, []);
   useFocusEffect(
     useCallback(() => {
+      homeFocused.current = true;
       pullReminders();
+      return () => {
+        homeFocused.current = false;
+      };
     }, [pullReminders])
   );
   useEffect(() => {
     const sub = AppState.addEventListener('change', (s) => {
-      if (s === 'active') pullReminders();
+      if (s === 'background') markBackgrounded();
+      else if (s === 'active' && homeFocused.current) pullReminders();
     });
     return () => sub.remove();
   }, [pullReminders]);
