@@ -49,6 +49,7 @@ import { AmbientGlow } from '@/components/ui/AmbientGlow';
 import { NeonFrame } from '@/components/ui/NeonFrame';
 import { dsColors, hexAlpha } from '@/constants/designSystem';
 import { invalidateTriggerMaps } from '@/lib/queryClient';
+import { addRankReminders } from '@/lib/rankReminders';
 import type { Technique } from '@/constants/toolkitCatalog';
 
 const TIMER_SIZE = 220;
@@ -549,7 +550,13 @@ export default function ActiveSession() {
               setShareBanner({ points: Math.max(0, serverDelta) });
             }
             const unlocks = respPayload?.newly_unlocked_ranks ?? [];
-            if (unlocks.length > 0) setUnlockQueue(unlocks);
+            if (unlocks.length > 0) {
+              setUnlockQueue(unlocks);
+              // Also stash them so the home screen can re-surface a
+              // top reminder on the next launch — in case the user
+              // glanced away from this in-the-moment celebration.
+              void addRankReminders(unlocks);
+            }
             refreshScores();
             // Faz 8a — refresh trigger-map cache so the Info tab
             // reflects the newly-captured triggers on next visit.
@@ -859,11 +866,7 @@ export default function ActiveSession() {
           root means it can steal focus while the share banner is
           still on screen; user dismisses celebration → sees the
           banner underneath → taps Finish to close the session. */}
-      <RankUnlockModal
-        queue={unlockQueue}
-        accentColor={accentColor}
-        onDone={() => setUnlockQueue([])}
-      />
+      <RankUnlockModal queue={unlockQueue} onDone={() => setUnlockQueue([])} />
 
       {/* Faz 5 REVERSAL — resist flow: intensity rating first,
           then chains into the trigger modal from onIntensityPick.

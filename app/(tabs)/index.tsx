@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Alert,
+  AppState,
   Pressable,
   StyleSheet,
   Text,
@@ -19,13 +20,15 @@ import Animated, {
   Extrapolation,
   type SharedValue,
 } from 'react-native-reanimated';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import type { Addiction } from '@/constants/addictions';
 import { maxMinutesFor } from '@/constants/addictions';
 import { dsColors } from '@/constants/designSystem';
 import { useAddictions } from '@/context/AddictionsContext';
 import { ResistanceOrb, RESISTANCE_ORB_SIZE } from '@/components/ResistanceOrb';
 import { lucideIconFor } from '@/components/info/iconMap';
+import { RankReminderBanner } from '@/components/RankReminderBanner';
+import { drainRankReminders } from '@/lib/rankReminders';
 import { t } from '@/lib/i18n';
 
 // The orb's fan-out "selecting" scale — the RESIST core shrinks to half
@@ -48,6 +51,31 @@ export default function HomeScreen() {
   const { addictions, removeAddiction } = useAddictions();
   const [phase, setPhase] = useState<Phase>('idle');
   const [wiggleMode, setWiggleMode] = useState(false);
+
+  // Rank-up reminders banked while the user was mid-session. Surfaced
+  // as a top banner the "in case you missed it" way. We drain them when
+  // the HOME screen actually gains focus (not merely mounts): on a cold
+  // launch the app may restore straight into the active session, which
+  // would otherwise fire — and waste — the banner behind that screen.
+  // Draining on focus means it lands when the user is really looking at
+  // home. drainRankReminders clears as it reads, so each shows once.
+  const [reminderQueue, setReminderQueue] = useState<string[]>([]);
+  const pullReminders = useCallback(() => {
+    void drainRankReminders().then((ids) => {
+      if (ids.length > 0) setReminderQueue(ids);
+    });
+  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      pullReminders();
+    }, [pullReminders])
+  );
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') pullReminders();
+    });
+    return () => sub.remove();
+  }, [pullReminders]);
 
   const orbScale = useSharedValue(1);
   const orbTextOpacity = useSharedValue(1);
@@ -248,6 +276,12 @@ export default function HomeScreen() {
           <Text style={styles.plusText}>+</Text>
         </Pressable>
       </View>
+
+      {/* Top reminder for ranks unlocked while the user was away. */}
+      <RankReminderBanner
+        queue={reminderQueue}
+        onDone={() => setReminderQueue([])}
+      />
     </View>
   );
 }

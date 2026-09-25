@@ -532,11 +532,9 @@
   },
   "celebration": {
     "kicker": "YENİ RÜTBE AÇILDI",
-    "peak_kicker": "KİLOMETRE TAŞI",
     "final_kicker": "SON RÜTBE",
-    "continue": "Devam et",
-    "share": "Paylaş",
-    "share_message": "CRAVE'de {{rank}} rütbesine ulaştım 🏆"
+    "reminder_kicker": "RÜTBEYE ULAŞTIN",
+    "continue": "Devam et"
   },
   "toolkit": {
     "tab_title": "Araç Kutusu",
