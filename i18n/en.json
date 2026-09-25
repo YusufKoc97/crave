@@ -532,7 +532,11 @@
   },
   "celebration": {
     "kicker": "NEW RANK UNLOCKED",
-    "continue": "Continue"
+    "peak_kicker": "MILESTONE REACHED",
+    "final_kicker": "FINAL RANK",
+    "continue": "Continue",
+    "share": "Share",
+    "share_message": "I just reached {{rank}} in CRAVE 🏆"
   },
   "toolkit": {
     "tab_title": "Toolkit",

@@ -43,3 +43,22 @@ export function hapticWarn() {
     () => {}
   );
 }
+
+/**
+ * Peak-rank celebration — a short crescendo (two heavy impacts into a
+ * success chime) reserved for the milestone ranks (Master, Expert,
+ * Free). Deliberately heavier than `celebrate()` so the rare ranks
+ * feel physically bigger than the frequent early ones.
+ */
+export function hapticRankPeak() {
+  if (!isMobile) return;
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+  setTimeout(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+  }, 130);
+  setTimeout(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+      () => {}
+    );
+  }, 320);
+}
