@@ -1,0 +1,36 @@
+# Dependabot keeps dependencies fresh by opening PRs when new versions ship.
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates
+#
+# Expo note: expo, react, react-native and the expo-* packages are pinned to
+# whatever the installed Expo SDK expects. They must be upgraded TOGETHER, via
+# `npx expo install`, as part of a deliberate SDK migration — never one at a
+# time by Dependabot. So we let Dependabot see patch/minor bumps for them but
+# IGNORE major bumps (those are the SDK jumps we do by hand).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    # One grouped PR for routine minor/patch bumps instead of a flood of them.
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 5
+    ignore:
+      # SDK-coupled packages: majors only via `expo install` during an SDK bump.
+      - dependency-name: expo
+        update-types: ['version-update:semver-major']
+      - dependency-name: expo-*
+        update-types: ['version-update:semver-major']
+      - dependency-name: react
+        update-types: ['version-update:semver-major']
+      - dependency-name: react-dom
+        update-types: ['version-update:semver-major']
+      - dependency-name: react-native
+        update-types: ['version-update:semver-major']
+      - dependency-name: react-native-*
+        update-types: ['version-update:semver-major']
