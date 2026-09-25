@@ -32,7 +32,7 @@ import {
 } from '@/components/addictionPicker/pickerTheme';
 import { hexAlpha } from '@/constants/designSystem';
 import { useAddictions } from '@/context/AddictionsContext';
-import { hapticTap, hapticWarn } from '@/lib/haptics';
+import { hapticWarn } from '@/lib/haptics';
 import { openPaywall } from '@/lib/paywall';
 import { t } from '@/lib/i18n';
 
@@ -150,7 +150,6 @@ export default function AddictionPickerScreen() {
       openPaywall('addiction_limit');
       return;
     }
-    hapticTap();
     setError(null);
     setFreshId(id);
     try {
@@ -162,7 +161,6 @@ export default function AddictionPickerScreen() {
   };
 
   const onUnequip = (id: string) => {
-    hapticTap();
     setError(null);
     if (freshId === id) setFreshId(null);
     void removeAddiction(id);

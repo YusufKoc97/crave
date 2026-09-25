@@ -9,7 +9,6 @@ import {
   ObProgress,
 } from '@/components/onboarding/OnboardingChrome';
 import { dsColors, dsFont, dsSpacing } from '@/constants/designSystem';
-import { hapticTap } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
 
 /**
@@ -19,7 +18,6 @@ import { t } from '@/lib/i18n';
  */
 export default function WelcomeScreen() {
   const onBegin = () => {
-    hapticTap();
     router.push('/(onboarding)/how-it-works');
   };
 

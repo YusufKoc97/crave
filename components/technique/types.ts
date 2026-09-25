@@ -1,21 +1,6 @@
 import type { Technique } from '@/constants/toolkitCatalog';
 
 /**
- * Haptic hooks the runner injects into every scene. Scenes call these
- * at their own moments (phase boundary, commit, celebration) instead
- * of importing `@/lib/haptics` directly — a single injection point so
- * the shell can later gate haptics (e.g. behind a setting) without
- * editing every scene. Optional on {@link SceneProps} for backward
- * compatibility: the four MVP scenes still import haptics directly and
- * ignore this prop, which is harmless.
- */
-export type SceneHaptics = {
-  tap: () => void;
-  commit: () => void;
-  celebrate: () => void;
-};
-
-/**
  * The scene contract. Every exercise scene the {@link ExerciseRunner}
  * can host implements this. The runner switches on `technique.type`
  * via the scene registry and mounts the matching component; each scene
@@ -45,8 +30,6 @@ export type SceneProps = {
    * `ExerciseScene.ownsProgress`.
    */
   onProgress?: (fraction: number) => void;
-  /** Injected haptic hooks — see {@link SceneHaptics}. */
-  haptics?: SceneHaptics;
   /** OS reduced-motion preference, resolved once by the runner. */
   reducedMotion?: boolean;
   /**

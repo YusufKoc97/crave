@@ -16,7 +16,7 @@ import {
   dsSpacing,
   hexAlpha,
 } from '@/constants/designSystem';
-import { hapticTap, hapticWarn } from '@/lib/haptics';
+import { hapticWarn } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
 
 /**
@@ -47,7 +47,6 @@ export default function AgeCheckScreen() {
       hapticWarn();
       return;
     }
-    hapticTap();
     router.push({
       pathname: '/(onboarding)/ready',
       params: {
@@ -58,7 +57,6 @@ export default function AgeCheckScreen() {
   };
 
   const onNo = () => {
-    hapticTap();
     router.push('/(onboarding)/blocked');
   };
 
@@ -81,7 +79,6 @@ export default function AgeCheckScreen() {
           onPress={() => {
             setConsent((v) => !v);
             setShowConsentHint(false);
-            hapticTap();
           }}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: consent }}

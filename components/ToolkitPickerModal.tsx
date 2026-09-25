@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ToolkitGrid } from '@/components/ToolkitGrid';
 import { ToolkitAurora } from '@/components/toolkit/ToolkitAurora';
 import type { Technique } from '@/constants/toolkitCatalog';
+import { hapticTap } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
 
 /**
@@ -77,6 +78,9 @@ export function ToolkitPickerModal({
               accentColor={accentColor}
               addictionId={addictionId}
               onSelect={(tech) => {
+                // Choosing what to try mid-craving is a decision — one
+                // light tick. Only here, not in the browse-only grid.
+                hapticTap();
                 onSelect(tech);
               }}
             />

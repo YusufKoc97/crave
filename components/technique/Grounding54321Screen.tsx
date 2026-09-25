@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { hapticCommit, hapticTap } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
 import type { TechniqueScreenProps } from './types';
 
@@ -44,7 +43,6 @@ export function Grounding54321Screen({
   const step = STEPS[stepIdx];
 
   const toggle = useCallback((i: number) => {
-    hapticTap();
     setTicked((prev) => {
       const next = new Set(prev);
       if (next.has(i)) next.delete(i);
@@ -57,7 +55,6 @@ export function Grounding54321Screen({
   const isLast = stepIdx === STEPS.length - 1;
 
   const advance = useCallback(() => {
-    hapticCommit();
     if (isLast) {
       onComplete();
       return;

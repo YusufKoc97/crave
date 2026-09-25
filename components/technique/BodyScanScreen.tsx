@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { hapticTap } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
 import type { TechniqueScreenProps } from './types';
 
@@ -43,10 +42,6 @@ export function BodyScanScreen({
     (fromIdx: number) => {
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
-        // Light haptic each time a region rolls over — a
-        // low-frequency pulse the user can feel through their
-        // pocket while eyes are closed.
-        hapticTap();
         if (fromIdx >= REGIONS.length - 1) {
           if (!finishedRef.current) {
             finishedRef.current = true;
@@ -80,7 +75,6 @@ export function BodyScanScreen({
       }
       return;
     }
-    hapticTap();
     setRegionIdx((i) => i + 1);
   }, [regionIdx, onComplete]);
 

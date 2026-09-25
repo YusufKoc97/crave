@@ -16,6 +16,7 @@ import { FeedingRow } from '@/components/profile/FeedingRow';
 import {
   DeleteDialog,
   DeleteRow,
+  HapticsRow,
   LanguageRow,
   PremiumRow,
   SettingsGroup,
@@ -242,6 +243,7 @@ export default function ProfileScreen() {
         <SettingsGroup>
           <PremiumRow />
           <LanguageRow />
+          <HapticsRow />
           <SignOutRow onPress={() => setConfirmingSignOut(true)} />
         </SettingsGroup>
 

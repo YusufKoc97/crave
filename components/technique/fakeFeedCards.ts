@@ -43,7 +43,7 @@ export const FAKE_FEED_CARD_COUNT = FAKE_FEED_CARDS.length;
 
 /**
  * Index of the first card that reads as depleted — the beat where the
- * feed starts winding down. Used for the single depletion haptic.
+ * feed starts winding down.
  */
 export const FAKE_FEED_DEPLETION_START = FAKE_FEED_CARDS.findIndex(
   (card) => card.depletion != null

@@ -33,7 +33,6 @@ import { t } from '@/lib/i18n';
 import {
   FAKE_FEED_CARDS,
   FAKE_FEED_CARD_COUNT,
-  FAKE_FEED_DEPLETION_START,
   type FakeFeedCard,
 } from './fakeFeedCards';
 import {
@@ -75,7 +74,7 @@ import {
   thumbSwipe,
   windDownDrain,
 } from './fakeFeedMotion';
-import type { SceneHaptics, SceneProps } from './types';
+import type { SceneProps } from './types';
 
 /** Cards that carry their own full-screen treatment. */
 const NUMBER_CARD_KEY = 'number';
@@ -172,9 +171,7 @@ const INVITE_COLOR = '#E3EEFF';
  *      `onComplete()`. Nothing loops, nothing exists past the last card,
  *      and `bounces` is off so there is no "pull for more" gesture.
  *   2. NO REWARD — no counters, no streaks, nothing that lands as a hit
- *      per scroll. The only haptics are earned, not sprayed: one as the
- *      feed winds down, one when card 6's slow-drag ring is completed
- *      (a mindful action, not a swipe), and one at the end.
+ *      per scroll. No haptics either — the scene is silent to the touch.
  *
  * FREE SCROLL. The scroll is never gated: all cards are present from the
  * start and the user moves at their own pace. Finiteness, not a timer, is
@@ -185,7 +182,6 @@ const INVITE_COLOR = '#E3EEFF';
 export function FakeFeedScreen({
   accentColor,
   onComplete,
-  haptics,
   reducedMotion,
 }: SceneProps) {
   // Height of one page — measured, since the scene is laid out by the
@@ -206,7 +202,6 @@ export function FakeFeedScreen({
 
   const scrollRef = useRef<ScrollView>(null);
   const indexRef = useRef(0);
-  const depletionTappedRef = useRef(false);
 
   // Measured on the ScrollView itself, not on a wrapper: a page must be
   // exactly the scrolling viewport or paging snaps to one height while
@@ -232,8 +227,7 @@ export function FakeFeedScreen({
   // Settle handler. Wired to onScroll as well as the two native
   // end-of-gesture events, because react-native-web emits NEITHER
   // onMomentumScrollEnd nor onScrollEndDrag — without onScroll the
-  // haptics, the per-card arming and the completion beat would never
-  // fire on web.
+  // per-card arming and the completion beat would never fire on web.
   //
   // Since onScroll also fires mid-gesture, an offset that is not on a
   // page boundary is ignored: paging always comes to rest on one, so an
@@ -249,23 +243,13 @@ export function FakeFeedScreen({
       // Arm whatever the newly-centred card wants to do on arrival.
       setActiveIndex(next);
 
-      // One quiet haptic as the feed begins to wind down (guardrail 2).
-      if (
-        FAKE_FEED_DEPLETION_START >= 0 &&
-        next === FAKE_FEED_DEPLETION_START &&
-        !depletionTappedRef.current
-      ) {
-        depletionTappedRef.current = true;
-        haptics?.tap();
-      }
-
       // Reaching the last card no longer auto-ends here: card 10 (EndCard)
       // owns the closing beat — it reads its line, then completes after a
       // hold or an early tap. Keeping the timing inside that card lets the
       // line be read at full opacity for a set time rather than racing a
       // parent timer.
     },
-    [pageH, haptics]
+    [pageH]
   );
 
   // The shared escape hatch (cards 6 & 7): a tap on the faint "Skip"
@@ -303,7 +287,6 @@ export function FakeFeedScreen({
                 accentColor={accentColor}
                 active={i === activeIndex}
                 reducedMotion={reducedMotion ?? false}
-                haptics={haptics}
                 onDragLock={setScrollLocked}
                 onAdvance={goNext}
                 onComplete={onComplete}
@@ -326,7 +309,6 @@ const FeedCard = memo(function FeedCard({
   accentColor,
   active,
   reducedMotion,
-  haptics,
   onDragLock,
   onAdvance,
   onComplete,
@@ -337,7 +319,6 @@ const FeedCard = memo(function FeedCard({
   /** True while this card is the centred one — arms its animation. */
   active: boolean;
   reducedMotion: boolean;
-  haptics?: SceneHaptics;
   /** Cards 6, 7 & 9 use this to freeze the feed while a gesture owns it. */
   onDragLock: (locked: boolean) => void;
   /** Cards 6 & 7's shared "Skip" — advance one card. */
@@ -370,7 +351,6 @@ const FeedCard = memo(function FeedCard({
           accentColor={accentColor}
           active={active}
           reducedMotion={reducedMotion}
-          haptics={haptics}
           onDragLock={onDragLock}
           onAdvance={onAdvance}
         />
@@ -382,7 +362,6 @@ const FeedCard = memo(function FeedCard({
           accentColor={accentColor}
           active={active}
           reducedMotion={reducedMotion}
-          haptics={haptics}
           onDragLock={onDragLock}
           onAdvance={onAdvance}
         />
@@ -435,7 +414,6 @@ const FeedCard = memo(function FeedCard({
           height={height}
           active={active}
           reducedMotion={reducedMotion}
-          haptics={haptics}
           onComplete={onComplete}
         />
       );
@@ -660,13 +638,11 @@ const EndCard = memo(function EndCard({
   height,
   active,
   reducedMotion,
-  haptics,
   onComplete,
 }: {
   height: number;
   active: boolean;
   reducedMotion: boolean;
-  haptics?: SceneHaptics;
   onComplete: () => void;
 }) {
   const elapsed = useLoopElapsed(active, reducedMotion, END_TEXT_FADE_MS);
@@ -674,13 +650,10 @@ const EndCard = memo(function EndCard({
   const doneRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
-  const hapticsRef = useRef(haptics);
-  hapticsRef.current = haptics;
 
   const finish = useCallback(() => {
     if (doneRef.current) return;
     doneRef.current = true;
-    hapticsRef.current?.celebrate();
     onCompleteRef.current();
   }, []);
 
@@ -1128,7 +1101,7 @@ const RING_C = 2 * Math.PI * RING_R;
  * fills while the drag is SLOW — rush it and the fill stalls and slips
  * back a touch (see {@link fillGain}). So the instruction is lived in the
  * thumb: to make progress the body has to brake the scroll reflex. When
- * the ring closes it glows and gives one earned haptic.
+ * the ring closes it glows.
  *
  * The feed is free-scroll, so no one is ever trapped here — a user who
  * can't or won't drag just swipes on to the next card. reducedMotion
@@ -1142,7 +1115,6 @@ const DragToFillCard = memo(function DragToFillCard({
   accentColor,
   active,
   reducedMotion,
-  haptics,
   onDragLock,
   onAdvance,
 }: {
@@ -1150,7 +1122,6 @@ const DragToFillCard = memo(function DragToFillCard({
   accentColor: string;
   active: boolean;
   reducedMotion: boolean;
-  haptics?: SceneHaptics;
   onDragLock: (locked: boolean) => void;
   onAdvance: () => void;
 }) {
@@ -1162,8 +1133,6 @@ const DragToFillCard = memo(function DragToFillCard({
   const centerRef = useRef({ x: 0, y: 0 });
   const lastAngleRef = useRef(0);
   const lastTimeRef = useRef(0);
-  const hapticsRef = useRef(haptics);
-  hapticsRef.current = haptics;
   const onDragLockRef = useRef(onDragLock);
   onDragLockRef.current = onDragLock;
 
@@ -1241,7 +1210,6 @@ const DragToFillCard = memo(function DragToFillCard({
             if (next >= FILL_TOTAL_RAD && !doneRef.current) {
               doneRef.current = true;
               setDone(true);
-              hapticsRef.current?.commit();
             }
             return next;
           });
@@ -1521,7 +1489,7 @@ const HoldGhostFeed = memo(function HoldGhostFeed({
  * feed out with their own finger. Let go and progress slides back at
  * 15%/s (a backslide, not a pause), so the card asks for one continuous
  * hold rather than accumulated pieces. At full: the feed is out, the
- * ring blooms, one earned haptic, and "You're in control of the pause."
+ * ring blooms, and "You're in control of the pause."
  * fades in.
  *
  * Scroll: the hold zone freezes the feed while held (card 6's lesson) —
@@ -1535,7 +1503,6 @@ const HoldToFadeCard = memo(function HoldToFadeCard({
   accentColor,
   active,
   reducedMotion,
-  haptics,
   onDragLock,
   onAdvance,
 }: {
@@ -1543,7 +1510,6 @@ const HoldToFadeCard = memo(function HoldToFadeCard({
   accentColor: string;
   active: boolean;
   reducedMotion: boolean;
-  haptics?: SceneHaptics;
   onDragLock: (locked: boolean) => void;
   onAdvance: () => void;
 }) {
@@ -1558,8 +1524,6 @@ const HoldToFadeCard = memo(function HoldToFadeCard({
   const rafRef = useRef(0);
   const runningRef = useRef(false);
   const lastRef = useRef(0);
-  const hapticsRef = useRef(haptics);
-  hapticsRef.current = haptics;
   const onDragLockRef = useRef(onDragLock);
   onDragLockRef.current = onDragLock;
 
@@ -1596,7 +1560,6 @@ const HoldToFadeCard = memo(function HoldToFadeCard({
         doneRef.current = true;
         setDone(true);
         onDragLockRef.current(false);
-        hapticsRef.current?.commit();
         runningRef.current = false;
         return;
       }

@@ -1,44 +1,58 @@
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { isHapticsEnabled } from './hapticsPref';
 
 /**
- * Thin wrapper around expo-haptics. Three semantic moments matter in
- * CRAVE:
+ * Thin wrapper around expo-haptics. Haptics in CRAVE are rationed on
+ * purpose — a buzz means "something meaningful just happened", never
+ * "you touched a thing". The moments that earn one:
  *
- *   tap()      — light tick on regular taps (resist button, picker
- *                tiles, tab switches)
- *   commit()   — medium impact on a real decision (I Resisted /
- *                I gave in / Add Craving submit)
- *   celebrate() — success notification on a cycle completion or share
+ *   start()    — a craving begins (picked an addiction on home)
+ *   resist()   — the single, weightiest tap: "I Resisted"
+ *   celebrate() / rankPeak() — a rank is unlocked (peak for the rare ones)
+ *   tap()      — a light tick when a technique card is chosen
  *
- * All three are no-ops on web; expo-haptics throws there.
+ * (`warn` marks the two "that didn't go through" moments: unticked
+ * consent and hitting the addiction limit; `celebrate` also closes
+ * onboarding.)
  *
- * The functions are non-async by design — fire-and-forget. If the
- * device hates the request we don't care; haptics is a nice-to-have,
- * not a primary feedback channel.
+ * Every helper is a no-op on web (expo-haptics throws there) and when
+ * the user has switched Vibration off in Settings. They are non-async
+ * by design — fire-and-forget; haptics is a nice-to-have, never a
+ * primary feedback channel.
  */
 
 const isMobile = Platform.OS === 'ios' || Platform.OS === 'android';
 
+/** Single gate: right platform AND the user hasn't turned it off. */
+const canBuzz = () => isMobile && isHapticsEnabled();
+
 export function hapticTap() {
-  if (!isMobile) return;
+  if (!canBuzz()) return;
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 }
 
-export function hapticCommit() {
-  if (!isMobile) return;
+/** A craving begins — a steady medium impact ("I'm with you"). */
+export function hapticStart() {
+  if (!canBuzz()) return;
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 }
 
+/** "I Resisted" — one heavier, fuller hit; the win of the whole flow. */
+export function hapticResist() {
+  if (!canBuzz()) return;
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+}
+
 export function hapticCelebrate() {
-  if (!isMobile) return;
+  if (!canBuzz()) return;
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
     () => {}
   );
 }
 
 export function hapticWarn() {
-  if (!isMobile) return;
+  if (!canBuzz()) return;
   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(
     () => {}
   );
@@ -51,7 +65,7 @@ export function hapticWarn() {
  * feel physically bigger than the frequent early ones.
  */
 export function hapticRankPeak() {
-  if (!isMobile) return;
+  if (!canBuzz()) return;
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
   setTimeout(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});

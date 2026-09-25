@@ -18,13 +18,11 @@ import {
 } from '@/constants/toolkitCatalog';
 import { useAuth } from '@/context/AuthContext';
 import { logTechniqueEnd, logTechniqueStart } from '@/lib/techniqueUses';
-import { hapticCelebrate, hapticCommit, hapticTap } from '@/lib/haptics';
 import { hexAlpha } from '@/constants/designSystem';
 import { t } from '@/lib/i18n';
 import { useReducedMotion } from '@/components/toolkit/useReducedMotion';
 import { SCENE_REGISTRY } from '@/components/technique/sceneRegistry';
 import { ExerciseAtmosphere } from '@/components/technique/ExerciseAtmosphere';
-import type { SceneHaptics } from '@/components/technique/types';
 
 /**
  * Faz 6 / Toolkit foundation — the shared exercise runner. One RN
@@ -70,13 +68,6 @@ type Props = {
 };
 
 type Phase = 'guiding' | 'feedback';
-
-/** Stable haptic hooks handed to every scene (see {@link SceneHaptics}). */
-const SCENE_HAPTICS: SceneHaptics = {
-  tap: hapticTap,
-  commit: hapticCommit,
-  celebrate: hapticCelebrate,
-};
 
 export function ExerciseRunner({
   technique,
@@ -193,7 +184,6 @@ export function ExerciseRunner({
 
   const handleFeedback = useCallback(
     (feedback: TechniqueFeedback | null) => {
-      hapticCommit();
       if (useIdRef.current) {
         // Fire-and-forget — we don't want to block the modal dismissal
         // on telemetry.
@@ -298,7 +288,6 @@ function GuidingScreen({
       addictionId={addictionId}
       onComplete={onComplete}
       onProgress={onProgress}
-      haptics={SCENE_HAPTICS}
       reducedMotion={reducedMotion}
     />
   );

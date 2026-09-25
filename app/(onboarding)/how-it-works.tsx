@@ -15,7 +15,6 @@ import {
   hexAlpha,
 } from '@/constants/designSystem';
 import { RANK_LADDER } from '@/constants/rankLadder';
-import { hapticTap } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
 
 /**
@@ -48,7 +47,6 @@ export default function HowItWorksScreen() {
   ];
 
   const onContinue = () => {
-    hapticTap();
     router.push('/(onboarding)/choose-focus');
   };
 

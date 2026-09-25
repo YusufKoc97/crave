@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import {
   Modal,
   Platform,
   Pressable,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -14,9 +15,16 @@ import {
   Languages,
   LogOut,
   Trash2,
+  Vibrate,
 } from 'lucide-react-native';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 import { PREMIUM_GOLD } from '@/components/ui/PremiumButton';
+import {
+  isHapticsEnabled,
+  setHapticsEnabled,
+  subscribeHaptics,
+} from '@/lib/hapticsPref';
+import { hapticTap } from '@/lib/haptics';
 import { LANGUAGES, availableLanguages, setLanguage, t } from '@/lib/i18n';
 import { useLanguage } from '@/lib/useLanguage';
 import { openPaywall } from '@/lib/paywall';
@@ -129,6 +137,39 @@ export function PremiumRow() {
       onPress={() => openPaywall('profile')}
       showDivider
     />
+  );
+}
+
+/**
+ * Vibration on/off. Rendered here rather than through SettingsRow
+ * because it toggles in place — no chevron, no sheet. The confirming
+ * tick fires only when turning it ON (turning it off must stay silent,
+ * and the helper is gated by the preference anyway).
+ */
+export function HapticsRow() {
+  const enabled = useSyncExternalStore(
+    subscribeHaptics,
+    isHapticsEnabled,
+    isHapticsEnabled
+  );
+  const label = t('profile.vibration');
+  return (
+    <>
+      <View style={styles.row}>
+        <Vibrate size={18} color={coreText.secondary} strokeWidth={2} />
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Switch
+          value={enabled}
+          onValueChange={(next) => {
+            void setHapticsEnabled(next);
+            if (next) hapticTap();
+          }}
+          trackColor={{ false: coreDivider, true: neon(0.9) }}
+          accessibilityLabel={label}
+        />
+      </View>
+      <View style={styles.divider} />
+    </>
   );
 }
 

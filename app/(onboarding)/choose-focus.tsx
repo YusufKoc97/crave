@@ -17,7 +17,6 @@ import {
   hexAlpha,
 } from '@/constants/designSystem';
 import { lucideIconFor } from '@/components/info/iconMap';
-import { hapticTap } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
 
 /**
@@ -41,7 +40,6 @@ export default function ChooseFocusScreen() {
 
   const onContinue = () => {
     if (!selectedId) return;
-    hapticTap();
     router.push({
       pathname: '/(onboarding)/age-check',
       params: { selected: selectedId },
@@ -72,7 +70,6 @@ export default function ChooseFocusScreen() {
               <Pressable
                 key={a.id}
                 onPress={() => {
-                  hapticTap();
                   setSelectedId(a.id);
                 }}
                 accessibilityRole="button"

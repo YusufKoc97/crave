@@ -56,8 +56,7 @@ import type { SceneProps } from './types';
  *
  * Contract (see SceneProps): fires `onComplete` once at 240s of
  * *foreground* time, reports `onProgress(0..1)` (the wave's intensity,
- * so the shell's glow blooms toward the peak), taps `haptics` at the
- * peak and the closing line, honours `reducedMotion` (curve + marker +
+ * so the shell's glow blooms toward the peak), honours `reducedMotion` (curve + marker +
  * warped speed + text + the marker's intensity glow always run; only
  * the ambient drift/pulse loops are dropped). The timeline is driven by
  * a frame callback, so it pauses when the app backgrounds and resumes
@@ -90,7 +89,7 @@ const TAU = [0, 0.14, 0.3, 0.55, 1] as const;
 const TV = [0, 0.3, 0.4, 0.6, 1] as const;
 
 // JS mirror of the worklet interpolate(raw, TAU, TV) so the phase /
-// haptic / progress logic reads the same curve position as the marker.
+// progress logic reads the same curve position as the marker.
 function warp(tau: number): number {
   const c = Math.max(0, Math.min(1, tau));
   for (let i = 1; i < TAU.length; i++) {
@@ -132,8 +131,6 @@ const PHASES = [
   { key: 'wave_late_fade', until: 0.9 },
   { key: 'wave_final', until: 1.01 },
 ] as const;
-const PEAK_PHASE = 2; // 'wave_peak' — haptic
-const FINAL_PHASE = 5; // 'wave_final' — closing haptic
 
 function phaseIndexFor(tv: number): number {
   for (let i = 0; i < PHASES.length; i++) if (tv < PHASES[i].until) return i;
@@ -148,7 +145,6 @@ export function RideTheWaveScreen({
   addictionId,
   onComplete,
   onProgress,
-  haptics,
   reducedMotion,
 }: SceneProps) {
   const { width: W } = useWindowDimensions();
@@ -229,7 +225,7 @@ export function RideTheWaveScreen({
   });
 
   // JS side — reads the (foreground-only) raw value each tick and syncs
-  // the awareness line, haptics, progress report and completion to the
+  // the awareness line, progress report and completion to the
   // marker's curve position.
   useEffect(() => {
     const id = setInterval(() => {
@@ -244,7 +240,6 @@ export function RideTheWaveScreen({
       if (pi !== phaseRef.current) {
         phaseRef.current = pi;
         setPhaseIdx(pi);
-        if (pi === PEAK_PHASE || pi === FINAL_PHASE) haptics?.tap();
       }
 
       if (tau >= 1 && !completedRef.current) {

@@ -30,6 +30,7 @@ import { lucideIconFor } from '@/components/info/iconMap';
 import { RankReminderBanner } from '@/components/RankReminderBanner';
 import { drainDueRankReminders, markBackgrounded } from '@/lib/rankReminders';
 import { t } from '@/lib/i18n';
+import { hapticStart } from '@/lib/haptics';
 
 // The orb's fan-out "selecting" scale — the RESIST core shrinks to half
 // size so the tracked-addiction icons have room to bloom around it. Lives
@@ -191,6 +192,9 @@ export default function HomeScreen() {
       setWiggleMode(false);
       return;
     }
+    // The craving begins the moment an addiction is chosen — buzz on
+    // the tap itself, not 240ms later when the screen finally swaps.
+    hapticStart();
     exitSelecting();
     setTimeout(() => goToCravingStart(a), 240);
   };

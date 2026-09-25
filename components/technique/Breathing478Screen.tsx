@@ -6,7 +6,6 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { hapticTap } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
 import type { TechniqueScreenProps } from './types';
 
@@ -115,9 +114,6 @@ export function Breathing478Screen({
     // Transition timer — advances to next phase (or next cycle,
     // or completion).
     const transition = setTimeout(() => {
-      // Haptic pulse on phase boundary — subtle, keeps the guide
-      // in the user's body.
-      hapticTap();
       if (nextPhase === 'inhale') runPhase('hold');
       else if (nextPhase === 'hold') runPhase('exhale');
       else {

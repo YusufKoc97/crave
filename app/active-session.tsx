@@ -32,7 +32,7 @@ import {
   savePendingFinish,
   clearPendingFinish,
 } from '@/lib/activeSession';
-import { hapticCelebrate, hapticCommit } from '@/lib/haptics';
+import { hapticResist } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
 import { lucideIconFor } from '@/components/info/iconMap';
 import { useIsPremium } from '@/lib/premium';
@@ -325,7 +325,6 @@ export default function ActiveSession() {
       const bonus = sensitivity * 5;
       setCompletedCycles(currentCycle);
       setBonusFlash({ key: Date.now(), amount: bonus });
-      hapticCelebrate();
 
       // Ring/timer pulse: scale + opacity bloom.
       completePulse.value = withSequence(
@@ -415,14 +414,13 @@ export default function ActiveSession() {
   // Function isn't invoked until the trigger modal commits, at
   // which point the atomic INSERT happens in one shot.
   const onResistPress = () => {
-    hapticCommit();
+    hapticResist();
     pendingOutcome.current = 'resisted';
     pendingIntensity.current = null;
     setIntensityOpen(true);
   };
 
   const onFailPress = () => {
-    hapticCommit();
     pendingOutcome.current = 'failed';
     pendingIntensity.current = null;
     setTriggerModalOpen(true);
@@ -574,7 +572,8 @@ export default function ActiveSession() {
     // On a win, hold the user on this screen and offer to share the moment.
     // On a loss, just bow out cleanly — no celebration prompt.
     if (outcome === 'resisted') {
-      hapticCelebrate();
+      // No second buzz here: the win already got its single hit on the
+      // I Resisted tap, and a rank-up brings its own celebration.
       setShareBanner({ points: estimatedPoints });
       return;
     }
@@ -585,7 +584,6 @@ export default function ActiveSession() {
     // goHome() would otherwise fire before the resolve response lands.
     const keptStreak = streakAfterGiveIn(streak, isPremium);
     if (isPremium && keptStreak > 0) {
-      hapticCommit();
       setProtectionBanner({ from: streak, to: keptStreak });
       return;
     }
