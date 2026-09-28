@@ -1,11 +1,13 @@
 import { useState, useSyncExternalStore } from 'react';
 import {
+  ActivityIndicator,
   Modal,
   Platform,
   Pressable,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import {
@@ -14,6 +16,7 @@ import {
   Crown,
   Languages,
   LogOut,
+  MessageSquare,
   Trash2,
   Vibrate,
 } from 'lucide-react-native';
@@ -25,11 +28,18 @@ import {
   subscribeHaptics,
 } from '@/lib/hapticsPref';
 import { hapticTap } from '@/lib/haptics';
+import {
+  FEEDBACK_MAX_LENGTH,
+  FEEDBACK_MIN_LENGTH,
+  submitFeedback,
+  type FeedbackCategory,
+} from '@/lib/feedback';
 import { LANGUAGES, availableLanguages, setLanguage, t } from '@/lib/i18n';
 import { useLanguage } from '@/lib/useLanguage';
 import { openPaywall } from '@/lib/paywall';
 import { useIsPremium } from '@/lib/premium';
 import {
+  coreBorder,
   coreDanger,
   coreDivider,
   coreRadius,
@@ -170,6 +180,189 @@ export function HapticsRow() {
       </View>
       <View style={styles.divider} />
     </>
+  );
+}
+
+type FeedbackPhase =
+  | { kind: 'idle' }
+  | { kind: 'sending' }
+  | { kind: 'sent' }
+  | { kind: 'error'; line: string };
+
+const FEEDBACK_CATEGORIES: {
+  value: FeedbackCategory;
+  labelKey: string;
+}[] = [
+  { value: 'bug', labelKey: 'profile.feedback_cat_bug' },
+  { value: 'idea', labelKey: 'profile.feedback_cat_idea' },
+  { value: 'other', labelKey: 'profile.feedback_cat_other' },
+];
+
+/**
+ * "Report a problem" — an in-app channel to the maintainer that keeps
+ * genuine bug reports out of the store reviews. Opens a sheet with a
+ * category, a free-text box and a Send button; the write goes through
+ * the `submit-feedback` Edge Function (rate-limited, RLS-locked table).
+ */
+export function FeedbackRow() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <SettingsRow
+        icon={
+          <MessageSquare size={18} color={coreText.secondary} strokeWidth={2} />
+        }
+        label={t('profile.report_problem')}
+        onPress={() => setOpen(true)}
+        showDivider
+      />
+      {open && <FeedbackSheet onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function FeedbackSheet({ onClose }: { onClose: () => void }) {
+  const [category, setCategory] = useState<FeedbackCategory>('bug');
+  const [message, setMessage] = useState('');
+  const [phase, setPhase] = useState<FeedbackPhase>({ kind: 'idle' });
+
+  const trimmedLen = message.trim().length;
+  const canSend =
+    phase.kind !== 'sending' &&
+    trimmedLen >= FEEDBACK_MIN_LENGTH &&
+    trimmedLen <= FEEDBACK_MAX_LENGTH;
+
+  const onSend = async () => {
+    if (!canSend) return;
+    setPhase({ kind: 'sending' });
+    const res = await submitFeedback(message, category);
+    if (res.ok) {
+      setPhase({ kind: 'sent' });
+      // Let the "thanks" line land, then close.
+      setTimeout(onClose, 1100);
+      return;
+    }
+    const line =
+      res.reason === 'rate_limited'
+        ? t('profile.feedback_rate_limited')
+        : res.reason === 'too_short'
+          ? t('profile.feedback_too_short')
+          : t('profile.feedback_error');
+    setPhase({ kind: 'error', line });
+  };
+
+  const sent = phase.kind === 'sent';
+  const sending = phase.kind === 'sending';
+
+  return (
+    <Modal
+      visible
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <Pressable
+        style={styles.backdrop}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel={t('profile.close')}
+      />
+      <View style={styles.dialogWrap} pointerEvents="box-none">
+        <Animated.View entering={ZoomIn.duration(240)} style={styles.dialog}>
+          <Text style={styles.dialogTitle}>{t('profile.feedback_title')}</Text>
+
+          {sent ? (
+            <Text style={styles.feedbackSent}>
+              {t('profile.feedback_sent')}
+            </Text>
+          ) : (
+            <>
+              <Text style={styles.feedbackIntro}>
+                {t('profile.feedback_intro')}
+              </Text>
+
+              <View style={styles.feedbackChips}>
+                {FEEDBACK_CATEGORIES.map((c) => {
+                  const selected = c.value === category;
+                  return (
+                    <Pressable
+                      key={c.value}
+                      onPress={() => setCategory(c.value)}
+                      style={[
+                        styles.feedbackChip,
+                        selected && styles.feedbackChipOn,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                    >
+                      <Text
+                        style={[
+                          styles.feedbackChipText,
+                          selected && styles.feedbackChipTextOn,
+                        ]}
+                      >
+                        {t(c.labelKey)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <TextInput
+                style={styles.feedbackInput}
+                value={message}
+                onChangeText={(v) => {
+                  setMessage(v);
+                  if (phase.kind === 'error') setPhase({ kind: 'idle' });
+                }}
+                placeholder={t('profile.feedback_placeholder')}
+                placeholderTextColor={coreText.tertiary}
+                multiline
+                maxLength={FEEDBACK_MAX_LENGTH}
+                editable={!sending}
+                textAlignVertical="top"
+                accessibilityLabel={t('profile.feedback_title')}
+              />
+
+              {phase.kind === 'error' ? (
+                <Text style={styles.feedbackError}>{phase.line}</Text>
+              ) : null}
+
+              <Pressable
+                onPress={onSend}
+                disabled={!canSend}
+                style={({ pressed }) => [
+                  styles.feedbackSend,
+                  !canSend && styles.feedbackSendDisabled,
+                  pressed && canSend && styles.rowPressed,
+                ]}
+                accessibilityRole="button"
+              >
+                {sending ? (
+                  <ActivityIndicator size="small" color="#0A1220" />
+                ) : (
+                  <Text style={styles.feedbackSendText}>
+                    {t('profile.feedback_send')}
+                  </Text>
+                )}
+              </Pressable>
+            </>
+          )}
+
+          <Pressable
+            onPress={onClose}
+            style={({ pressed }) => [
+              styles.sheetCloseBtn,
+              pressed && styles.rowPressed,
+            ]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.sheetCloseText}>{t('profile.close')}</Text>
+          </Pressable>
+        </Animated.View>
+      </View>
+    </Modal>
   );
 }
 
@@ -633,5 +826,87 @@ const styles = StyleSheet.create({
     color: neon(0.95),
     fontSize: 14,
     fontWeight: '700',
+  },
+
+  // ── Feedback ("Report a problem") sheet ──
+  feedbackIntro: {
+    color: coreText.body,
+    fontSize: 13.5,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  feedbackChips: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    gap: 8,
+    marginBottom: 12,
+  },
+  feedbackChip: {
+    flex: 1,
+    height: 36,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: coreBorder,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  feedbackChipOn: {
+    borderColor: neon(0.55),
+    backgroundColor: neon(0.14),
+  },
+  feedbackChipText: {
+    color: coreText.secondary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  feedbackChipTextOn: {
+    color: neon(0.95),
+  },
+  feedbackInput: {
+    alignSelf: 'stretch',
+    minHeight: 104,
+    maxHeight: 200,
+    borderRadius: coreRadius.iconSquare,
+    borderWidth: 1,
+    borderColor: coreBorder,
+    backgroundColor: 'rgba(0,0,0,0.22)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: coreText.strong,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  feedbackError: {
+    color: coreDanger.text,
+    fontSize: 12.5,
+    fontWeight: '600',
+    alignSelf: 'stretch',
+    marginTop: 8,
+  },
+  feedbackSend: {
+    marginTop: 14,
+    alignSelf: 'stretch',
+    height: 46,
+    borderRadius: coreRadius.iconSquare,
+    backgroundColor: neon(0.95),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  feedbackSendDisabled: {
+    opacity: 0.4,
+  },
+  feedbackSendText: {
+    color: '#0A1220',
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  feedbackSent: {
+    color: neon(0.95),
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+    paddingVertical: 20,
   },
 });
