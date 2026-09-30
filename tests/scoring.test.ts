@@ -300,7 +300,7 @@ describe('award ceiling', () => {
     });
     // Top rank is 75_000. One call must not be able to make a dent
     // measured in whole ranks.
-    expect(worstCase).toBeLessThanOrEqual(3000);
+    expect(worstCase).toBeLessThanOrEqual(1000);
   });
 
   it('leaves ordinary sessions completely untouched', () => {

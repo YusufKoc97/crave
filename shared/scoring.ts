@@ -41,14 +41,15 @@ export const MAX_SESSION_MINUTES = 24 * 60;
  * CLAMPS rather than rejects. Rejecting would 400 an honest user and,
  * worse, strand their pending-finish blob in a permanent retry.
  *
- * 240 minutes is 16x the longest craving the product actually designs
- * for (constants/addictions.ts puts a cycle at 5-15 min), so no honest
- * session reaches it. It caps a single award at 2,600 points instead of
- * the 15,800 that 1,440 minutes at sensitivity 10 used to yield —
- * against a top rank of 75,000, the old ceiling let five calls clear
- * the entire ladder.
+ * 90 minutes is 6x the longest craving the product actually designs
+ * for (constants/addictions.ts puts a cycle at 5-15 min), so almost no
+ * honest session reaches it. It caps a single award at 950 points
+ * (sensitivity 10) instead of the 15,800 that 1,440 minutes used to
+ * yield — against a top rank of 75,000, the old ceiling let five calls
+ * clear the entire ladder. Lowered from 240 (2,600 points) on
+ * 2026-09-30: four hours left an unattended phone far too rewarding.
  */
-export const MAX_SCORED_MINUTES = 240;
+export const MAX_SCORED_MINUTES = 90;
 
 /**
  * Ceiling on points earned per (user, addiction) per calendar day.
