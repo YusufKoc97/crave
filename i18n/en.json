@@ -1038,16 +1038,20 @@
     "close": "Close"
   },
   "clean_day": {
-    "pill": "Yesterday, no craving? +{{points}}",
-    "title": "Yesterday, without a craving?",
-    "body": "Be honest with yourself. Each clean day is worth +{{points}}, and you can claim it once per addiction.",
-    "claim": "Clean +{{points}}",
-    "hint": "If a craving did come, log it with Resist next time. That earns more than a clean day.",
+    "pill": "Yesterday, no cravings? +{{points}}",
+    "eyebrow": "Yesterday",
+    "title": "No cravings?",
+    "body": "If it was a quiet day, take the bonus. Be honest with yourself.",
+    "bonus_label": "Bonus points",
+    "claim": "Claim +{{points}}",
     "later": "Not now",
     "err_had_sessions": "You logged a craving that day, so it can't count as clean.",
     "err_generic": "Couldn't save that. Try again in a moment.",
+    "saved_eyebrow": "Bonus",
     "saved_title": "Clean day saved",
-    "total_line": "{{name}} · {{score}} points total",
+    "total_line": "{{total}} points in total",
+    "to_next": "{{points}} pts to {{rank}}",
+    "top_rank": "Top rank reached",
     "continue": "Continue"
   }
 }

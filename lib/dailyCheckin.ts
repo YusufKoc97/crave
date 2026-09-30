@@ -6,13 +6,14 @@ import { queryClient } from './queryClient';
 import { localDayKey, localDayWindow } from '@/shared/scoring';
 
 /**
- * Client half of the "craving-free day" check-in. The server
+ * Client half of the daily "craving-free day" bonus. The server
  * (supabase/functions/daily-checkin) is the authority on eligibility and
- * payout; this module only decides what is worth ASKING the user, so the
- * prompt never offers a claim the server would refuse.
+ * payout; this module only decides whether the prompt is worth SHOWING,
+ * so it never offers a claim the server would refuse.
  *
- * Only YESTERDAY is offered. A finished day cannot still have a craving
- * pending, and "today" would let the answer change an hour later.
+ * One general bonus per day, for YESTERDAY only: a finished day cannot
+ * still have a craving pending, and "today" would let the answer change
+ * an hour later.
  */
 
 const KEY = 'clean-day';
@@ -25,12 +26,12 @@ export function yesterdayKey(now: number = Date.now()): string {
 }
 
 /**
- * Addictions the user could honestly claim a clean yesterday for:
- * tracked before that day ended, not already claimed, and with no
- * logged craving that day (a logged resist already paid; a slip is not
+ * Can the user honestly claim a clean yesterday? They must have been
+ * tracking something by then, not have claimed already, and have logged
+ * no craving at all that day (a logged resist already paid; a slip is not
  * clean).
  */
-async function fetchCandidates(userId: string, day: string): Promise<string[]> {
+async function fetchEligible(userId: string, day: string): Promise<boolean> {
   const tz = new Date().getTimezoneOffset();
   const { startMs, endMs } = localDayWindow(day, tz);
 
@@ -38,12 +39,12 @@ async function fetchCandidates(userId: string, day: string): Promise<string[]> {
     fetchUserAddictions(userId),
     supabase
       .from('daily_checkins')
-      .select('addiction_id')
+      .select('day', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('day', day),
     supabase
       .from('craving_sessions')
-      .select('addiction_id')
+      .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .gte('ended_at', new Date(startMs).toISOString())
       .lt('ended_at', new Date(endMs).toISOString()),
@@ -51,32 +52,24 @@ async function fetchCandidates(userId: string, day: string): Promise<string[]> {
   if (claimed.error) throw claimed.error;
   if (sessions.error) throw sessions.error;
 
-  const claimedIds = new Set(claimed.data.map((r) => r.addiction_id));
-  const busyIds = new Set(sessions.data.map((r) => r.addiction_id));
-  return tracked
-    .filter(
-      (a) =>
-        a.isActive &&
-        Date.parse(a.addedAt) < endMs &&
-        !claimedIds.has(a.addictionId) &&
-        !busyIds.has(a.addictionId)
-    )
-    .map((a) => a.addictionId);
+  const trackedByThen = tracked.some(
+    (a) => a.isActive && Date.parse(a.addedAt) < endMs
+  );
+  return (
+    trackedByThen && (claimed.count ?? 0) === 0 && (sessions.count ?? 0) === 0
+  );
 }
 
-export function useCleanDayCandidates(): {
-  day: string;
-  addictionIds: string[];
-} {
+export function useCleanDayEligible(): { day: string; eligible: boolean } {
   const { user } = useAuth();
   const day = yesterdayKey();
   const q = useQuery({
     queryKey: [KEY, user?.id ?? null, day],
-    queryFn: () => fetchCandidates(user!.id, day),
+    queryFn: () => fetchEligible(user!.id, day),
     enabled: !!user,
     staleTime: 60_000,
   });
-  return { day, addictionIds: q.data ?? [] };
+  return { day, eligible: q.data === true };
 }
 
 export function invalidateCleanDay(): void {
@@ -87,23 +80,15 @@ export type ClaimResult =
   | {
       ok: true;
       pointsDelta: number;
-      /** The addiction's score after this claim (for the result card). */
-      newScore: number;
+      /** The user's total points after this claim. */
+      totalScore: number;
       alreadyClaimed: boolean;
-      newlyUnlockedRanks: string[];
     }
   | { ok: false; reason: string };
 
-export async function claimCleanDay(
-  addictionId: string,
-  day: string
-): Promise<ClaimResult> {
+export async function claimCleanDay(day: string): Promise<ClaimResult> {
   const { data, error } = await supabase.functions.invoke('daily-checkin', {
-    body: {
-      addiction_id: addictionId,
-      day,
-      tz_offset_minutes: new Date().getTimezoneOffset(),
-    },
+    body: { day, tz_offset_minutes: new Date().getTimezoneOffset() },
   });
   if (error) {
     // functions-js puts the HTTP response on error.context; the 409 body
@@ -122,15 +107,13 @@ export async function claimCleanDay(
   }
   const r = data as {
     points_delta?: number;
-    new_score?: number;
+    total_score?: number;
     already_claimed?: boolean;
-    newly_unlocked_ranks?: string[];
   } | null;
   return {
     ok: true,
     pointsDelta: r?.points_delta ?? 0,
-    newScore: r?.new_score ?? 0,
+    totalScore: r?.total_score ?? 0,
     alreadyClaimed: r?.already_claimed === true,
-    newlyUnlockedRanks: r?.newly_unlocked_ranks ?? [],
   };
 }

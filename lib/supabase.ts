@@ -247,11 +247,10 @@ export type Database = {
         Relationships: [];
       };
       daily_checkins: {
-        // Migration 018. Read-only from the app; rows are written by the
+        // Migrations 018/019. Read-only from the app; rows are written by the
         // daily-checkin Edge Function (service role).
         Row: {
           user_id: string;
-          addiction_id: string;
           day: string;
           points: number;
           created_at: string;

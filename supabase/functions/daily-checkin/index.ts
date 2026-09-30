@@ -1,5 +1,10 @@
 /**
- * daily-checkin — server-authoritative "craving-free day" claim.
+ * daily-checkin — server-authoritative "craving-free day" bonus.
+ *
+ * ONE general bonus per finished day: "yesterday was quiet" is a fact
+ * about the person, not about one habit. Its points go to the user's
+ * TOTAL (user_total_score = Σ addiction scores + Σ check-ins) and to no
+ * single addiction, so per-addiction rank ladders are untouched.
  *
  * The app cannot know whether a quiet day was clean or simply unlogged,
  * so this is a self-report whose payout is deliberately small
@@ -8,21 +13,21 @@
  *
  *   - the day must be FINISHED in the caller's timezone and no older
  *     than CLEAN_DAY_CLAIM_WINDOW_HOURS;
- *   - the addiction must be active and already tracked by then;
- *   - no craving session for that addiction may exist in that day
- *     (a logged resist already paid; a logged slip is not clean);
- *   - one claim per (user, addiction, day) — the daily_checkins primary
- *     key, so a retry can never pay twice;
- *   - the payout is clipped by the same per-addiction daily cap as
- *     sessions, and the hourly rate limit fails closed.
+ *   - the user must be tracking at least one active addiction that was
+ *     already added by the end of that day (nothing to stay clean of
+ *     before that);
+ *   - NO craving session for ANY addiction may exist in that day (a
+ *     logged resist already paid; a logged slip is not clean);
+ *   - one claim per (user, day) — the daily_checkins primary key, so a
+ *     retry can never pay twice;
+ *   - the hourly rate limit fails closed.
  *
  * Request (POST, JWT-auth):
- *   { addiction_id: string, day: 'YYYY-MM-DD',
+ *   { day: 'YYYY-MM-DD',
  *     tz_offset_minutes: number }   // JS Date#getTimezoneOffset()
  *
  * Response:
- *   200 { points_delta, new_score, total_score, newly_unlocked_ranks[],
- *         already_claimed? }
+ *   200 { points_delta, total_score, already_claimed? }
  *   400 bad input · 409 { error: 'not_eligible', reason }
  *
  * Deploy: `supabase functions deploy daily-checkin`
@@ -35,11 +40,8 @@ import {
   CLEAN_DAY_POINTS,
   isValidDayKey,
   localDayWindow,
-  MAX_DAILY_POINTS_PER_ADDICTION,
   RATE_LIMIT_MAX_PER_HOUR,
 } from '../../../shared/scoring.ts';
-import { isKnownAddiction } from '../../../shared/catalog.ts';
-import { newlyUnlockedRanks } from '../../../shared/ranks.ts';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const Deno: any;
@@ -99,7 +101,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const userId = userData.user.id;
 
   let body: {
-    addiction_id?: unknown;
     day?: unknown;
     tz_offset_minutes?: unknown;
   };
@@ -108,14 +109,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   } catch {
     return jsonResponse({ error: 'invalid_json' }, 400);
   }
-
-  if (
-    typeof body.addiction_id !== 'string' ||
-    !isKnownAddiction(body.addiction_id)
-  ) {
-    return jsonResponse({ error: 'invalid_addiction' }, 400);
-  }
-  const addictionId = body.addiction_id;
 
   if (!isValidDayKey(body.day)) {
     return jsonResponse({ error: 'invalid_day' }, 400);
@@ -142,39 +135,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return notEligible('day_too_old');
   }
 
-  // ─── Addiction must be active and tracked by then ───
-  const { data: tracked } = await svc
+  // ─── Must be tracking something, and already have been that day ───
+  const { data: tracked, error: trackedErr } = await svc
     .from('user_addictions')
-    .select('added_at, is_active')
+    .select('added_at')
     .eq('user_id', userId)
-    .eq('addiction_id', addictionId)
-    .maybeSingle();
-  if (!tracked || tracked.is_active === false) {
-    return notEligible('not_tracked');
+    .eq('is_active', true);
+  if (trackedErr) {
+    console.error('[daily-checkin] tracked probe failed', trackedErr);
+    return jsonResponse({ error: 'probe_failed' }, 500);
   }
-  if (Date.parse(tracked.added_at) >= endMs) {
-    // Added after that day ended — there was nothing to stay clean of yet.
-    return notEligible('not_tracked_yet');
-  }
+  const trackedByThen = (tracked ?? []).some(
+    (r: { added_at: string }) => Date.parse(r.added_at) < endMs
+  );
+  if (!trackedByThen) return notEligible('not_tracked');
 
   // ─── Already claimed? (cheap probe before spending rate budget) ───
   const { data: existing } = await svc
     .from('daily_checkins')
     .select('points')
     .eq('user_id', userId)
-    .eq('addiction_id', addictionId)
     .eq('day', day)
     .maybeSingle();
-  if (existing) {
-    return replay(svc, userId, addictionId);
-  }
+  if (existing) return replay(svc, userId);
 
   // ─── A logged craving that day means it was not a "clean" day ───
   const { count: sessionCount, error: sessErr } = await svc
     .from('craving_sessions')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('addiction_id', addictionId)
     .gte('ended_at', new Date(startMs).toISOString())
     .lt('ended_at', new Date(endMs).toISOString());
   if (sessErr) {
@@ -198,121 +187,46 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return jsonResponse({ error: 'rate_limited' }, 429);
   }
 
-  // ─── Daily cap: same per-addiction bucket the sessions spend from ───
-  let delta = CLEAN_DAY_POINTS;
-  const { data: spent, error: capErr } = await svc.rpc('bump_rate_limit', {
-    p_user: userId,
-    p_endpoint: `points:${addictionId}`,
-    p_bucket: day,
-    p_amount: delta,
-  });
-  if (capErr) {
-    console.error('[daily-checkin] daily cap check failed', capErr);
-    return jsonResponse({ error: 'rate_limit_unavailable' }, 503);
-  }
-  const overshoot = (spent ?? 0) - MAX_DAILY_POINTS_PER_ADDICTION;
-  if (overshoot > 0) delta = Math.max(0, delta - overshoot);
-
-  // ─── Claim the day. The PK makes this the idempotency guard. ───
+  // ─── Claim the day. The PK makes this the idempotency guard. The
+  //     bonus lives on this row alone — user_total_score sums it in. ───
   const { error: insertErr } = await svc.from('daily_checkins').insert({
     user_id: userId,
-    addiction_id: addictionId,
     day,
-    points: delta,
+    points: CLEAN_DAY_POINTS,
   });
   if (insertErr) {
     if ((insertErr as { code?: string }).code === '23505') {
-      return replay(svc, userId, addictionId); // racing double-tap
+      return replay(svc, userId); // racing double-tap
     }
     console.error('[daily-checkin] insert failed', insertErr);
     return jsonResponse({ error: 'checkin_insert_failed' }, 500);
   }
 
-  // ─── Score + rank unlocks ───
-  const { data: scoreRow } = await svc
-    .from('user_addiction_scores')
-    .select('score')
-    .eq('user_id', userId)
-    .eq('addiction_id', addictionId)
-    .maybeSingle();
-  const currentScore = scoreRow?.score ?? 0;
-  const newScore = currentScore + delta;
-
-  const { error: scoreErr } = await svc
-    .from('user_addiction_scores')
-    .upsert(
-      { user_id: userId, addiction_id: addictionId, score: newScore },
-      { onConflict: 'user_id,addiction_id' }
-    );
-  if (scoreErr) {
-    console.error('[daily-checkin] score upsert failed', scoreErr);
-    // Undo the claim so the user can retry — otherwise the day would be
-    // marked claimed while the points never landed.
-    await svc
-      .from('daily_checkins')
-      .delete()
-      .eq('user_id', userId)
-      .eq('addiction_id', addictionId)
-      .eq('day', day);
-    return jsonResponse({ error: 'score_write_failed' }, 500);
-  }
-
-  const { data: unlockRows } = await svc
-    .from('user_unlocked_ranks')
-    .select('rank_id')
-    .eq('user_id', userId)
-    .eq('addiction_id', addictionId);
-  const newlyUnlocked = newlyUnlockedRanks({
-    previousScore: currentScore,
-    newScore,
-    alreadyUnlocked: new Set(
-      (unlockRows ?? []).map((r: { rank_id: string }) => r.rank_id)
-    ),
+  return jsonResponse({
+    points_delta: CLEAN_DAY_POINTS,
+    total_score: await totalScore(svc, userId),
   });
-  if (newlyUnlocked.length > 0) {
-    const { error: rankErr } = await svc.from('user_unlocked_ranks').upsert(
-      newlyUnlocked.map((rankId) => ({
-        user_id: userId,
-        addiction_id: addictionId,
-        rank_id: rankId,
-      })),
-      { onConflict: 'user_id,addiction_id,rank_id', ignoreDuplicates: true }
-    );
-    if (rankErr) console.error('[daily-checkin] rank write failed', rankErr);
-  }
+});
 
-  const { data: totalRow } = await svc
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function totalScore(svc: any, userId: string): Promise<number> {
+  const { data } = await svc
     .from('user_total_score')
     .select('total_score')
     .eq('user_id', userId)
     .maybeSingle();
-
-  return jsonResponse({
-    points_delta: delta,
-    new_score: newScore,
-    total_score: totalRow?.total_score ?? newScore,
-    newly_unlocked_ranks: newlyUnlocked,
-  });
-});
+  return data?.total_score ?? 0;
+}
 
 /** A day that was already claimed: report success without paying again. */
 async function replay(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   svc: any,
-  userId: string,
-  addictionId: string
+  userId: string
 ): Promise<Response> {
-  const { data: scoreRow } = await svc
-    .from('user_addiction_scores')
-    .select('score')
-    .eq('user_id', userId)
-    .eq('addiction_id', addictionId)
-    .maybeSingle();
   return jsonResponse({
     points_delta: 0,
-    new_score: scoreRow?.score ?? 0,
-    total_score: scoreRow?.score ?? 0,
-    newly_unlocked_ranks: [],
+    total_score: await totalScore(svc, userId),
     already_claimed: true,
   });
 }

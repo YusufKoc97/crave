@@ -1038,16 +1038,20 @@
     "close": "Kapat"
   },
   "clean_day": {
-    "pill": "Dün dürtü yok muydu? +{{points}}",
-    "title": "Dün hiç dürtü gelmedi mi?",
-    "body": "Kendine karşı dürüst ol. Her temiz gün +{{points}} puan, her bağımlılık için günde bir kez alınır.",
-    "claim": "Temiz +{{points}}",
-    "hint": "Dürtü geldiyse bir dahaki sefere Diren ile kaydet. O, temiz günden daha çok puan kazandırır.",
+    "pill": "Dün dürtü gelmedi mi? +{{points}}",
+    "eyebrow": "Dün",
+    "title": "Hiç dürtü gelmedi mi?",
+    "body": "Sakin bir gündüyse bonusunu al. Kendine karşı dürüst ol.",
+    "bonus_label": "Bonus puan",
+    "claim": "+{{points}} Al",
     "later": "Şimdi değil",
     "err_had_sessions": "O gün bir dürtü kaydettin, o yüzden temiz sayılamaz.",
     "err_generic": "Kaydedilemedi. Biraz sonra tekrar dene.",
+    "saved_eyebrow": "Bonus",
     "saved_title": "Temiz gün kaydedildi",
-    "total_line": "{{name}} · toplam {{score}} puan",
+    "total_line": "Toplam {{total}} puan",
+    "to_next": "{{rank}} için {{points}} puan",
+    "top_rank": "En üst rütbedesin",
     "continue": "Devam"
   }
 }

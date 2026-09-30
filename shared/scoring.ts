@@ -173,15 +173,16 @@ export function nextMomentum(args: {
 }
 
 /**
- * Points for a self-reported "craving-free day" (daily check-in).
+ * Points for the self-reported "craving-free day" bonus (daily check-in).
  *
+ * ONE general bonus per finished day, added to the user's total only.
  * The server cannot tell "no craving came" from "a craving came and was
  * never logged", so this is sized so that lying is not worth it rather
  * than trying to detect it: 50 is ~70% of one ordinary resisted craving
- * (10 min at sensitivity 7 = 70), it can be claimed once per addiction
- * per finished day, and it eats the same daily cap as session points.
- * Claiming a clean day for one addiction every single day for a year
- * reaches Master (15,000) but never Expert (35,000).
+ * (10 min at sensitivity 7 = 70), it can be claimed once per day, and
+ * only on a day with no logged craving at all. Claiming every single day
+ * for a year adds 18,250 to the total: Master (15,000), never Expert
+ * (35,000).
  */
 export const CLEAN_DAY_POINTS = 50;
 
