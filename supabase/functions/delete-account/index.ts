@@ -89,6 +89,7 @@ const USER_KEYED_TABLES = [
   'user_unlocked_ranks',
   'user_addiction_scores',
   'rate_limits',
+  'daily_checkins',
   'craving_sessions',
   'user_addictions',
 ] as const;

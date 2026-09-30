@@ -172,6 +172,51 @@ export function nextMomentum(args: {
   return Math.min(100, args.currentMomentum + gain);
 }
 
+/**
+ * Points for a self-reported "craving-free day" (daily check-in).
+ *
+ * The server cannot tell "no craving came" from "a craving came and was
+ * never logged", so this is sized so that lying is not worth it rather
+ * than trying to detect it: 50 is ~70% of one ordinary resisted craving
+ * (10 min at sensitivity 7 = 70), it can be claimed once per addiction
+ * per finished day, and it eats the same daily cap as session points.
+ * Claiming a clean day for one addiction every single day for a year
+ * reaches Master (15,000) but never Expert (35,000).
+ */
+export const CLEAN_DAY_POINTS = 50;
+
+/** Furthest back a finished day can still be claimed (offline grace). */
+export const CLEAN_DAY_CLAIM_WINDOW_HOURS = 72;
+
+/** `YYYY-MM-DD` shape + a real calendar date (rejects 2026-02-31). */
+export function isValidDayKey(day: unknown): day is string {
+  if (typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    return false;
+  }
+  const [y, m, d] = day.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return (
+    dt.getUTCFullYear() === y &&
+    dt.getUTCMonth() === m - 1 &&
+    dt.getUTCDate() === d
+  );
+}
+
+/**
+ * The [start, end) instants of a user's LOCAL calendar day, in epoch ms.
+ * `tzOffsetMinutes` is JS `Date#getTimezoneOffset()` — minutes the local
+ * clock is BEHIND UTC (UTC+3 → -180). Pure arithmetic so the client, the
+ * Edge Function and the tests all agree on which sessions fall in a day.
+ */
+export function localDayWindow(
+  day: string,
+  tzOffsetMinutes: number
+): { startMs: number; endMs: number } {
+  const [y, m, d] = day.split('-').map(Number);
+  const startMs = Date.UTC(y, m - 1, d) + tzOffsetMinutes * 60_000;
+  return { startMs, endMs: startMs + 86_400_000 };
+}
+
 /** Local-time YYYY-MM-DD key for grouping sessions by calendar day. */
 export function localDayKey(ts: number): string {
   const d = new Date(ts);

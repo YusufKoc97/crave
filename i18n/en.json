@@ -1036,5 +1036,16 @@
     "privacy_link": "Privacy Policy",
     "terms_link": "Terms of Use",
     "close": "Close"
+  },
+  "clean_day": {
+    "pill": "Yesterday, no craving? +{{points}}",
+    "title": "Yesterday, without a craving?",
+    "body": "Be honest with yourself. Each clean day is worth +{{points}}, and you can claim it once per addiction.",
+    "claim": "Clean +{{points}}",
+    "hint": "If a craving did come, log it with Resist next time. That earns more than a clean day.",
+    "later": "Not now",
+    "claimed": "Clean day saved · +{{points}}",
+    "err_had_sessions": "You logged a craving that day, so it can't count as clean.",
+    "err_generic": "Couldn't save that. Try again in a moment."
   }
 }

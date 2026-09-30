@@ -9,6 +9,9 @@ import {
   MAX_DAILY_POINTS_PER_ADDICTION,
   MAX_SCORED_MINUTES,
   scoredMinutesFor,
+  isValidDayKey,
+  localDayWindow,
+  CLEAN_DAY_POINTS,
   MAX_SESSION_MINUTES,
   nextMomentum,
   streakAfterGiveIn,
@@ -349,5 +352,37 @@ describe('award ceiling', () => {
         sensitivity: 5,
       });
     expect(heavyDay).toBeLessThan(MAX_DAILY_POINTS_PER_ADDICTION);
+  });
+});
+
+describe('clean-day check-in helpers', () => {
+  it('validates day keys as real calendar dates', () => {
+    expect(isValidDayKey('2026-09-29')).toBe(true);
+    expect(isValidDayKey('2026-02-31')).toBe(false);
+    expect(isValidDayKey('2026-9-29')).toBe(false);
+    expect(isValidDayKey('yesterday')).toBe(false);
+    expect(isValidDayKey(20260929)).toBe(false);
+  });
+
+  it('places a local day window using the JS timezone offset', () => {
+    // UTC+3 (offset -180): local 29 Sep starts 21:00Z on 28 Sep.
+    const w = localDayWindow('2026-09-29', -180);
+    expect(new Date(w.startMs).toISOString()).toBe('2026-09-28T21:00:00.000Z');
+    expect(w.endMs - w.startMs).toBe(86_400_000);
+    // UTC-8 (offset +480): local 29 Sep starts 08:00Z on 29 Sep.
+    expect(
+      new Date(localDayWindow('2026-09-29', 480).startMs).toISOString()
+    ).toBe('2026-09-29T08:00:00.000Z');
+  });
+
+  it('keeps a clean day worth less than one ordinary resisted craving', () => {
+    const ordinary = calculateResistPoints({
+      outcome: 'resisted',
+      durationSeconds: 10 * 60,
+      sensitivity: 7,
+    });
+    expect(CLEAN_DAY_POINTS).toBeLessThan(ordinary);
+    // A year of claiming one addiction daily must not reach Expert (35,000).
+    expect(CLEAN_DAY_POINTS * 365).toBeLessThan(35_000);
   });
 });

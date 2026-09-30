@@ -29,6 +29,7 @@ import { dsColors } from '@/constants/designSystem';
 import { useAddictions } from '@/context/AddictionsContext';
 import { ResistanceOrb, RESISTANCE_ORB_SIZE } from '@/components/ResistanceOrb';
 import { lucideIconFor } from '@/components/info/iconMap';
+import { CleanDayPill } from '@/components/CleanDayPill';
 import { RankReminderBanner } from '@/components/RankReminderBanner';
 import { drainDueRankReminders, markBackgrounded } from '@/lib/rankReminders';
 import { t } from '@/lib/i18n';
@@ -309,6 +310,10 @@ export default function HomeScreen() {
           <Text style={styles.plusText}>+</Text>
         </Pressable>
       </View>
+
+      {/* Daily check-in: only present while yesterday has something
+          honest to claim, and only while the orb is at rest. */}
+      <CleanDayPill visible={phase === 'idle'} bottom={PLUS_BOTTOM + 64} />
 
       {/* Top reminder for ranks unlocked while the user was away. */}
       <RankReminderBanner

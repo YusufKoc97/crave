@@ -1036,5 +1036,16 @@
     "privacy_link": "Gizlilik Politikası",
     "terms_link": "Kullanım Şartları",
     "close": "Kapat"
+  },
+  "clean_day": {
+    "pill": "Dün dürtü yok muydu? +{{points}}",
+    "title": "Dün hiç dürtü gelmedi mi?",
+    "body": "Kendine karşı dürüst ol. Her temiz gün +{{points}} puan, her bağımlılık için günde bir kez alınır.",
+    "claim": "Temiz +{{points}}",
+    "hint": "Dürtü geldiyse bir dahaki sefere Diren ile kaydet. O, temiz günden daha çok puan kazandırır.",
+    "later": "Şimdi değil",
+    "claimed": "Temiz gün kaydedildi · +{{points}}",
+    "err_had_sessions": "O gün bir dürtü kaydettin, o yüzden temiz sayılamaz.",
+    "err_generic": "Kaydedilemedi. Biraz sonra tekrar dene."
   }
 }
