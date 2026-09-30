@@ -82,7 +82,8 @@
     "empty_subtitle": "Katalogdan seçmek için aşağıdaki artı düğmesine dokun.",
     "empty_cta": "Bağımlılık ekle",
     "add_addiction_a11y": "Bağımlılık ekle",
-    "resist": "DİREN"
+    "resist": "DİREN",
+    "select_hint": "Hangi dürtü?"
   },
   "onboarding": {
     "welcome": {
@@ -95,7 +96,7 @@
     "how": {
       "eyebrow": "Direnç döngüsü",
       "title": "Direnç nasıl büyür",
-      "body": "Dürtü bir andır. İçinden geçebilirsin.",
+      "body": "Dürtü bir andır. İçinden geçebilirsin.",
       "core": "DİREN",
       "step1": "Bir dürtü gelir",
       "step2": "Küreye dokun",
@@ -103,7 +104,7 @@
       "step4": "Puan kazan",
       "path_label": "Yolun",
       "path_start": "Başlangıç noktası",
-      "footer": "Direndiğin her dürtü çekirdeğini besler.",
+      "footer": "Direndiğin her dürtü çekirdeğini besler — profilinin kalbindeki ışığı.",
       "cta": "Devam et"
     },
     "focus": {
@@ -224,26 +225,41 @@
       "lowdata_days": "{{count}} gün",
       "unlock_cta": "Premium ile aç",
       "unlock_body": "Tüm haritanı ilk güne kadar gör.",
-      "last_14": "SON 14 GÜN"
+      "last_14": "SON 14 GÜN",
+      "lowdata_days_one": "1 gün"
     },
-    "feeding_row_a11y": "{{name}} — {{rank}}, {{score}}"
+    "feeding_row_a11y": "{{name}} — {{rank}}, {{score}}",
+    "save_progress": "İlerlemeni kaydet",
+    "save_intro": "Şu an ilerlemen yalnızca bu telefonda duruyor. Telefon değiştirirsen ya da uygulamayı yeniden yüklersen kaybolmasın diye e-postanı ekle.",
+    "save_send_link": "Onay bağlantısı gönder",
+    "save_check_email": "{{email}} adresine bir bağlantı gönderdik. Bağlantıyı aç, sonra buraya dönüp aşağıya dokun.",
+    "save_confirmed": "E-postamı onayladım",
+    "save_resend": "Bağlantıyı tekrar gönder",
+    "save_not_confirmed": "Henüz onaylanmamış — gelen kutunu (ve spam klasörünü) kontrol et.",
+    "save_password_intro": "E-posta onaylandı. Her telefondan giriş yapabilmek için bir şifre belirle.",
+    "save_password_placeholder": "en az 8 karakter",
+    "save_set_password": "Şifreyi kaydet",
+    "save_done": "Tamam — ilerlemen {{email}} adresine kaydedildi.",
+    "have_account": "Zaten hesabım var"
   },
   "active": {
     "resist": "Direndim",
-    "failed": "Pes ettim",
+    "failed": "Bu sefer olmadı",
     "points_earned": "puan kazandın",
     "finish": "Bitir",
     "streak_protected_title": "Serin korundu",
     "streak_protected_body": "Serin sıfırlanmak yerine yerinde kaldı.",
     "craving_fallback": "Dürtü",
     "cycle_tag": "DÖNGÜ {{cycle}} · +{{bonus}} KAZANILDI",
-    "points_live": "+{{points}} puan"
+    "points_live": "+{{points}} puan",
+    "win_title": "Dayandın.",
+    "tag_optional": "Neyin tetiklediğini etiketle · isteğe bağlı"
   },
   "trigger_capture": {
     "resist_title": "Aferin — bir şey daha",
-    "resist_body": "Bu dürtüyü ne tetikledi? Kısa bir etiket, örüntüleri sonra görmene yardım eder.",
+    "resist_body": "Kısa bir etiket, örüntülerini sonra görmene yardım eder.",
     "fail_title": "Olur — kısa bir not",
-    "fail_body": "Neler oluyordu? Bu, örüntülerini ikimizin de anlamasına yardım eder.",
+    "fail_body": "Yargı yok — kısa bir etiket örüntülerini anlamana yardım eder.",
     "common_section": "Yaygın",
     "specific_section": "{{name}} özel",
     "step_label": "ADIM 2 / 2",
@@ -289,7 +305,8 @@
     "confirm_button": "Doğru görünüyor",
     "edit_button": "Düzenle ve kaydet",
     "cancel_button": "Vazgeç",
-    "failed_message": "Bu da bir veri. Bir sonraki dürtüde görüşürüz."
+    "failed_message": "Bu da bir veri. Bir sonraki dürtüde görüşürüz.",
+    "intensity_step": "ADIM 1 / 2"
   },
   "triggers": {
     "common": {
@@ -670,7 +687,8 @@
       }
     },
     "type_fake_feed": "Sonlu akış",
-    "go_to_card_a11y": "{{count}} karttan {{index}}. karta git"
+    "go_to_card_a11y": "{{count}} karttan {{index}}. karta git",
+    "start_here": "Buradan başla"
   },
   "breathing": {
     "inhale": "Nefes al",
@@ -891,7 +909,7 @@
     "email_label": "E-POSTA",
     "password_label": "ŞİFRE",
     "email_placeholder": "seninadres@ornek.com",
-    "password_min_placeholder": "en az 6 karakter",
+    "password_min_placeholder": "en az 8 karakter",
     "show_password": "Şifreyi göster",
     "hide_password": "Şifreyi gizle",
     "sign_in": {
@@ -901,7 +919,8 @@
       "submit": "Giriş yap",
       "submitting": "Giriş yapılıyor...",
       "no_account": "Hesabın yok mu?",
-      "sign_up_link": "Kayıt ol"
+      "sign_up_link": "Kayıt ol",
+      "continue_without": "Hesapsız devam et"
     },
     "sign_up": {
       "title": "Hesap oluştur",
@@ -927,7 +946,7 @@
       "invalid_credentials": "E-posta veya şifre hatalı.",
       "email_not_confirmed": "E-postanı henüz onaylamadın. Gelen kutunu kontrol et.",
       "already_registered": "Bu e-posta zaten kayıtlı. Giriş yapmayı dene.",
-      "password_short": "Şifre en az 6 karakter olmalı.",
+      "password_short": "Şifre en az 8 karakter olmalı.",
       "invalid_email": "Geçerli bir e-posta gir.",
       "rate_limited": "Çok fazla deneme. Birkaç dakika bekle, tekrar dene.",
       "network": "Bağlantı hatası. İnternetini kontrol et."
@@ -1012,5 +1031,10 @@
       "sun": "P"
     },
     "short_format": "{{day}} {{month}}"
+  },
+  "legal": {
+    "privacy_link": "Gizlilik Politikası",
+    "terms_link": "Kullanım Şartları",
+    "close": "Kapat"
   }
 }

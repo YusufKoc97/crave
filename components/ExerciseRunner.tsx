@@ -50,8 +50,8 @@ import { ExerciseAtmosphere } from '@/components/technique/ExerciseAtmosphere';
  *     null → Technique). No state bleed between invocations.
  *   - `AppState` foreground → in-place restart (see the effect below).
  *     Modal stays open; the scene resets its own phase / timers.
- *   - Quit (×) or completion both funnel to the feedback pane. The DB
- *     `completed` flag records the distinction.
+ *   - Completion funnels to the feedback pane. Quit (×) closes silently
+ *     and records `completed = false` with no feedback.
  */
 
 type Props = {
@@ -175,12 +175,20 @@ export function ExerciseRunner({
   }, []);
 
   const handleQuit = useCallback(() => {
-    // Quit (× tapped) — flow ends without full completion, but we
-    // still surface the feedback pane so we capture the subjective
-    // outcome even for partial attempts.
-    setCompletedFlag(false);
-    setPhase('feedback');
-  }, []);
+    // Quit (× tapped) mid-exercise — close silently and record the use
+    // as incomplete. Asking "how did this feel?" about an exercise the
+    // user just walked away from breaks the moment (and the answer is
+    // meaningless for a few seconds of it), so the feedback pane is
+    // reserved for a finished run.
+    if (useIdRef.current) {
+      logTechniqueEnd({
+        useId: useIdRef.current,
+        completed: false,
+        feedback: null,
+      });
+    }
+    onClose();
+  }, [onClose]);
 
   const handleFeedback = useCallback(
     (feedback: TechniqueFeedback | null) => {
@@ -205,7 +213,11 @@ export function ExerciseRunner({
       visible
       transparent={false}
       animationType="slide"
-      onRequestClose={handleQuit}
+      // Android back: quitting mid-guide is a silent incomplete; on the
+      // feedback pane the run already finished, so it counts as a skip.
+      onRequestClose={
+        phase === 'feedback' ? () => handleFeedback(null) : handleQuit
+      }
       statusBarTranslucent
     >
       <View style={styles.root}>

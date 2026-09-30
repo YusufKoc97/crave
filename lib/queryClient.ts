@@ -38,6 +38,23 @@ export function invalidateTriggerMaps(): void {
 }
 
 /**
+ * Everything derived from craving-session history. Call after a resolve
+ * lands: before this, only the trigger maps were refreshed, so the Streak
+ * Map kept saying "Your map starts empty" next to a resisted craving
+ * until the app was relaunched.
+ */
+export function invalidateSessionDerived(): void {
+  for (const key of [
+    'trigger-map',
+    'streak-map',
+    'comparison',
+    'user-stats-techniques',
+  ]) {
+    queryClient.invalidateQueries({ queryKey: [key] });
+  }
+}
+
+/**
  * Drop every cached query. Called from the sign-out / delete purge so
  * the next user on the device does not read the previous user's
  * heatmaps and insight cards straight out of this singleton (several

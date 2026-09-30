@@ -154,15 +154,23 @@ export function TriggerCaptureModal({
           {/* ── Header ─────────────────────────────────────────── */}
           <View style={styles.header}>
             <View style={styles.stepRow}>
-              <Text style={styles.stepLabel}>
-                {t('trigger_capture.step_label')}
-              </Text>
-              <View style={styles.stepBars}>
-                <View style={styles.stepBarDone} />
-                <View
-                  style={[styles.stepBar, { backgroundColor: accentColor }]}
-                />
-              </View>
+              {/* Two steps only on the optional after-resist tagging
+                  (intensity → this). A give-in lands here directly,
+                  so a "2 of 2" there would point at a step that never
+                  happened. */}
+              {outcome === 'resisted' && (
+                <>
+                  <Text style={styles.stepLabel}>
+                    {t('trigger_capture.step_label')}
+                  </Text>
+                  <View style={styles.stepBars}>
+                    <View style={styles.stepBarDone} />
+                    <View
+                      style={[styles.stepBar, { backgroundColor: accentColor }]}
+                    />
+                  </View>
+                </>
+              )}
               <View style={styles.stepSpacer} />
               <Pressable
                 onPress={onCancel}

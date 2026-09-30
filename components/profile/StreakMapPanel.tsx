@@ -496,26 +496,35 @@ function LoadingState() {
 
 function LowDataState({
   days,
-  recordCount,
   todayMs,
   selectedMs,
   selected,
   onSelect,
 }: {
   days: StreakDay[];
-  recordCount: number;
   todayMs: number;
   selectedMs: number | null;
   selected: StreakDay | null;
   onSelect: (day: StreakDay) => void;
 }) {
   const columns = useMemo(() => toColumns(days), [days]);
+  // The label says "days", so count DAYS with activity — recordCount is
+  // sessions, which read "4 days" after four cravings on a single day.
+  const activeDays = useMemo(
+    () => days.filter((d) => d.resisted > 0 || d.giveIn).length,
+    [days]
+  );
   return (
     <>
       <Header
         right={
           <Text style={styles.headerMeta}>
-            {t('profile.streak_map.lowdata_days', { count: recordCount })}
+            {t(
+              activeDays === 1
+                ? 'profile.streak_map.lowdata_days_one'
+                : 'profile.streak_map.lowdata_days',
+              { count: activeDays }
+            )}
           </Text>
         }
       />
@@ -650,7 +659,6 @@ export function StreakMapPanel() {
     body = (
       <LowDataState
         days={days}
-        recordCount={recordCount}
         todayMs={todayMs}
         selectedMs={selectedMs}
         selected={selected}

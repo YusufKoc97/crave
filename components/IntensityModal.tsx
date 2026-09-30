@@ -101,12 +101,16 @@ const START_LEVEL = 5;
 /** Shared-value domain for interpolateColor — one stop per level. */
 const COLOR_STOPS = LEVEL_COLORS.map((_, i) => i + 1);
 
-/** 1–2 Mild · 3–4 Noticeable · 5–6 Strong · 7–8 Very strong · 9–10 Unbearable. */
+/**
+ * 1–3 Mild · 4–6 Moderate · 7–8 Strong · 9 Very strong · 10 Unbearable.
+ * The dial opens on 5, so the midpoint has to read as the middle —
+ * "Strong" there nudged every rating upward.
+ */
 function bandKeyFor(level: number) {
-  if (level <= 2) return 'craving_flow.intensity.mild';
-  if (level <= 4) return 'craving_flow.intensity.noticeable';
-  if (level <= 6) return 'craving_flow.intensity.strong';
-  if (level <= 8) return 'craving_flow.intensity.very_strong';
+  if (level <= 3) return 'craving_flow.intensity.mild';
+  if (level <= 6) return 'craving_flow.intensity.moderate';
+  if (level <= 8) return 'craving_flow.intensity.strong';
+  if (level <= 9) return 'craving_flow.intensity.very_strong';
   return 'craving_flow.intensity.unbearable';
 }
 
@@ -261,6 +265,9 @@ export function IntensityModal({ visible, onSelect, onDismiss }: Props) {
     >
       <View style={styles.backdrop}>
         <View style={styles.card}>
+          <Text style={styles.stepLabel}>
+            {t('craving_flow.intensity_step')}
+          </Text>
           <Text style={styles.title}>
             {t('craving_flow.intensity_question')}
           </Text>
@@ -442,6 +449,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     boxShadow:
       '0 20px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+  },
+  stepLabel: {
+    color: dsColors.textTertiary,
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1.4,
+    textAlign: 'center',
+    marginBottom: 8,
   },
   title: {
     color: '#F1F5F9',

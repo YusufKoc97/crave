@@ -16,6 +16,7 @@ import Animated, {
   withRepeat,
   withSequence,
   withDelay,
+  withSpring,
   Easing,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -31,13 +32,14 @@ import {
   saveActiveSnapshot,
   savePendingFinish,
   clearPendingFinish,
+  type PendingFinish,
 } from '@/lib/activeSession';
 import { hapticResist } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
 import { lucideIconFor } from '@/components/info/iconMap';
 import { useIsPremium } from '@/lib/premium';
 import { streakAfterGiveIn } from '@/lib/scoring';
-import type { Outcome } from '@/shared/scoring';
+import { MAX_SCORED_MINUTES, type Outcome } from '@/shared/scoring';
 import { RankUnlockModal } from '@/components/RankUnlockModal';
 import { useAddictionScores } from '@/context/AddictionScoresContext';
 import { IntensityModal } from '@/components/IntensityModal';
@@ -48,7 +50,10 @@ import { PresenceIndicator } from '@/components/PresenceIndicator';
 import { AmbientGlow } from '@/components/ui/AmbientGlow';
 import { NeonFrame } from '@/components/ui/NeonFrame';
 import { dsColors, hexAlpha } from '@/constants/designSystem';
-import { invalidateTriggerMaps } from '@/lib/queryClient';
+import {
+  invalidateSessionDerived,
+  invalidateTriggerMaps,
+} from '@/lib/queryClient';
 import { addRankReminders } from '@/lib/rankReminders';
 import type { Technique } from '@/constants/toolkitCatalog';
 
@@ -68,6 +73,8 @@ const SPINNER_RING_SIZE = TIMER_SIZE + 18;
 const QUOTE_KEYS = [0, 1, 2, 3, 4, 5, 6].map((i) => `craving_quotes.q${i}`);
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+type ResolvePayload = PendingFinish['payload'];
 
 /** MM / colon / SS split so the colon can pulse independently. */
 function formatTimeParts(s: number): { mm: string; ss: string } {
@@ -158,7 +165,7 @@ export default function ActiveSession() {
   // (and its per-cycle bonus cadence) runs at 2x — a loop every ~2.5-7.5 min.
   const cycleSeconds = Math.max(60, Math.round((maxMinutes * 60) / 2));
 
-  const { recordSession, streak } = useSessions();
+  const { recordSession, streak, refreshTotals } = useSessions();
   const { user } = useAuth();
   const isPremium = useIsPremium();
   // Client-generated session UUID. Persistent for the life of this
@@ -223,6 +230,20 @@ export default function ActiveSession() {
   const startedAt = useRef(
     params.resumeStartedAt ? Date.parse(params.resumeStartedAt) : Date.now()
   );
+  // The moment the user DECIDED ("I Resisted" / "I Failed" tap). Once
+  // set, the timer and the live points freeze there, and the session is
+  // scored against this instant — not against whenever the follow-up
+  // sheets happen to be dismissed. Null = still counting. Cleared again
+  // only when a give-in is cancelled from the trigger sheet.
+  const decidedAt = useRef<number | null>(null);
+  // Guards against resolving the same craving twice (double tap).
+  const resolved = useRef(false);
+  // Payload of the resolve that already went out, so optional tagging
+  // can re-send the SAME session (same timestamps) with details attached.
+  const resolvedPayload = useRef<ResolvePayload | null>(null);
+  // True while a details re-send is in flight, so the first resolve's
+  // success handler doesn't clear the newer pending-finish blob.
+  const detailsInFlight = useRef(false);
 
   // Faz 5 REVERSAL — no DB INSERT on mount. Just snapshot the
   // client-only state so a hard kill mid-timer is recoverable via
@@ -282,7 +303,8 @@ export default function ActiveSession() {
   // thread, so a 250ms tick was just thrashing React for no visible win.
   useEffect(() => {
     const tick = () => {
-      setElapsed(Math.floor((Date.now() - startedAt.current) / 1000));
+      const now = decidedAt.current ?? Date.now();
+      setElapsed(Math.floor((now - startedAt.current) / 1000));
     };
     tick();
     const id = setInterval(tick, 1000);
@@ -318,15 +340,11 @@ export default function ActiveSession() {
     }
   }, [cycleProgress, arcOffset]);
 
-  // Detect a freshly completed cycle and play the celebration.
+  // Ring loop completed — purely visual pulse. The ring runs faster than
+  // the scoring cycle (see cycleSeconds), so it must not promise points.
   useEffect(() => {
     if (currentCycle > lastCycleSeen.current && currentCycle > 0) {
       lastCycleSeen.current = currentCycle;
-      const bonus = sensitivity * 5;
-      setCompletedCycles(currentCycle);
-      setBonusFlash({ key: Date.now(), amount: bonus });
-
-      // Ring/timer pulse: scale + opacity bloom.
       completePulse.value = withSequence(
         withTiming(1, { duration: 380, easing: Easing.out(Easing.cubic) }),
         withDelay(
@@ -334,15 +352,26 @@ export default function ActiveSession() {
           withTiming(0, { duration: 520, easing: Easing.in(Easing.cubic) })
         )
       );
+    }
+  }, [currentCycle, completePulse]);
 
-      // Floating "+X" indicator
+  // Scoring cycle — the SAME cadence the server pays a bonus on
+  // (shared/scoring.ts: every sensitivity × 5 minutes). Only this one
+  // flashes a "+X", so every number on screen is a number the user
+  // actually gets.
+  const scoredMinutes = Math.min(elapsed / 60, MAX_SCORED_MINUTES);
+  const scoredCycles = Math.floor(scoredMinutes / (sensitivity * 5));
+  useEffect(() => {
+    if (scoredCycles > completedCycles) {
+      setCompletedCycles(scoredCycles);
+      setBonusFlash({ key: Date.now(), amount: sensitivity * 5 });
       bonusFloat.value = 0;
       bonusFloat.value = withSequence(
         withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) }),
         withDelay(300, withTiming(0, { duration: 0 }))
       );
     }
-  }, [currentCycle, sensitivity, completePulse, bonusFloat]);
+  }, [scoredCycles, completedCycles, sensitivity, bonusFloat]);
 
   useEffect(() => {
     if (!ranOnce.current) {
@@ -362,10 +391,14 @@ export default function ActiveSession() {
     return () => clearInterval(id);
   }, [quoteOpacity]);
 
-  // Live points = base elapsed × sensitivity + cycle bonuses already earned.
-  const baseProjected = Math.round((elapsed / 60) * sensitivity);
+  // Live points use the exact formula the server scores with, so the
+  // counter, the "+X points earned" result and the saved score all agree.
   const cycleBonus = completedCycles * sensitivity * 5;
-  const points = Math.max(elapsed > 0 ? 1 : 0, baseProjected) + cycleBonus;
+  const points = calculateResistPoints({
+    outcome: 'resisted',
+    durationSeconds: elapsed,
+    sensitivity,
+  });
 
   const quoteStyle = useAnimatedStyle(() => ({ opacity: quoteOpacity.value }));
   const colonStyle = useAnimatedStyle(() => ({ opacity: colonOpacity.value }));
@@ -389,6 +422,30 @@ export default function ActiveSession() {
     transform: [{ translateY: -bonusFloat.value * 38 }],
   }));
 
+  // Win entrance: the result card springs in and the timer blooms once,
+  // so "I Resisted" lands as a moment instead of a quiet number swap.
+  const winEnter = useSharedValue(0);
+  const showingWin = shareBanner != null;
+  useEffect(() => {
+    if (!showingWin) return;
+    winEnter.value = 0;
+    winEnter.value = withSpring(1, { damping: 13, stiffness: 150 });
+    completePulse.value = withSequence(
+      withTiming(1, { duration: 380, easing: Easing.out(Easing.cubic) }),
+      withDelay(
+        200,
+        withTiming(0, { duration: 700, easing: Easing.in(Easing.cubic) })
+      )
+    );
+  }, [showingWin, winEnter, completePulse]);
+  const winStyle = useAnimatedStyle(() => ({
+    opacity: Math.min(1, winEnter.value * 1.4),
+    transform: [
+      { translateY: (1 - winEnter.value) * 16 },
+      { scale: 0.94 + winEnter.value * 0.06 },
+    ],
+  }));
+
   // Faz 5 entry points — invoked directly from the action buttons.
   // Both gate the actual resolve behind a modal so we can capture
   // Safe "back to home" for every exit path. Two independent
@@ -410,20 +467,39 @@ export default function ActiveSession() {
     else router.replace('/');
   };
 
-  // Faz 5 REVERSAL — the button taps only stage state. The Edge
-  // Function isn't invoked until the trigger modal commits, at
-  // which point the atomic INSERT happens in one shot.
-  const onResistPress = () => {
-    hapticResist();
-    pendingOutcome.current = 'resisted';
-    pendingIntensity.current = null;
-    setIntensityOpen(true);
+  // Freeze the clock at the decision moment (see `decidedAt`).
+  const freezeAtDecision = () => {
+    if (decidedAt.current == null) {
+      decidedAt.current = Date.now();
+      setElapsed(Math.floor((decidedAt.current - startedAt.current) / 1000));
+    }
   };
 
+  // A resist is a win the moment it is tapped: freeze, score and
+  // celebrate NOW (a rank-up lands right here too), then offer tagging
+  // as an optional follow-up instead of gating the win behind two forms.
+  const onResistPress = () => {
+    if (resolved.current) return;
+    hapticResist();
+    freezeAtDecision();
+    resolveAndFinish('resisted', { intensity: null, triggerIds: [] });
+  };
+
+  // A give-in asks what was going on first; cancelling that sheet undoes
+  // the give-in and the timer carries on (see onTriggerCancel).
   const onFailPress = () => {
+    if (resolved.current) return;
+    freezeAtDecision();
     pendingOutcome.current = 'failed';
     pendingIntensity.current = null;
     setTriggerModalOpen(true);
+  };
+
+  // Optional "tag what set it off" after a resist: intensity → triggers.
+  const onTagPress = () => {
+    pendingOutcome.current = 'resisted';
+    pendingIntensity.current = null;
+    setIntensityOpen(true);
   };
 
   const onIntensityPick = (intensity: number | null) => {
@@ -453,12 +529,13 @@ export default function ActiveSession() {
   };
 
   const onTriggerCancel = () => {
-    // Cancel keeps the timer alive — user can hit either button
-    // again. Clear the staged outcome so a stray commit doesn't
-    // fire the wrong flow.
     setTriggerModalOpen(false);
     pendingOutcome.current = null;
     pendingIntensity.current = null;
+    // Already resolved (optional tagging after a resist): nothing to
+    // undo — the user just stays on the win banner. Otherwise this was
+    // a give-in being taken back, so the clock resumes counting.
+    if (!resolved.current) decidedAt.current = null;
   };
 
   const onTriggerCommit = (triggerIds: string[]) => {
@@ -468,14 +545,69 @@ export default function ActiveSession() {
     setTriggerModalOpen(false);
     pendingOutcome.current = null;
     pendingIntensity.current = null;
+    if (resolved.current) {
+      attachDetails({ intensity, triggerIds });
+      dismissAfterShareDecision();
+      return;
+    }
     resolveAndFinish(outcome, { intensity, triggerIds });
+  };
+
+  // Sends a (possibly already-resolved) session to resolve-craving. The
+  // blob is written first so a dropped request replays on next launch —
+  // and it is written even with no signed-in user yet, so a craving
+  // resisted before the account exists is sent once it does.
+  const sendResolve = (payload: ResolvePayload) => {
+    savePendingFinish({ sessionId: sessionId.current, payload });
+    if (!user) return Promise.resolve(null);
+    return supabase.functions.invoke('resolve-craving', {
+      body: {
+        session_id: sessionId.current,
+        addiction_id: payload.addictionId,
+        started_at: payload.startedAt,
+        ended_at: payload.endedAt,
+        sensitivity: payload.sensitivity,
+        outcome: payload.outcome,
+        intensity: payload.intensity,
+        trigger_ids: payload.triggerIds,
+      },
+    });
+  };
+
+  // Optional tags after a resist: re-send the same session with details.
+  // The server merges them without re-scoring (resolve-craving replay).
+  const attachDetails = (extras: {
+    intensity: number | null;
+    triggerIds: string[];
+  }) => {
+    const base = resolvedPayload.current;
+    if (!base) return;
+    const payload = { ...base, ...extras };
+    resolvedPayload.current = payload;
+    detailsInFlight.current = true;
+    sendResolve(payload)
+      ?.then((res) => {
+        if (res && !res.error) {
+          clearPendingFinish();
+          invalidateTriggerMaps();
+        } else if (res?.error) {
+          console.warn('resolve-craving (details) returned error', res.error);
+        }
+      })
+      .catch((e) => console.warn('resolve-craving (details) rejected', e))
+      .finally(() => {
+        detailsInFlight.current = false;
+      });
   };
 
   const resolveAndFinish = (
     outcome: Outcome,
     extras: { intensity: number | null; triggerIds: string[] }
   ) => {
-    const endedAtMs = Date.now();
+    if (resolved.current) return;
+    resolved.current = true;
+    // Score against the decision moment, not "now" (see `decidedAt`).
+    const endedAtMs = decidedAt.current ?? Date.now();
     const finalSeconds = Math.floor((endedAtMs - startedAt.current) / 1000);
 
     // Optimistic estimate — same formula the Edge Function runs
@@ -500,72 +632,67 @@ export default function ActiveSession() {
         pointsDelta: outcome === 'resisted' ? estimatedPoints : 0,
       });
 
-      if (user) {
-        // Atomic resolve: the Edge Function INSERTs the session
-        // row (using our client UUID as PK) + score row + trigger
-        // rows + rank unlocks in one call. Stash the full payload
-        // in the pending blob first so a mid-flight network drop
-        // is replayable on cold launch.
-        const rowId = sessionId.current;
-        const payload = {
-          addictionId: params.id,
-          startedAt: new Date(startedAt.current).toISOString(),
-          endedAt: new Date(endedAtMs).toISOString(),
-          sensitivity,
-          outcome,
-          intensity: extras.intensity,
-          triggerIds: extras.triggerIds,
-        };
-        savePendingFinish({ sessionId: rowId, payload });
-        supabase.functions
-          .invoke('resolve-craving', {
-            body: {
-              session_id: rowId,
-              addiction_id: payload.addictionId,
-              started_at: payload.startedAt,
-              ended_at: payload.endedAt,
-              sensitivity: payload.sensitivity,
-              outcome: payload.outcome,
-              intensity: payload.intensity,
-              trigger_ids: payload.triggerIds,
-            },
-          })
-          .then(({ data, error }) => {
-            if (error) {
-              // Blob stays on disk for the ActiveSessionRestorer
-              // replay on next launch. UI already committed the
-              // optimistic estimate; user sees no interruption.
-              console.warn('resolve-craving returned error', error);
-              return;
-            }
-            clearPendingFinish();
-            const respPayload = data as {
-              points_delta?: number;
-              newly_unlocked_ranks?: string[];
-            } | null;
-            const serverDelta = respPayload?.points_delta;
-            if (typeof serverDelta === 'number' && outcome === 'resisted') {
-              setShareBanner({ points: Math.max(0, serverDelta) });
-            }
-            const unlocks = respPayload?.newly_unlocked_ranks ?? [];
-            if (unlocks.length > 0) {
-              setUnlockQueue(unlocks);
-              // Also stash them so the home screen can re-surface a
-              // top reminder on the next launch — in case the user
-              // glanced away from this in-the-moment celebration.
-              void addRankReminders(unlocks);
-            }
-            refreshScores();
-            // Faz 8a — refresh trigger-map cache so the Info tab
-            // reflects the newly-captured triggers on next visit.
-            invalidateTriggerMaps();
-          })
-          .catch((e) => {
-            // Network reject (not an HTTP error body) — same recovery
-            // path: pending_finish blob replays on next cold launch.
-            console.warn('resolve-craving invoke rejected', e);
-          });
-      }
+      // Atomic resolve: the Edge Function INSERTs the session row
+      // (using our client UUID as PK) + score row + trigger rows +
+      // rank unlocks in one call.
+      const payload: ResolvePayload = {
+        addictionId: params.id,
+        startedAt: new Date(startedAt.current).toISOString(),
+        endedAt: new Date(endedAtMs).toISOString(),
+        sensitivity,
+        outcome,
+        intensity: extras.intensity,
+        triggerIds: extras.triggerIds,
+      };
+      resolvedPayload.current = payload;
+      sendResolve(payload)
+        ?.then((res) => {
+          if (!res) return; // no user yet — the blob replays later
+          const { data, error } = res;
+          if (error) {
+            // Blob stays on disk for the ActiveSessionRestorer
+            // replay on next launch. UI already committed the
+            // optimistic estimate; user sees no interruption.
+            console.warn('resolve-craving returned error', error);
+            return;
+          }
+          // A details re-send may have written a newer blob meanwhile;
+          // leave that one for its own request to clear.
+          if (!detailsInFlight.current) clearPendingFinish();
+          const respPayload = data as {
+            points_delta?: number;
+            newly_unlocked_ranks?: string[];
+          } | null;
+          const serverDelta = respPayload?.points_delta;
+          // Only while the win banner is still up — if the user already
+          // tapped Finish, don't resurrect it.
+          if (typeof serverDelta === 'number' && outcome === 'resisted') {
+            setShareBanner((b) =>
+              b ? { points: Math.max(0, serverDelta) } : b
+            );
+          }
+          const unlocks = respPayload?.newly_unlocked_ranks ?? [];
+          if (unlocks.length > 0) {
+            setUnlockQueue(unlocks);
+            // Also stash them so the home screen can re-surface a
+            // top reminder on the next launch — in case the user
+            // glanced away from this in-the-moment celebration.
+            void addRankReminders(unlocks);
+          }
+          refreshScores();
+          // Overall points + streak live in SessionsContext; without this
+          // the profile kept showing the pre-craving numbers ("0 points",
+          // streak 0) next to "1 craving resisted" until a relaunch.
+          void refreshTotals();
+          // Streak map, trigger maps, comparison and technique stats are
+          // all folded from session history — refresh them together.
+          invalidateSessionDerived();
+        })
+        .catch((e) => {
+          // Network reject (not an HTTP error body) — same recovery
+          // path: pending_finish blob replays on next cold launch.
+          console.warn('resolve-craving invoke rejected', e);
+        });
     }
     clearActiveSessionId();
 
@@ -742,11 +869,10 @@ export default function ActiveSession() {
 
       <View style={styles.btnArea}>
         {shareBanner ? (
-          // Post-resolve banner: "+X points earned" + Finish. The
-          // Faz 5 intensity modal fires BEFORE this banner shows,
-          // so by the time the user sees Finish the intensity is
-          // already in flight.
-          <View
+          // Win banner — shown the instant "I Resisted" is tapped (the
+          // resolve is already in flight). Tagging what set it off is
+          // an optional follow-up, never a gate in front of the win.
+          <Animated.View
             style={[
               styles.shareBanner,
               styles.shareBannerWin,
@@ -757,8 +883,10 @@ export default function ActiveSession() {
                   0.2
                 )}, inset 0 1px 0 rgba(255,255,255,0.06)`,
               },
+              winStyle,
             ]}
           >
+            <Text style={styles.winTitle}>{t('active.win_title')}</Text>
             <Text style={[styles.shareWinPoints, { color: accentColor }]}>
               +{shareBanner.points}
             </Text>
@@ -779,7 +907,15 @@ export default function ActiveSession() {
                 {t('active.finish')}
               </Text>
             </Pressable>
-          </View>
+            <Pressable
+              style={styles.winTagBtn}
+              onPress={onTagPress}
+              hitSlop={6}
+              accessibilityRole="button"
+            >
+              <Text style={styles.winTagText}>{t('active.tag_optional')}</Text>
+            </Pressable>
+          </Animated.View>
         ) : protectionBanner ? (
           // Premium Streak Protection: the run was halved, not wiped.
           // Shows what it held so the paid perk is felt at the moment
@@ -1206,6 +1342,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  winTitle: {
+    color: dsColors.textPrimary,
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    marginBottom: 4,
+  },
+  winTagBtn: {
+    marginTop: 12,
+    paddingVertical: 4,
+  },
+  winTagText: {
+    color: dsColors.textTertiary,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   protectionSub: {
     marginTop: 6,

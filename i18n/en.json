@@ -82,7 +82,8 @@
     "empty_subtitle": "Tap the plus button below to choose from the catalog.",
     "empty_cta": "Add addiction",
     "add_addiction_a11y": "Add addiction",
-    "resist": "RESIST"
+    "resist": "RESIST",
+    "select_hint": "Which craving?"
   },
   "onboarding": {
     "welcome": {
@@ -95,7 +96,7 @@
     "how": {
       "eyebrow": "The resistance loop",
       "title": "How resistance grows",
-      "body": "A craving is a moment. You can move through it.",
+      "body": "A craving is a moment. You can move through it.",
       "core": "RESIST",
       "step1": "A craving hits",
       "step2": "Tap the orb",
@@ -103,7 +104,7 @@
       "step4": "Earn points",
       "path_label": "Your path",
       "path_start": "Starting point",
-      "footer": "Every resisted craving feeds your core.",
+      "footer": "Every resisted craving feeds your core — the light at the heart of your profile.",
       "cta": "Continue"
     },
     "focus": {
@@ -224,26 +225,41 @@
       "lowdata_days": "{{count}} days",
       "unlock_cta": "Unlock with Premium",
       "unlock_body": "See your whole map, all the way back to day one.",
-      "last_14": "LAST 14 DAYS"
+      "last_14": "LAST 14 DAYS",
+      "lowdata_days_one": "1 day"
     },
-    "feeding_row_a11y": "{{name}} — {{rank}}, {{score}}"
+    "feeding_row_a11y": "{{name}} — {{rank}}, {{score}}",
+    "save_progress": "Save your progress",
+    "save_intro": "Right now your progress lives only on this phone. Add your email to keep it if you change phones or reinstall the app.",
+    "save_send_link": "Send confirmation link",
+    "save_check_email": "We sent a link to {{email}}. Open it, then come back here and tap below.",
+    "save_confirmed": "I've confirmed my email",
+    "save_resend": "Resend the link",
+    "save_not_confirmed": "Not confirmed yet — check your inbox (and the spam folder).",
+    "save_password_intro": "Email confirmed. Choose a password so you can sign in on any phone.",
+    "save_password_placeholder": "at least 8 characters",
+    "save_set_password": "Save password",
+    "save_done": "Done — your progress is saved to {{email}}.",
+    "have_account": "I already have an account"
   },
   "active": {
     "resist": "I Resisted",
-    "failed": "I Failed",
+    "failed": "Not this time",
     "points_earned": "points earned",
     "finish": "Finish",
     "streak_protected_title": "Streak protected",
     "streak_protected_body": "Your streak held instead of resetting.",
     "craving_fallback": "Craving",
     "cycle_tag": "CYCLE {{cycle}} · +{{bonus}} EARNED",
-    "points_live": "+{{points}} pts"
+    "points_live": "+{{points}} pts",
+    "win_title": "You held on.",
+    "tag_optional": "Tag what set it off · optional"
   },
   "trigger_capture": {
     "resist_title": "Nice work — one more thing",
-    "resist_body": "What triggered this craving? A quick tag helps you see the patterns later.",
+    "resist_body": "A quick tag helps you see your patterns later.",
     "fail_title": "It happens — one quick note",
-    "fail_body": "What was going on? This helps us both understand your patterns.",
+    "fail_body": "No judgment — a quick tag helps you understand your patterns.",
     "common_section": "Common",
     "specific_section": "{{name}} specific",
     "step_label": "STEP 2 OF 2",
@@ -289,7 +305,8 @@
     "confirm_button": "Looks right",
     "edit_button": "Edit and save",
     "cancel_button": "Cancel",
-    "failed_message": "This is data too. See you next craving."
+    "failed_message": "This is data too. See you next craving.",
+    "intensity_step": "STEP 1 OF 2"
   },
   "triggers": {
     "common": {
@@ -670,7 +687,8 @@
       }
     },
     "type_fake_feed": "Finite feed",
-    "go_to_card_a11y": "Go to card {{index}} of {{count}}"
+    "go_to_card_a11y": "Go to card {{index}} of {{count}}",
+    "start_here": "Start here"
   },
   "breathing": {
     "inhale": "Breathe in",
@@ -891,7 +909,7 @@
     "email_label": "EMAIL",
     "password_label": "PASSWORD",
     "email_placeholder": "you@example.com",
-    "password_min_placeholder": "at least 6 characters",
+    "password_min_placeholder": "at least 8 characters",
     "show_password": "Show password",
     "hide_password": "Hide password",
     "sign_in": {
@@ -901,7 +919,8 @@
       "submit": "Sign in",
       "submitting": "Signing in...",
       "no_account": "Don't have an account?",
-      "sign_up_link": "Sign up"
+      "sign_up_link": "Sign up",
+      "continue_without": "Continue without an account"
     },
     "sign_up": {
       "title": "Create account",
@@ -927,7 +946,7 @@
       "invalid_credentials": "Wrong email or password.",
       "email_not_confirmed": "You haven't confirmed your email yet. Check your inbox.",
       "already_registered": "This email is already registered. Try signing in.",
-      "password_short": "Password must be at least 6 characters.",
+      "password_short": "Password must be at least 8 characters.",
       "invalid_email": "Enter a valid email address.",
       "rate_limited": "Too many attempts. Wait a few minutes and try again.",
       "network": "Connection error. Check your internet."
@@ -1012,5 +1031,10 @@
       "sun": "S"
     },
     "short_format": "{{month}} {{day}}"
+  },
+  "legal": {
+    "privacy_link": "Privacy Policy",
+    "terms_link": "Terms of Use",
+    "close": "Close"
   }
 }

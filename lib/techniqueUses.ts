@@ -41,17 +41,28 @@ export type LogStartInput = {
 export async function logTechniqueStart(
   input: LogStartInput
 ): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('technique_uses')
-    .insert({
-      user_id: input.userId,
-      technique_id: input.techniqueId,
-      context: input.context,
-      addiction_id: input.addictionId ?? null,
-      session_id: input.sessionId ?? null,
-    })
-    .select('id')
-    .single();
+  const insert = (sessionId: string | null) =>
+    supabase
+      .from('technique_uses')
+      .insert({
+        user_id: input.userId,
+        technique_id: input.techniqueId,
+        context: input.context,
+        addiction_id: input.addictionId ?? null,
+        session_id: sessionId,
+      })
+      .select('id')
+      .single();
+
+  let { data, error } = await insert(input.sessionId ?? null);
+  // A technique started mid-craving points at a craving_sessions row that
+  // does not exist yet — resolve-craving only INSERTs it when the user
+  // commits an outcome — so the FK rejected the row and every in-craving
+  // technique use was silently lost (stats never counted them). Nothing
+  // reads technique_uses.session_id, so keep the use and drop the link.
+  if (error?.code === '23503' && input.sessionId) {
+    ({ data, error } = await insert(null));
+  }
   if (error || !data) {
     if (error) console.warn('logTechniqueStart failed', error);
     return null;

@@ -24,8 +24,11 @@
  *     sensitivity: 1..10,
  *     outcome: 'resisted' | 'failed',
  *     intensity?: 1..10,    // only meaningful on resisted
- *     trigger_ids: string[] // ≥1 required (client enforces min-1)
+ *     trigger_ids?: string[] // optional; 0..MAX_TRIGGERS_PER_SESSION
  *   }
+ *
+ *   Re-sending an already-resolved session_id never re-scores; it only
+ *   merges trigger_ids / intensity the first time they are provided.
  *
  * Response:
  *   200 { new_score, points_delta, duration_minutes, total_score,
@@ -196,23 +199,30 @@ Deno.serve(async (req: Request): Promise<Response> => {
       ? body.intensity
       : null;
 
-  if (!Array.isArray(body.trigger_ids) || body.trigger_ids.length === 0) {
-    return jsonResponse({ error: 'trigger_required' }, 400);
+  // Trigger tags are OPTIONAL. The client resolves a resist the instant
+  // the user taps "I Resisted" (so the win and any rank-up land in the
+  // moment), with no tags; tagging is an optional follow-up that re-sends
+  // the same session_id and is merged in the replay path below.
+  if (body.trigger_ids != null && !Array.isArray(body.trigger_ids)) {
+    return jsonResponse({ error: 'invalid_triggers' }, 400);
   }
+  const rawTriggers: unknown[] = Array.isArray(body.trigger_ids)
+    ? body.trigger_ids
+    : [];
   // Bound the array before doing any work with it. Unbounded, a single
   // request could write arbitrarily many rows and then inflate every
   // Info-tab aggregate that reads them back.
-  if (body.trigger_ids.length > MAX_TRIGGERS_PER_SESSION) {
+  if (rawTriggers.length > MAX_TRIGGERS_PER_SESSION) {
     return jsonResponse({ error: 'too_many_triggers' }, 400);
   }
   // Shape-check each id to match the DB CHECK added in migration 009,
   // so a bad tag is a clean 400 here rather than a 500 from the
   // constraint after the session row is already committed.
-  const triggerIds = (body.trigger_ids as unknown[]).filter(
+  const triggerIds = rawTriggers.filter(
     (id): id is string => typeof id === 'string' && /^[a-z0-9_]{1,40}$/.test(id)
   );
-  if (triggerIds.length === 0) {
-    return jsonResponse({ error: 'trigger_required' }, 400);
+  if (rawTriggers.length > 0 && triggerIds.length === 0) {
+    return jsonResponse({ error: 'invalid_triggers' }, 400);
   }
 
   // Clock sanity, deliberately loose. A pending-finish blob replayed
@@ -241,7 +251,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // ─── Idempotency: session_id already resolved? ───
   const { data: existing } = await svc
     .from('craving_sessions')
-    .select('id, user_id, addiction_id, status, points_delta, duration_seconds')
+    .select(
+      'id, user_id, addiction_id, status, outcome, intensity, points_delta, duration_seconds'
+    )
     .eq('id', sessionId)
     .maybeSingle();
 
@@ -250,8 +262,52 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return jsonResponse({ error: 'forbidden' }, 403);
     }
     // Replay path — the earlier attempt got as far as INSERTing the
-    // row. Return the previously-computed payload without side effects.
-    // Empty newly_unlocked_ranks so the celebration doesn't re-fire.
+    // row. Scoring is never re-run here (no side effects on points,
+    // streak or ranks), but OPTIONAL DETAILS are merged: the client
+    // resolves a resist immediately with no tags, then may re-send the
+    // same session_id with triggers/intensity once the user tags it.
+    // Each detail is written at most once, so replays stay idempotent.
+    if (triggerIds.length > 0) {
+      const { count: tagCount } = await svc
+        .from('craving_session_triggers')
+        .select('session_id', { count: 'exact', head: true })
+        .eq('session_id', sessionId);
+      if ((tagCount ?? 0) === 0) {
+        const { error: tagErr } = await svc
+          .from('craving_session_triggers')
+          .insert(
+            triggerIds.map((tid) => ({
+              session_id: sessionId,
+              trigger_id: tid,
+            }))
+          );
+        if (tagErr) {
+          console.warn(
+            '[resolve-craving] detail trigger insert failed',
+            tagErr
+          );
+        }
+      }
+    }
+    if (
+      intensity !== null &&
+      existing.outcome === 'resisted' &&
+      existing.intensity == null
+    ) {
+      const { error: intErr } = await svc
+        .from('craving_sessions')
+        .update({ intensity })
+        .eq('id', sessionId)
+        .is('intensity', null);
+      if (intErr) {
+        console.warn(
+          '[resolve-craving] detail intensity update failed',
+          intErr
+        );
+      }
+    }
+    // Return the previously-computed payload. Empty
+    // newly_unlocked_ranks so the celebration doesn't re-fire.
     const { data: scoreRow } = await svc
       .from('user_addiction_scores')
       .select('score')
@@ -420,16 +476,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
 
   // ─── Trigger rows (best-effort — session already alive) ───
-  const triggerRows = triggerIds.map((tid) => ({
-    session_id: sessionId,
-    trigger_id: tid,
-  }));
-  const { error: triggerErr } = await svc
-    .from('craving_session_triggers')
-    .insert(triggerRows);
-  if (triggerErr) {
-    console.warn('[resolve-craving] trigger insert failed', triggerErr);
-    // Non-fatal — Modül 3 loses this session's tags but scoring works.
+  if (triggerIds.length > 0) {
+    const triggerRows = triggerIds.map((tid) => ({
+      session_id: sessionId,
+      trigger_id: tid,
+    }));
+    const { error: triggerErr } = await svc
+      .from('craving_session_triggers')
+      .insert(triggerRows);
+    if (triggerErr) {
+      console.warn('[resolve-craving] trigger insert failed', triggerErr);
+      // Non-fatal — Modül 3 loses this session's tags but scoring works.
+    }
   }
 
   // ─── Score UPSERT ───
