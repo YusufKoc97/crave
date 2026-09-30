@@ -97,6 +97,31 @@ export default function AgeCheckScreen() {
           </View>
         </Pressable>
 
+        {/* The consent says "I've read the terms and privacy policy" —
+            so both must be one tap away. Kept outside the checkbox so
+            opening a document never toggles the consent. */}
+        <View style={styles.legalRow}>
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: '/legal', params: { doc: 'privacy' } })
+            }
+            accessibilityRole="link"
+            hitSlop={8}
+          >
+            <Text style={styles.legalLink}>{t('legal.privacy_link')}</Text>
+          </Pressable>
+          <Text style={styles.legalDot}>·</Text>
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: '/legal', params: { doc: 'terms' } })
+            }
+            accessibilityRole="link"
+            hitSlop={8}
+          >
+            <Text style={styles.legalLink}>{t('legal.terms_link')}</Text>
+          </Pressable>
+        </View>
+
         {showConsentHint && (
           <Text style={styles.consentHint}>
             {t('onboarding.age.consent_required')}
@@ -208,6 +233,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     color: dsColors.textSecondary,
+  },
+  legalRow: {
+    marginTop: dsSpacing.md,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: dsSpacing.sm,
+  },
+  legalLink: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: ACCENT,
+    textDecorationLine: 'underline',
+  },
+  legalDot: {
+    fontSize: 12.5,
+    color: dsColors.textTertiary,
   },
   consentHint: {
     marginTop: dsSpacing.md,
