@@ -1321,8 +1321,8 @@ const styles = StyleSheet.create({
   },
   shareWinPoints: {
     fontSize: 32,
-    fontWeight: '600',
-    letterSpacing: -0.3,
+    fontWeight: '400',
+    letterSpacing: 0,
     fontVariant: ['tabular-nums'],
     lineHeight: 38,
   },
@@ -1350,8 +1350,8 @@ const styles = StyleSheet.create({
   },
   winTitle: {
     color: dsColors.textPrimary,
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '600',
     letterSpacing: 0.2,
     marginBottom: 4,
   },
