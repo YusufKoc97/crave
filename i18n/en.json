@@ -1044,8 +1044,10 @@
     "claim": "Clean +{{points}}",
     "hint": "If a craving did come, log it with Resist next time. That earns more than a clean day.",
     "later": "Not now",
-    "claimed": "Clean day saved · +{{points}}",
     "err_had_sessions": "You logged a craving that day, so it can't count as clean.",
-    "err_generic": "Couldn't save that. Try again in a moment."
+    "err_generic": "Couldn't save that. Try again in a moment.",
+    "saved_title": "Clean day saved",
+    "total_line": "{{name}} · {{score}} points total",
+    "continue": "Continue"
   }
 }

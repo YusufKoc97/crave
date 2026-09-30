@@ -87,6 +87,8 @@ export type ClaimResult =
   | {
       ok: true;
       pointsDelta: number;
+      /** The addiction's score after this claim (for the result card). */
+      newScore: number;
       alreadyClaimed: boolean;
       newlyUnlockedRanks: string[];
     }
@@ -120,12 +122,14 @@ export async function claimCleanDay(
   }
   const r = data as {
     points_delta?: number;
+    new_score?: number;
     already_claimed?: boolean;
     newly_unlocked_ranks?: string[];
   } | null;
   return {
     ok: true,
     pointsDelta: r?.points_delta ?? 0,
+    newScore: r?.new_score ?? 0,
     alreadyClaimed: r?.already_claimed === true,
     newlyUnlockedRanks: r?.newly_unlocked_ranks ?? [],
   };

@@ -1044,8 +1044,10 @@
     "claim": "Temiz +{{points}}",
     "hint": "Dürtü geldiyse bir dahaki sefere Diren ile kaydet. O, temiz günden daha çok puan kazandırır.",
     "later": "Şimdi değil",
-    "claimed": "Temiz gün kaydedildi · +{{points}}",
     "err_had_sessions": "O gün bir dürtü kaydettin, o yüzden temiz sayılamaz.",
-    "err_generic": "Kaydedilemedi. Biraz sonra tekrar dene."
+    "err_generic": "Kaydedilemedi. Biraz sonra tekrar dene.",
+    "saved_title": "Temiz gün kaydedildi",
+    "total_line": "{{name}} · toplam {{score}} puan",
+    "continue": "Devam"
   }
 }

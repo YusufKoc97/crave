@@ -1,12 +1,22 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type TextStyle,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useAddictions } from '@/context/AddictionsContext';
+import { useAuth } from '@/context/AuthContext';
 import { useAddictionScores } from '@/context/AddictionScoresContext';
 import { useSessions } from '@/context/SessionsContext';
 import { useToast } from '@/context/ToastContext';
 import { RankUnlockModal } from '@/components/RankUnlockModal';
-import { dsColors } from '@/constants/designSystem';
+import { dsColors, hexAlpha } from '@/constants/designSystem';
 import { CLEAN_DAY_POINTS } from '@/shared/scoring';
 import { addRankReminders } from '@/lib/rankReminders';
 import {
@@ -37,16 +47,61 @@ export function CleanDayPill({
   const { refresh: refreshScores } = useAddictionScores();
   const { refreshTotals } = useSessions();
   const toast = useToast();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [unlockQueue, setUnlockQueue] = useState<string[]>([]);
+  // What the last claim paid — shown as a result card before the list.
+  const [result, setResult] = useState<{
+    points: number;
+    score: number;
+    name: string;
+    color: string;
+  } | null>(null);
+  // Rank-ups earned by claims, celebrated once the result card is closed
+  // (iOS cannot stack two Modals).
+  const pendingUnlocks = useRef<string[]>([]);
 
   const rows = addictions.filter((a) => addictionIds.includes(a.id));
 
-  // Nothing left to claim → close the sheet on its own.
+  // Nothing left to claim → close the sheet, unless the result card is
+  // still up (claiming the last row empties the list under it).
   useEffect(() => {
-    if (open && rows.length === 0) setOpen(false);
-  }, [open, rows.length]);
+    if (open && rows.length === 0 && !result) setOpen(false);
+  }, [open, rows.length, result]);
+
+  // First open of the day with something honest to claim: raise the sheet
+  // once by itself. "Once" is remembered per user and per claimable day, so
+  // dismissing it leaves only the quiet pill for the rest of the day.
+  const autoKey = user ? `crave.clean_day.auto_shown:${user.id}` : null;
+  const autoChecked = useRef<string | null>(null);
+  useEffect(() => {
+    if (!visible || !autoKey || rows.length === 0) return;
+    if (autoChecked.current === `${autoKey}:${day}`) return;
+    autoChecked.current = `${autoKey}:${day}`;
+    let cancelled = false;
+    void (async () => {
+      let shown: string | null = null;
+      try {
+        shown = await AsyncStorage.getItem(autoKey);
+      } catch {
+        // Storage unavailable — fall through and show once per session.
+      }
+      if (cancelled || shown === day) return;
+      try {
+        await AsyncStorage.setItem(autoKey, day);
+      } catch {
+        // Not fatal: worst case it shows again next launch.
+      }
+      // Let the home screen settle before a card lands on it.
+      setTimeout(() => {
+        if (!cancelled) setOpen(true);
+      }, 700);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, autoKey, day, rows.length]);
 
   const onClaim = useCallback(
     async (addictionId: string) => {
@@ -68,18 +123,33 @@ export function CleanDayPill({
       invalidateCleanDay();
       refreshScores();
       void refreshTotals();
-      if (!res.alreadyClaimed) {
-        toast.success(t('clean_day.claimed', { points: res.pointsDelta }));
-      }
       if (res.newlyUnlockedRanks.length > 0) {
         void addRankReminders(res.newlyUnlockedRanks);
-        // iOS cannot stack two Modals: let the sheet finish closing first.
-        setOpen(false);
-        setTimeout(() => setUnlockQueue(res.newlyUnlockedRanks), 350);
+        pendingUnlocks.current = res.newlyUnlockedRanks;
       }
+      // Show what the claim paid (0 on a replay: nothing was added).
+      const a = addictions.find((x) => x.id === addictionId);
+      setResult({
+        points: res.pointsDelta,
+        score: res.newScore,
+        name: a?.name ?? '',
+        color: a?.color ?? dsColors.accentBlue,
+      });
     },
-    [busyId, day, refreshScores, refreshTotals, toast]
+    [addictions, busyId, day, refreshScores, refreshTotals, toast]
   );
+
+  const onResultContinue = useCallback(() => {
+    setResult(null);
+    const unlocks = pendingUnlocks.current;
+    pendingUnlocks.current = [];
+    if (unlocks.length > 0) {
+      setOpen(false);
+      setTimeout(() => setUnlockQueue(unlocks), 350);
+    }
+    // Otherwise the sheet stays for the next row, or closes itself via the
+    // effect above when nothing is left.
+  }, []);
 
   return (
     <>
@@ -109,46 +179,77 @@ export function CleanDayPill({
         onRequestClose={() => setOpen(false)}
       >
         <View style={styles.backdrop}>
-          <View style={styles.card}>
-            <Text style={styles.title}>{t('clean_day.title')}</Text>
-            <Text style={styles.body}>
-              {t('clean_day.body', { points: CLEAN_DAY_POINTS })}
-            </Text>
-
-            <View style={styles.rows}>
-              {rows.map((a) => (
-                <View key={a.id} style={styles.row}>
-                  <Text style={styles.emoji}>{a.emoji}</Text>
-                  <Text style={styles.name} numberOfLines={1}>
-                    {a.name}
-                  </Text>
-                  <Pressable
-                    style={[
-                      styles.claimBtn,
-                      { borderColor: a.color },
-                      busyId === a.id && styles.claimBusy,
-                    ]}
-                    onPress={() => void onClaim(a.id)}
-                    disabled={busyId !== null}
-                    accessibilityRole="button"
-                  >
-                    <Text style={[styles.claimText, { color: a.color }]}>
-                      {t('clean_day.claim', { points: CLEAN_DAY_POINTS })}
-                    </Text>
-                  </Pressable>
-                </View>
-              ))}
+          {result ? (
+            <View style={styles.card}>
+              <Text style={styles.title}>{t('clean_day.saved_title')}</Text>
+              <Text
+                style={[styles.points, { color: hexAlpha(result.color, 0.9) }]}
+              >
+                +{result.points}
+              </Text>
+              <Text style={styles.pointsLabel}>
+                {t('active.points_earned')}
+              </Text>
+              {result.name ? (
+                <Text style={styles.totalLine}>
+                  {t('clean_day.total_line', {
+                    name: result.name,
+                    score: result.score,
+                  })}
+                </Text>
+              ) : null}
+              <Pressable
+                style={[styles.continueBtn, { borderColor: result.color }]}
+                onPress={onResultContinue}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.claimText, { color: result.color }]}>
+                  {t('clean_day.continue')}
+                </Text>
+              </Pressable>
             </View>
+          ) : (
+            <View style={styles.card}>
+              <Text style={styles.title}>{t('clean_day.title')}</Text>
+              <Text style={styles.body}>
+                {t('clean_day.body', { points: CLEAN_DAY_POINTS })}
+              </Text>
 
-            <Text style={styles.hint}>{t('clean_day.hint')}</Text>
-            <Pressable
-              onPress={() => setOpen(false)}
-              hitSlop={8}
-              style={styles.later}
-            >
-              <Text style={styles.laterText}>{t('clean_day.later')}</Text>
-            </Pressable>
-          </View>
+              <View style={styles.rows}>
+                {rows.map((a) => (
+                  <View key={a.id} style={styles.row}>
+                    <Text style={styles.emoji}>{a.emoji}</Text>
+                    <Text style={styles.name} numberOfLines={1}>
+                      {a.name}
+                    </Text>
+                    <Pressable
+                      style={[
+                        styles.claimBtn,
+                        { borderColor: a.color },
+                        busyId === a.id && styles.claimBusy,
+                      ]}
+                      onPress={() => void onClaim(a.id)}
+                      disabled={busyId !== null}
+                      accessibilityRole="button"
+                    >
+                      <Text style={[styles.claimText, { color: a.color }]}>
+                        {t('clean_day.claim', { points: CLEAN_DAY_POINTS })}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+
+              <Text style={styles.hint}>{t('clean_day.hint')}</Text>
+              <Pressable
+                onPress={() => setOpen(false)}
+                hitSlop={8}
+                style={styles.later}
+              >
+                <Text style={styles.laterText}>{t('clean_day.later')}</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       </Modal>
 
@@ -245,6 +346,42 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.2,
+  },
+  points: {
+    marginTop: 10,
+    textAlign: 'center',
+    // Same face as the craving win banner (active-session shareWinPoints).
+    ...Platform.select<TextStyle>({
+      ios: { fontFamily: 'AvenirNext-DemiBold' },
+      default: { fontWeight: '600' },
+    }),
+    fontSize: 44,
+    lineHeight: 52,
+    fontVariant: ['tabular-nums'],
+  },
+  pointsLabel: {
+    marginTop: 2,
+    color: dsColors.textTertiary,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.6,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+  totalLine: {
+    marginTop: 14,
+    color: dsColors.textSecondary,
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  continueBtn: {
+    marginTop: 20,
+    alignSelf: 'stretch',
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   hint: {
     marginTop: 16,
