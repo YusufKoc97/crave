@@ -153,7 +153,7 @@ export default function TabsLayout() {
   // Bounce out of the tabs the moment the session disappears (e.g. user tapped
   // "Çıkış yap" on the profile screen). The root index would also redirect on
   // a fresh launch, but we want sign-out to feel instant without a reload.
-  const { session, loading } = useAuth();
+  const { session, loading, anonOptOut } = useAuth();
 
   // Reduced-motion consumers get an instant swap instead of the slide —
   // disable both the swipe gesture and the settle animation so the pager
@@ -176,22 +176,11 @@ export default function TabsLayout() {
     };
   }, []);
 
-  // TEMP-AUTH-GATE-DISABLED — 2026-07-25
-  // Sibling of the TEMP-AGE-GATE-DISABLED marker in `app/index.tsx`.
-  // That one stops the age gate from firing on launch, but landing on
-  // /(tabs) with no Supabase session used to bounce straight back out
-  // to /(auth)/sign-in — same dead end, one screen later.
-  //
-  // The whole sign-in / sign-up flow is left intact and untouched; it
-  // is simply not reachable while the app is half-built. Auth comes
-  // back as its own phase, alongside the real onboarding flow.
-  //
-  // Restore by deleting this constant and the `&& !AUTH_GATE_DISABLED`
-  // term below — the original guard is otherwise unchanged, so sign-out
-  // will resume bouncing out of the tabs instantly.
-  const AUTH_GATE_DISABLED = true;
-
-  if (!AUTH_GATE_DISABLED && !DEV_SKIP_AUTH && !loading && !session) {
+  // Anonymous-first auth (context/AuthContext.tsx): a missing session in
+  // the tabs is normal for a moment on first launch, and for longer when
+  // offline — those users must stay in. Only someone who deliberately
+  // signed out of an account is bounced to sign-in.
+  if (!DEV_SKIP_AUTH && !loading && !session && anonOptOut === true) {
     return <Redirect href="/(auth)/sign-in" />;
   }
 

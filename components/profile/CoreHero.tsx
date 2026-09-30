@@ -50,7 +50,9 @@ const CORE_HALF = CORE_BOX / 2;
 const CENTER = HERO_SIZE / 2;
 
 type Props = {
-  handle: string;
+  /** Null → no handle line (e.g. an anonymous account has no name yet;
+   *  a placeholder like "@you" read as a bug). */
+  handle: string | null;
   rankName: string;
   nextRankName: string | null;
   totalPoints: number;
@@ -94,7 +96,7 @@ export function CoreHero({
       </View>
 
       {/* ── Identity block ─────────────────────────────────────── */}
-      <Text style={styles.handle}>@{handle}</Text>
+      {handle ? <Text style={styles.handle}>@{handle}</Text> : null}
       {/* The rank name wears the rank's own colour everywhere in the
           app — and it stays subordinate to the emblem, which is the
           thing that should catch the eye first. */}

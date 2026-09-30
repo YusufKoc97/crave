@@ -13,13 +13,20 @@ import {
 import {
   Check,
   ChevronRight,
+  CloudUpload,
   Crown,
+  FileText,
   Languages,
+  LogIn,
   LogOut,
   MessageSquare,
+  ShieldCheck,
   Trash2,
   Vibrate,
 } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { supabase } from '@/lib/supabase';
+import { isValidEmail, translateAuthError } from '@/lib/auth';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 import { PREMIUM_GOLD } from '@/components/ui/PremiumButton';
 import {
@@ -349,6 +356,272 @@ function FeedbackSheet({ onClose }: { onClose: () => void }) {
               </Pressable>
             </>
           )}
+
+          <Pressable
+            onPress={onClose}
+            style={({ pressed }) => [
+              styles.sheetCloseBtn,
+              pressed && styles.rowPressed,
+            ]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.sheetCloseText}>{t('profile.close')}</Text>
+          </Pressable>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+/** Privacy Policy + Terms of Use → the in-app reader (app/legal.tsx). */
+export function LegalRows() {
+  return (
+    <>
+      <SettingsRow
+        icon={
+          <ShieldCheck size={18} color={coreText.secondary} strokeWidth={2} />
+        }
+        label={t('legal.privacy_link')}
+        onPress={() =>
+          router.push({ pathname: '/legal', params: { doc: 'privacy' } })
+        }
+        showDivider
+      />
+      <SettingsRow
+        icon={<FileText size={18} color={coreText.secondary} strokeWidth={2} />}
+        label={t('legal.terms_link')}
+        onPress={() =>
+          router.push({ pathname: '/legal', params: { doc: 'terms' } })
+        }
+        showDivider
+      />
+    </>
+  );
+}
+
+/**
+ * Anonymous account → "I already have an account". Signing in replaces
+ * the anonymous session; the sign-in screen routes back to '/'.
+ */
+export function SignInExistingRow() {
+  return (
+    <SettingsRow
+      icon={<LogIn size={18} color={coreText.secondary} strokeWidth={2} />}
+      label={t('profile.have_account')}
+      onPress={() => router.push('/(auth)/sign-in')}
+    />
+  );
+}
+
+/**
+ * Anonymous account → attach an email so progress survives a new phone.
+ * Supabase converts an anonymous user in two steps: the email is linked
+ * (and must be confirmed from the inbox) first, then a password is set.
+ */
+export function SaveProgressRow() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <SettingsRow
+        icon={<CloudUpload size={18} color={neon(0.95)} strokeWidth={2.2} />}
+        label={t('profile.save_progress')}
+        labelColor={neon(0.95)}
+        onPress={() => setOpen(true)}
+        showDivider
+      />
+      {open && <SaveProgressSheet onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+type SaveStep = 'email' | 'check' | 'password' | 'done';
+
+const PASSWORD_MIN = 8;
+
+function SaveProgressSheet({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState<SaveStep>('email');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const cleanEmail = email.trim().toLowerCase();
+
+  const sendLink = async () => {
+    if (busy || !isValidEmail(cleanEmail)) return;
+    setBusy(true);
+    setError(null);
+    const { error: e } = await supabase.auth.updateUser({ email: cleanEmail });
+    setBusy(false);
+    if (e) {
+      setError(translateAuthError(e.message));
+      return;
+    }
+    setStep('check');
+  };
+
+  const checkConfirmed = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    // Re-read the user from the server: the confirmation happened in the
+    // mail app / browser, so the local session doesn't know about it yet.
+    await supabase.auth.refreshSession().catch(() => undefined);
+    const { data, error: e } = await supabase.auth.getUser();
+    setBusy(false);
+    if (e) {
+      setError(translateAuthError(e.message));
+      return;
+    }
+    const u = data.user;
+    if (u?.email?.toLowerCase() === cleanEmail && !u.new_email) {
+      setStep('password');
+    } else {
+      setError(t('profile.save_not_confirmed'));
+    }
+  };
+
+  const savePassword = async () => {
+    if (busy || password.length < PASSWORD_MIN) return;
+    setBusy(true);
+    setError(null);
+    const { error: e } = await supabase.auth.updateUser({ password });
+    setBusy(false);
+    if (e) {
+      setError(translateAuthError(e.message));
+      return;
+    }
+    setStep('done');
+  };
+
+  const primary =
+    step === 'email'
+      ? {
+          label: t('profile.save_send_link'),
+          onPress: sendLink,
+          enabled: isValidEmail(cleanEmail),
+        }
+      : step === 'check'
+        ? {
+            label: t('profile.save_confirmed'),
+            onPress: checkConfirmed,
+            enabled: true,
+          }
+        : step === 'password'
+          ? {
+              label: t('profile.save_set_password'),
+              onPress: savePassword,
+              enabled: password.length >= PASSWORD_MIN,
+            }
+          : null;
+
+  return (
+    <Modal
+      visible
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <Pressable
+        style={styles.backdrop}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel={t('profile.close')}
+      />
+      <View style={styles.dialogWrap} pointerEvents="box-none">
+        <Animated.View entering={ZoomIn.duration(240)} style={styles.dialog}>
+          <Text style={styles.dialogTitle}>{t('profile.save_progress')}</Text>
+
+          {step === 'email' ? (
+            <>
+              <Text style={styles.feedbackIntro}>
+                {t('profile.save_intro')}
+              </Text>
+              <TextInput
+                style={styles.saveInput}
+                value={email}
+                onChangeText={(v) => {
+                  setEmail(v);
+                  setError(null);
+                }}
+                placeholder={t('auth.email_placeholder')}
+                placeholderTextColor={coreText.tertiary}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                autoComplete="email"
+                editable={!busy}
+                accessibilityLabel={t('auth.email_label')}
+              />
+            </>
+          ) : step === 'check' ? (
+            <Text style={styles.feedbackIntro}>
+              {t('profile.save_check_email', { email: cleanEmail })}
+            </Text>
+          ) : step === 'password' ? (
+            <>
+              <Text style={styles.feedbackIntro}>
+                {t('profile.save_password_intro')}
+              </Text>
+              <TextInput
+                style={styles.saveInput}
+                value={password}
+                onChangeText={(v) => {
+                  setPassword(v);
+                  setError(null);
+                }}
+                placeholder={t('profile.save_password_placeholder')}
+                placeholderTextColor={coreText.tertiary}
+                secureTextEntry
+                autoCapitalize="none"
+                textContentType="newPassword"
+                autoComplete="password-new"
+                editable={!busy}
+                accessibilityLabel={t('auth.password_label')}
+              />
+            </>
+          ) : (
+            <Text style={styles.feedbackSent}>
+              {t('profile.save_done', { email: cleanEmail })}
+            </Text>
+          )}
+
+          {error ? <Text style={styles.feedbackError}>{error}</Text> : null}
+
+          {primary ? (
+            <Pressable
+              onPress={primary.onPress}
+              disabled={!primary.enabled || busy}
+              style={({ pressed }) => [
+                styles.feedbackSend,
+                (!primary.enabled || busy) && styles.feedbackSendDisabled,
+                pressed && primary.enabled && styles.rowPressed,
+              ]}
+              accessibilityRole="button"
+            >
+              {busy ? (
+                <ActivityIndicator size="small" color="#0A1220" />
+              ) : (
+                <Text style={styles.feedbackSendText}>{primary.label}</Text>
+              )}
+            </Pressable>
+          ) : null}
+
+          {step === 'check' ? (
+            <Pressable
+              onPress={sendLink}
+              disabled={busy}
+              style={styles.saveSecondary}
+              accessibilityRole="button"
+              hitSlop={6}
+            >
+              <Text style={styles.saveSecondaryText}>
+                {t('profile.save_resend')}
+              </Text>
+            </Pressable>
+          ) : null}
 
           <Pressable
             onPress={onClose}
@@ -877,6 +1150,27 @@ const styles = StyleSheet.create({
     color: coreText.strong,
     fontSize: 14,
     lineHeight: 20,
+  },
+  saveInput: {
+    alignSelf: 'stretch',
+    height: 46,
+    borderRadius: coreRadius.iconSquare,
+    borderWidth: 1,
+    borderColor: coreBorder,
+    backgroundColor: 'rgba(0,0,0,0.22)',
+    paddingHorizontal: 12,
+    color: coreText.strong,
+    fontSize: 15,
+  },
+  saveSecondary: {
+    marginTop: 12,
+    alignSelf: 'center',
+    paddingVertical: 4,
+  },
+  saveSecondaryText: {
+    color: coreText.secondary,
+    fontSize: 13,
+    fontWeight: '600',
   },
   feedbackError: {
     color: coreDanger.text,

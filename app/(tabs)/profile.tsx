@@ -23,6 +23,9 @@ import {
   SettingsGroup,
   SignOutDialog,
   SignOutRow,
+  LegalRows,
+  SaveProgressRow,
+  SignInExistingRow,
 } from '@/components/profile/CoreSettings';
 import { coreText, neon } from '@/components/profile/coreTheme';
 import { dsColors, dsSpacing } from '@/constants/designSystem';
@@ -57,7 +60,8 @@ import { deleteAccount } from '@/lib/accountDeletion';
 
 export default function ProfileScreen() {
   const { totalPoints } = useSessions();
-  const { user, signOut, applySession } = useAuth();
+  const { user, signOut, applySession, isAnonymous, pauseAnonymous } =
+    useAuth();
   const { addictions } = useAddictions();
   const { viewFor } = useAddictionScores();
   const stats = useUserStats();
@@ -94,7 +98,7 @@ export default function ProfileScreen() {
   }, [user]);
 
   const overall = overallRankFromTotalPoints(totalPoints);
-  const handle = username || user?.email?.split('@')[0] || 'you';
+  const handle = username || user?.email?.split('@')[0] || null;
 
   const onSignOut = async () => {
     if (inFlight.current) return;
@@ -146,18 +150,29 @@ export default function ProfileScreen() {
       //    /logout returns 404, which supabase-js tolerates, so this
       //    normally succeeds; if the network drops, force the local
       //    session to null by hand since there's nothing left to protect.
+      //    Anonymous sign-in is held until the purge below is done —
+      //    otherwise a fresh session could be created and then swept.
+      //    optOut: false — whoever uses the device next starts fresh
+      //    (onboarding, then a new anonymous account), not at sign-in.
+      pauseAnonymous(true);
       try {
-        await signOut();
+        await signOut({ optOut: false });
       } catch {
         applySession(null);
       }
 
       // 3. Purge everything, including the onboarding/KVKK record — this
-      //    is the erasing user's PII and must go. Safe to clear here
-      //    because step 4 navigates imperatively to sign-in.
-      resetQueryCache();
-      await purgeLocalUserState({ includeOnboarding: true });
-      router.replace('/(auth)/sign-in');
+      //    is the erasing user's PII and must go.
+      try {
+        resetQueryCache();
+        await purgeLocalUserState({ includeOnboarding: true });
+      } finally {
+        pauseAnonymous(false);
+      }
+      // Straight to onboarding: the consent record was just purged, so
+      // nothing may be tracked until it is given again. Not '/': inside
+      // the tabs that path resolves to (tabs)/index, skipping the gate.
+      router.replace('/(onboarding)');
     } catch {
       toast.error(t('profile.delete_failed'));
     } finally {
@@ -243,10 +258,20 @@ export default function ProfileScreen() {
         <Text style={styles.sectionLabel}>{t('profile.settings_section')}</Text>
         <SettingsGroup>
           <PremiumRow />
+          {/* An anonymous account can't be signed back into, so signing
+              it out would silently throw its progress away. It gets
+              "save your progress" (attach an email) and "I already have
+              an account" instead; real accounts keep Sign out. */}
+          {isAnonymous ? <SaveProgressRow /> : null}
           <LanguageRow />
           <HapticsRow />
           <FeedbackRow />
-          <SignOutRow onPress={() => setConfirmingSignOut(true)} />
+          <LegalRows />
+          {isAnonymous ? (
+            <SignInExistingRow />
+          ) : (
+            <SignOutRow onPress={() => setConfirmingSignOut(true)} />
+          )}
         </SettingsGroup>
 
         <View style={styles.groupGap} />

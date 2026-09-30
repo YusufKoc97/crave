@@ -17,6 +17,7 @@ import {
   type Addiction,
 } from '@/constants/addictions';
 import { useAuth } from '@/context/AuthContext';
+import { isOnboardingCompleted } from '@/lib/onboarding';
 import {
   activateUserAddiction,
   deactivateUserAddiction,
@@ -132,10 +133,14 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
 
   // ── Refresh from Supabase once the auth user is known ──────────────
   //
-  // First-time authenticated users (no rows on the server + seed
-  // flag still unset) get their defaults pushed remotely so future
-  // logins on any device carry the same starting state. Best-effort
-  // per id — if one fails we still show the successful ones locally.
+  // A brand-new account (anonymous-first: created on first launch) has no
+  // rows yet. Its tracked set is whatever this device already holds — the
+  // onboarding pick — so push THAT up instead of overwriting the device
+  // with the empty server list (which silently dropped the pick). Nothing
+  // is written before onboarding completes: the tracked habits are
+  // health-category data and consent is given on the age-check step.
+  const activeIdsRef = useRef(activeIds);
+  activeIdsRef.current = activeIds;
   useEffect(() => {
     if (!user) {
       // Sign-out / delete. Clear the visible set so the next user
@@ -151,15 +156,17 @@ export function AddictionsProvider({ children }: { children: ReactNode }) {
       try {
         const rows = await fetchUserAddictions(user.id);
         if (cancelled) return;
-        const seeded = await AsyncStorage.getItem(DEFAULTS_SEEDED_KEY);
-        if (rows.length === 0 && seeded !== '1') {
+        if (rows.length === 0) {
+          // Pre-consent: keep the device's set as is, write nothing. The
+          // onboarding "ready" step writes the pick once consent exists.
+          if (!(await isOnboardingCompleted())) return;
+          const local = Array.from(activeIdsRef.current);
           await Promise.all(
-            DEFAULT_ADDICTION_IDS.map((id) =>
+            local.map((id) =>
               activateUserAddiction(user.id, id).catch(() => undefined)
             )
           );
           if (cancelled) return;
-          setActiveIds(new Set(DEFAULT_ADDICTION_IDS));
           await AsyncStorage.setItem(DEFAULTS_SEEDED_KEY, '1');
         } else {
           const next = new Set(

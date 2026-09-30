@@ -15,7 +15,7 @@ import { useAuth } from '@/context/AuthContext';
 import { t } from '@/lib/i18n';
 
 export default function SignInScreen() {
-  const { applySession } = useAuth();
+  const { applySession, continueAnonymously } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -166,6 +166,22 @@ export default function SignInScreen() {
           </Text>
         </Pressable>
       </View>
+
+      {/* Anonymous-first: an account is never required. After a sign-out
+          this is the way back to using the app without one. */}
+      <Pressable
+        onPress={async () => {
+          await continueAnonymously();
+          router.replace('/');
+        }}
+        hitSlop={8}
+        style={styles.anonLink}
+        accessibilityRole="button"
+      >
+        <Text style={styles.anonLinkText}>
+          {t('auth.sign_in.continue_without')}
+        </Text>
+      </Pressable>
     </View>
   );
 }
@@ -324,5 +340,16 @@ const styles = StyleSheet.create({
     color: '#7DC3FF',
     fontSize: 13,
     fontWeight: '600',
+  },
+  anonLink: {
+    alignSelf: 'center',
+    marginTop: 18,
+    paddingVertical: 4,
+  },
+  anonLinkText: {
+    color: '#6B8BA4',
+    fontSize: 13,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

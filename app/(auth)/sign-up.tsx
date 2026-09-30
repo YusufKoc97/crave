@@ -24,7 +24,8 @@ export default function SignUpScreen() {
   const [info, setInfo] = useState<string | null>(null);
 
   const canSubmit =
-    !submitting && !info && isValidEmail(email) && password.length >= 6;
+    // 8 = the server's minimum (Supabase Auth password_min_length).
+    !submitting && !info && isValidEmail(email) && password.length >= 8;
 
   const submit = async () => {
     if (!canSubmit) return;

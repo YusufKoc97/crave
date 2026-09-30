@@ -17,7 +17,12 @@ export function translateAuthError(message: string | undefined | null): string {
   if (m.includes('email not confirmed')) {
     return t('auth.errors.email_not_confirmed');
   }
-  if (m.includes('user already registered') || m.includes('already exists')) {
+  if (
+    m.includes('user already registered') ||
+    m.includes('already exists') ||
+    // updateUser({ email }) on an address that already has an account
+    m.includes('already been registered')
+  ) {
     return t('auth.errors.already_registered');
   }
   if (m.includes('password should be at least')) {

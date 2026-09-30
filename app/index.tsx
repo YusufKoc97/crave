@@ -5,39 +5,38 @@ import { useAuth } from '@/context/AuthContext';
 import { isOnboardingCompleted } from '@/lib/onboarding';
 import { getUsername } from '@/lib/profile';
 import { DEV_SKIP_AUTH } from '@/lib/devBypass';
-import { DEV_SEED_DATA } from '@/lib/devSeed';
 import { colors } from '@/constants/theme';
 
-// Onboarding ENABLED — 2026-08-12
-// First launch now runs the 5-screen onboarding flow in
-// `app/(onboarding)` (welcome → how-it-works → choose-focus → age-check
-// → ready). The 18+ age check lives INSIDE that flow (screen 4, with the
-// KVKK health-data consent folded in), so the old standalone
-// TEMP-AGE-GATE-DISABLED short-circuit is gone.
-//
-// Auth + username are still intentionally bypassed: the sibling
-// TEMP-AUTH-GATE-DISABLED flag in `app/(tabs)/_layout.tsx` stops /(tabs)
-// from bouncing out to sign-in, and this gate skips the auth + username
-// rungs of the ladder below. Those phases return with real auth.
-//
-// Flipping this to `false` restores the full onboarding → auth →
-// username → tabs ladder below untouched.
-const RUN_ONBOARDING_ONLY = true;
+/**
+ * How long to wait for the automatic anonymous sign-in before letting the
+ * user in anyway. Offline on first launch, that sign-in can't complete —
+ * the app still works locally, and cravings resolved in the meantime are
+ * kept in the pending-finish blob and sent once the session exists
+ * (AuthContext retries on every foreground).
+ */
+const ANON_SESSION_GRACE_MS = 4000;
 
 /**
- * Root entry point. Decides where to send the user based on:
- *   1. Has the user finished onboarding (age gate + consent)?
- *   2. Are they signed in?
- *   3. Have they picked a community handle?
- *
- * Order matters: onboarding always runs first because the consent step is a
- * legal pre-requisite to processing health-category data on the server. The
- * username gate runs AFTER auth because handles are per-user, server-stored.
+ * Root entry point. Decides where to send the user:
+ *   1. Onboarding (age gate + consent) — always first: consent is the
+ *      legal prerequisite to processing health-category data.
+ *   2. A session. Anonymous-first: AuthContext signs in anonymously on its
+ *      own, so a new user never meets a sign-up wall. Only someone who
+ *      deliberately signed OUT is sent to the sign-in screen.
+ *   3. A community handle — for real (email) accounts only; an anonymous
+ *      account has nothing to name yet.
  */
 export default function Index() {
-  const { session, user, loading: authLoading } = useAuth();
+  const {
+    session,
+    user,
+    loading: authLoading,
+    isAnonymous,
+    anonOptOut,
+  } = useAuth();
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const [hasUsername, setHasUsername] = useState<boolean | null>(null);
+  const [graceOver, setGraceOver] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,8 +56,18 @@ export default function Index() {
     };
   }, []);
 
+  // Start the offline grace clock only once we are actually waiting on
+  // the anonymous session (onboarding done, no session, not opted out).
+  const waitingForAnon =
+    !authLoading && onboardingDone === true && !session && anonOptOut === false;
   useEffect(() => {
-    if (!user) {
+    if (!waitingForAnon) return;
+    const id = setTimeout(() => setGraceOver(true), ANON_SESSION_GRACE_MS);
+    return () => clearTimeout(id);
+  }, [waitingForAnon]);
+
+  useEffect(() => {
+    if (!user || isAnonymous) {
       setHasUsername(null);
       return;
     }
@@ -76,58 +85,36 @@ export default function Index() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, isAnonymous]);
 
-  // Onboarding-only gate: run the first-launch onboarding flow, then land
-  // on the home tabs (orb). Auth + username are skipped (see header note).
-  // Placed after every hook (Rules of Hooks). We wait for the onboarding
-  // read to resolve so there's no flash of the wrong destination.
-  if (RUN_ONBOARDING_ONLY) {
-    if (onboardingDone === null) {
-      return (
-        <View style={styles.loader}>
-          <ActivityIndicator color={colors.blue} size="large" />
-        </View>
-      );
-    }
-    if (!onboardingDone) {
-      return <Redirect href="/(onboarding)" />;
-    }
-    return <Redirect href="/(tabs)" />;
-  }
-
-  if (authLoading || onboardingDone === null) {
-    return (
-      <View style={styles.loader}>
-        <ActivityIndicator color={colors.blue} size="large" />
-      </View>
-    );
-  }
-
-  // Dev bypass — skip every gate (onboarding + auth + username) and drop
-  // straight on the orb. Lets the screen be inspected when Supabase is
-  // paused/unreachable, and avoids re-doing the age gate on every reload.
-  // Runs BEFORE the onboarding check on purpose: in DEV we never want the
-  // verification screen to block UI iteration.
-  if (DEV_SKIP_AUTH || DEV_SEED_DATA) {
-    return <Redirect href="/(tabs)" />;
+  if (authLoading || onboardingDone === null || anonOptOut === null) {
+    return <Loader />;
   }
 
   if (!onboardingDone) {
     return <Redirect href="/(onboarding)" />;
   }
 
+  // Dev bypass — skip the auth rungs and drop straight on the orb, so the
+  // screens can be inspected while Supabase is paused/unreachable.
+  // Onboarding still runs (it is only shown once anyway).
+  if (DEV_SKIP_AUTH) {
+    return <Redirect href="/(tabs)" />;
+  }
+
   if (!session) {
-    return <Redirect href="/(auth)/sign-in" />;
+    if (anonOptOut) return <Redirect href="/(auth)/sign-in" />;
+    // The anonymous session is on its way; don't block an offline user.
+    return graceOver ? <Redirect href="/(tabs)" /> : <Loader />;
+  }
+
+  if (isAnonymous) {
+    return <Redirect href="/(tabs)" />;
   }
 
   // Wait for the username probe to resolve before deciding (tabs vs setup).
   if (hasUsername === null) {
-    return (
-      <View style={styles.loader}>
-        <ActivityIndicator color={colors.blue} size="large" />
-      </View>
-    );
+    return <Loader />;
   }
 
   if (!hasUsername) {
@@ -135,6 +122,14 @@ export default function Index() {
   }
 
   return <Redirect href="/(tabs)" />;
+}
+
+function Loader() {
+  return (
+    <View style={styles.loader}>
+      <ActivityIndicator color={colors.blue} size="large" />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
