@@ -887,7 +887,12 @@ export default function ActiveSession() {
             ]}
           >
             <Text style={styles.winTitle}>{t('active.win_title')}</Text>
-            <Text style={[styles.shareWinPoints, { color: accentColor }]}>
+            <Text
+              style={[
+                styles.shareWinPoints,
+                { color: hexAlpha(accentColor, 0.85) },
+              ]}
+            >
               +{shareBanner.points}
             </Text>
             <Text style={styles.shareWinLabel}>
@@ -1315,11 +1320,11 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   shareWinPoints: {
-    fontSize: 42,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+    fontSize: 32,
+    fontWeight: '600',
+    letterSpacing: -0.3,
     fontVariant: ['tabular-nums'],
-    lineHeight: 46,
+    lineHeight: 38,
   },
   shareWinLabel: {
     marginTop: 2,
