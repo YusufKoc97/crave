@@ -4,6 +4,7 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  type TextStyle,
   Text,
   View,
 } from 'react-native';
@@ -1320,8 +1321,15 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   shareWinPoints: {
-    fontSize: 32,
-    fontWeight: '400',
+    // Avenir Next ships with iOS (no font loading needed). The system
+    // font at any weight either shouted (700+) or looked washed out
+    // in red on the dark card (300-400); Avenir's DemiBold sits between.
+    // Android has no Avenir and keeps the system font at semi-bold.
+    ...Platform.select<TextStyle>({
+      ios: { fontFamily: 'AvenirNext-DemiBold' },
+      default: { fontWeight: '600' },
+    }),
+    fontSize: 34,
     letterSpacing: 0,
     fontVariant: ['tabular-nums'],
     lineHeight: 38,
