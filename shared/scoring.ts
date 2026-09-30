@@ -43,13 +43,36 @@ export const MAX_SESSION_MINUTES = 24 * 60;
  *
  * 90 minutes is 6x the longest craving the product actually designs
  * for (constants/addictions.ts puts a cycle at 5-15 min), so almost no
- * honest session reaches it. It caps a single award at 950 points
- * (sensitivity 10) instead of the 15,800 that 1,440 minutes used to
+ * honest session reaches it. It caps a single award at 650 points
+ * (sensitivity 10, after the overtime discount) instead of the 15,800 that 1,440 minutes used to
  * yield — against a top rank of 75,000, the old ceiling let five calls
  * clear the entire ladder. Lowered from 240 (2,600 points) on
  * 2026-09-30: four hours left an unattended phone far too rewarding.
  */
 export const MAX_SCORED_MINUTES = 90;
+
+/**
+ * Minutes that earn at the full rate. A real craving lasts 5-15 min, so
+ * everything an honest session does sits below this line and is scored
+ * exactly as before. Past it, each minute counts for OVERTIME_RATE:
+ * sitting on a timer is not the same effort as riding out an urge, and
+ * at full rate one unattended 90-minute timer paid ~10 real cravings.
+ */
+export const FULL_RATE_MINUTES = 30;
+export const OVERTIME_RATE = 0.5;
+
+/**
+ * Real minutes -> minutes that count towards points and cycle bonuses.
+ * Clamped at MAX_SCORED_MINUTES first, then discounted past
+ * FULL_RATE_MINUTES (90 real minutes score as 60). The client uses the
+ * same function for its live counter and cycle flashes.
+ */
+export function scoredMinutesFor(rawMinutes: number): number {
+  const m = Math.min(Math.max(rawMinutes, 0), MAX_SCORED_MINUTES);
+  return m <= FULL_RATE_MINUTES
+    ? m
+    : FULL_RATE_MINUTES + (m - FULL_RATE_MINUTES) * OVERTIME_RATE;
+}
 
 /**
  * Ceiling on points earned per (user, addiction) per calendar day.
@@ -86,7 +109,7 @@ export function calculateResistPoints(input: ResistPointsInput): number {
   // Clamp, don't reject — an overnight timer is a real user, not an
   // attacker, and rejecting would strand their session. See
   // MAX_SCORED_MINUTES for why the ceiling sits where it does.
-  const minutes = Math.min(input.durationSeconds / 60, MAX_SCORED_MINUTES);
+  const minutes = scoredMinutesFor(input.durationSeconds / 60);
   const sensitivity = input.sensitivity;
   const base = Math.round(minutes * sensitivity);
   const cycleLength = sensitivity * 5;

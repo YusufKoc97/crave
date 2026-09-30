@@ -578,13 +578,13 @@ Rate-limit/anti-spam denetiminde bulunan istismar yüzeyleri kapatıldı:
 
 ### Puan tavanları (`shared/scoring.ts` — hepsi server-side)
 
-| Sabit                            | Değer | Niçin                                                                                                  |
-| -------------------------------- | ----- | ------------------------------------------------------------------------------------------------------ |
-| `MAX_SCORED_MINUTES`             | 90    | Tek ödülü ~950 puanla sınırlar (önce 240 dk/2.600'dü); eski tavanda 5 çağrı en üst rütbeyi süpürüyordu |
-| `MAX_DAILY_POINTS_PER_ADDICTION` | 5.000 | Günlük tavan                                                                                           |
-| `RATE_LIMIT_MAX_PER_HOUR`        | 20    | Saatlik çağrı tavanı                                                                                   |
-| `MAX_SESSION_MINUTES`            | 1.440 | 24s üstü seans reddedilir                                                                              |
-| `FAILURE_PENALTY_MAX`            | 200   | Ceza skorun %5'i, 200'de kapanır                                                                       |
+| Sabit                            | Değer | Niçin                                                                                                                     |
+| -------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------- |
+| `MAX_SCORED_MINUTES`             | 90    | Tek ödülü ~650 puanla sınırlar (önce 240 dk/2.600'dü); 30 dk'dan sonrası yarım puan (`FULL_RATE_MINUTES`/`OVERTIME_RATE`) |
+| `MAX_DAILY_POINTS_PER_ADDICTION` | 5.000 | Günlük tavan                                                                                                              |
+| `RATE_LIMIT_MAX_PER_HOUR`        | 20    | Saatlik çağrı tavanı                                                                                                      |
+| `MAX_SESSION_MINUTES`            | 1.440 | 24s üstü seans reddedilir                                                                                                 |
+| `FAILURE_PENALTY_MAX`            | 200   | Ceza skorun %5'i, 200'de kapanır                                                                                          |
 
 > **Puanlama asla client'ta hesaplanmaz.** `resolve-craving` Edge
 > Function tek otorite; client sadece ham girdiyi (süre, yoğunluk,

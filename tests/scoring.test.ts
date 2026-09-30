@@ -8,6 +8,7 @@ import {
   localDayKey,
   MAX_DAILY_POINTS_PER_ADDICTION,
   MAX_SCORED_MINUTES,
+  scoredMinutesFor,
   MAX_SESSION_MINUTES,
   nextMomentum,
   streakAfterGiveIn,
@@ -43,16 +44,17 @@ describe('calculateResistPoints', () => {
     ).toBe(160);
   });
 
-  it('brief example — nicotine (sens 8), 45 min → 400 pts', () => {
-    // base = 45*8 = 360, cycleLength = 40 min, cycles = floor(45/40) = 1
-    // bonus = 1 * 40 = 40, total = 400
+  it('brief example — nicotine (sens 8), 45 min → 300 pts', () => {
+    // The original brief said 400 (base 360 + one 40-min cycle) at full
+    // rate. Minutes past 30 now count half: 45 min scores as 37.5, so
+    // base = round(37.5*8) = 300, cycleLength = 40 min, cycles = 0.
     expect(
       calculateResistPoints({
         outcome: 'resisted',
         durationSeconds: 45 * 60,
         sensitivity: 8,
       })
-    ).toBe(400);
+    ).toBe(300);
   });
 
   it('very short resist rounds to 0 (no floor)', () => {
@@ -301,6 +303,27 @@ describe('award ceiling', () => {
     // Top rank is 75_000. One call must not be able to make a dent
     // measured in whole ranks.
     expect(worstCase).toBeLessThanOrEqual(1000);
+  });
+
+  it('counts minutes past 30 at half rate', () => {
+    expect(scoredMinutesFor(12)).toBe(12);
+    expect(scoredMinutesFor(30)).toBe(30);
+    expect(scoredMinutesFor(50)).toBe(40);
+    expect(scoredMinutesFor(90)).toBe(60);
+    expect(scoredMinutesFor(1440)).toBe(60); // still clamped at 90 real min
+    expect(scoredMinutesFor(-5)).toBe(0);
+  });
+
+  it('pays an unattended 90-minute timer far less than before the discount', () => {
+    // sens 7: 60 scored min -> base 420 + one 35-min cycle = 455.
+    // Full rate used to pay 630 + 70 = 700.
+    expect(
+      calculateResistPoints({
+        outcome: 'resisted',
+        durationSeconds: 90 * 60,
+        sensitivity: 7,
+      })
+    ).toBe(455);
   });
 
   it('leaves ordinary sessions completely untouched', () => {

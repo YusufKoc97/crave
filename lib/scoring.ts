@@ -19,6 +19,7 @@ export {
   failurePenalty,
   localDayKey,
   nextMomentum,
+  scoredMinutesFor,
   streakAfterGiveIn,
   streakAfterResist,
   FAILURE_PENALTY_MAX,

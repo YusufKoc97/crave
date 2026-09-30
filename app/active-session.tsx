@@ -40,7 +40,7 @@ import { t } from '@/lib/i18n';
 import { lucideIconFor } from '@/components/info/iconMap';
 import { useIsPremium } from '@/lib/premium';
 import { streakAfterGiveIn } from '@/lib/scoring';
-import { MAX_SCORED_MINUTES, type Outcome } from '@/shared/scoring';
+import { scoredMinutesFor, type Outcome } from '@/shared/scoring';
 import { RankUnlockModal } from '@/components/RankUnlockModal';
 import { useAddictionScores } from '@/context/AddictionScoresContext';
 import { IntensityModal } from '@/components/IntensityModal';
@@ -360,7 +360,7 @@ export default function ActiveSession() {
   // (shared/scoring.ts: every sensitivity × 5 minutes). Only this one
   // flashes a "+X", so every number on screen is a number the user
   // actually gets.
-  const scoredMinutes = Math.min(elapsed / 60, MAX_SCORED_MINUTES);
+  const scoredMinutes = scoredMinutesFor(elapsed / 60);
   const scoredCycles = Math.floor(scoredMinutes / (sensitivity * 5));
   useEffect(() => {
     if (scoredCycles > completedCycles) {
