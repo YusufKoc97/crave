@@ -18,6 +18,8 @@ import Animated, {
   Easing,
   interpolate,
   Extrapolation,
+  FadeIn,
+  FadeOut,
   type SharedValue,
 } from 'react-native-reanimated';
 import { router, useFocusEffect } from 'expo-router';
@@ -252,6 +254,24 @@ export default function HomeScreen() {
         }}
       />
 
+      {/* Tells the user what the fan-out is asking. Without it the orb
+          shrank and a lone tile appeared with no instruction — mid-
+          craving, that pause read as "did it break?". Sits just above
+          the top of the icon ring so it never overlaps a tile. */}
+      {phase === 'selecting' && !wiggleMode && (
+        <Animated.Text
+          entering={FadeIn.duration(280).delay(120)}
+          exiting={FadeOut.duration(140)}
+          pointerEvents="none"
+          style={[
+            styles.selectHint,
+            { top: centerY - ICON_R - ICON_SIZE / 2 - 44 },
+          ]}
+        >
+          {t('home.select_hint')}
+        </Animated.Text>
+      )}
+
       {phase === 'selecting' && (
         <View
           pointerEvents="box-none"
@@ -430,6 +450,8 @@ function AddictionIcon({
               { color: hexWithAlpha(addiction.color, 0.92) },
             ]}
             numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
           >
             {addiction.name}
           </Text>
@@ -493,9 +515,25 @@ const styles = StyleSheet.create({
   },
   iconLabel: {
     marginTop: 4,
+    // Full tile width (minus padding) so adjustsFontSizeToFit shrinks a
+    // long name like "Doomscrolling" instead of clipping it to "Doomscr…".
+    alignSelf: 'stretch',
+    textAlign: 'center',
+    paddingHorizontal: 4,
     fontSize: 8.5,
     fontWeight: '500',
     letterSpacing: 0.4,
+  },
+  selectHint: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    color: dsColors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 1.6,
+    textTransform: 'uppercase',
   },
   deleteBadge: {
     position: 'absolute',

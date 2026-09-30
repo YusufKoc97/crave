@@ -92,7 +92,9 @@ export default function ChooseFocusScreen() {
                 >
                   <Icon size={22} color={a.color} strokeWidth={2} />
                 </View>
-                <Text style={styles.tileName} numberOfLines={1}>
+                {/* Two lines + centered so the longest name ("Porn &
+                    Masturbation") wraps instead of clipping to "…". */}
+                <Text style={styles.tileName} numberOfLines={2}>
                   {a.name}
                 </Text>
                 {isSel && (
@@ -222,6 +224,7 @@ const styles = StyleSheet.create({
     fontSize: dsFont.size.body,
     fontWeight: '700',
     color: dsColors.textPrimary,
+    textAlign: 'center',
   },
   tileRank: {
     marginTop: dsSpacing.xs,

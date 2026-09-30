@@ -77,6 +77,7 @@ export function ToolkitPickerModal({
             <ToolkitGrid
               accentColor={accentColor}
               addictionId={addictionId}
+              suggestStart
               onSelect={(tech) => {
                 // Choosing what to try mid-craving is a decision — one
                 // light tick. Only here, not in the browse-only grid.

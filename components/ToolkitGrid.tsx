@@ -60,6 +60,9 @@ type Props = {
   /** Whose toolkit this is — decides which techniques are offered. */
   addictionId?: string | null;
   onSelect: (technique: Technique) => void;
+  /** Mark the quickest offered technique "Start here". For the in-craving
+   *  picker, where choosing among six cards is itself a hurdle. */
+  suggestStart?: boolean;
 };
 
 const TYPE_ICONS: Record<Technique['type'], ComponentType<LucideProps>> = {
@@ -80,15 +83,30 @@ const RADIUS = 22;
 const FAV_COLOR = '#FF6E9C';
 const FALLBACK_HUES = { primary: '#5A6BE8', secondary: '#3A2FA8' };
 
-export function ToolkitGrid({ accentColor, addictionId, onSelect }: Props) {
+export function ToolkitGrid({
+  accentColor,
+  addictionId,
+  onSelect,
+  suggestStart = false,
+}: Props) {
   const { width } = useWindowDimensions();
   const tileW = (width - SIDE_PAD * 2 - GAP) / 2;
   const { favorites } = useToolkitFavorites();
+  const offered = techniquesForAddiction(addictionId);
   // Hearted techniques first, in the catalog's own order otherwise. Sort is
   // stable, so everything not favourited keeps its familiar position.
-  const list = [...techniquesForAddiction(addictionId)].sort(
+  const list = [...offered].sort(
     (a, b) => Number(favorites.has(b.id)) - Number(favorites.has(a.id))
   );
+  // Shortest offered technique (catalog order breaks ties) — the lowest-
+  // effort first step for someone mid-craving.
+  const startId = suggestStart
+    ? offered.reduce<Technique | null>(
+        (best, tech) =>
+          !best || tech.durationSeconds < best.durationSeconds ? tech : best,
+        null
+      )?.id
+    : undefined;
   const lastIsAlone = list.length % 2 === 1;
 
   return (
@@ -108,6 +126,7 @@ export function ToolkitGrid({ accentColor, addictionId, onSelect }: Props) {
               tileW={tileW}
               wide={wide}
               favorite={favorites.has(tech.id)}
+              startHere={tech.id === startId}
               onPress={() => onSelect(tech)}
             />
           );
@@ -125,6 +144,7 @@ function ToolkitCard({
   tileW,
   wide,
   favorite,
+  startHere,
   onPress,
 }: {
   technique: Technique;
@@ -132,6 +152,7 @@ function ToolkitCard({
   tileW: number;
   wide: boolean;
   favorite: boolean;
+  startHere: boolean;
   onPress: () => void;
 }) {
   const Icon = TYPE_ICONS[technique.type];
@@ -209,6 +230,21 @@ function ToolkitCard({
       ) : null}
 
       <View style={wide ? styles.infoWide : styles.info}>
+        {startHere ? (
+          <View
+            style={[
+              styles.startPill,
+              {
+                borderColor: hexAlpha(accentColor, 0.55),
+                backgroundColor: hexAlpha(accentColor, 0.16),
+              },
+            ]}
+          >
+            <Text style={[styles.startPillText, { color: accentColor }]}>
+              {t('toolkit.start_here')}
+            </Text>
+          </View>
+        ) : null}
         <Text
           style={styles.name}
           numberOfLines={1}
@@ -277,6 +313,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.16)',
+  },
+  startPill: {
+    alignSelf: 'flex-start',
+    marginBottom: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  startPillText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
   fav: {
     position: 'absolute',
