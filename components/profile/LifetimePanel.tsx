@@ -37,7 +37,7 @@ import {
  *
  * A quiet altar, not a dashboard. One gold hero number over a soft
  * drifting aurora (gold / violet / blue), and three equal medallions
- * hanging beneath it — streak, held, toolkit — with no connecting
+ * hanging beneath it — streak, held, clean days — with no connecting
  * thread.
  *
  * Why GOLD and not the app's blue: the blue accent (#5cc9f5) is the
@@ -71,12 +71,15 @@ type Props = {
   longestStreakDays: number;
   /** 0..1 */
   successRate: number;
+  /** Claimed "no cravings yesterday" days. A count, not points. */
+  cleanDays: number;
 };
 
 export function LifetimePanel({
   cravingsResisted,
   longestStreakDays,
   successRate,
+  cleanDays,
 }: Props) {
   // A fresh account still gets the full, alive treatment — it just
   // reads zero and gains a line of encouragement. `empty` only decides
@@ -124,6 +127,12 @@ export function LifetimePanel({
             unit="%"
             label={t('profile.stat_held_short')}
             delay={500}
+          />
+          <Medallion
+            value={cleanDays}
+            unit=""
+            label={t('profile.stat_clean_short')}
+            delay={650}
           />
         </View>
 

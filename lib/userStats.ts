@@ -4,6 +4,7 @@ import { supabase } from './supabase';
 import { useAuth } from '@/context/AuthContext';
 import { useSessions } from '@/context/SessionsContext';
 import { DEV_SEED_DATA, seedUserStats } from './devSeed';
+import { cleanDayCountKey, fetchCleanDayCount } from './dailyCheckin';
 
 /**
  * Profile-screen statistics aggregator.
@@ -28,6 +29,7 @@ export type UserStats = {
   longestStreakDays: number;
   successRate: number; // 0..1
   techniquesUsed: number; // distinct completed technique_ids
+  cleanDays: number; // claimed "no cravings yesterday" days
   loading: boolean;
 };
 
@@ -56,6 +58,13 @@ export function useUserStats(): UserStats {
     retry: 1,
   });
 
+  const cleanDaysQuery = useQuery({
+    queryKey: cleanDayCountKey(user?.id ?? null),
+    queryFn: () => (user ? fetchCleanDayCount(user.id) : Promise.resolve(0)),
+    enabled: !!user,
+    retry: 1,
+  });
+
   const derived = useMemo(() => {
     let resisted = 0;
     let failed = 0;
@@ -77,6 +86,7 @@ export function useUserStats(): UserStats {
     longestStreakDays: streak,
     successRate: derived.successRate,
     techniquesUsed: techniquesQuery.data ?? 0,
+    cleanDays: cleanDaysQuery.data ?? 0,
     loading: techniquesQuery.isLoading,
   };
 }

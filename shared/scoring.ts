@@ -177,14 +177,42 @@ export function nextMomentum(args: {
  *
  * ONE general bonus per finished day, added to the user's total only.
  * The server cannot tell "no craving came" from "a craving came and was
- * never logged", so this is sized so that lying is not worth it rather
- * than trying to detect it: 50 is ~70% of one ordinary resisted craving
- * (10 min at sensitivity 7 = 70), it can be claimed once per day, and
- * only on a day with no logged craving at all. Claiming every single day
- * for a year adds 18,250 to the total: Master (15,000), never Expert
- * (35,000).
+ * never logged", and nobody turns down free points — so the answer is
+ * not trusted to be honest. Instead the bonus can never outgrow real
+ * work: see CLEAN_DAY_CAP_RATIO.
  */
 export const CLEAN_DAY_POINTS = 50;
+
+/**
+ * All clean-day bonuses together may never exceed this share of the
+ * points earned by actually resisting (sum of user_addiction_scores).
+ * Tapping "no cravings" every day with no resists behind it pays nothing;
+ * a person who fought hard and whose cravings then faded earns clean days
+ * in proportion to that fight (4,000 resist points -> up to 1,000 bonus,
+ * i.e. 20 clean days). 0.25 is a judgement call, not a measured number.
+ */
+export const CLEAN_DAY_CAP_RATIO = 0.25;
+
+/**
+ * Bonus points still available under the cap. Penalties lower resist
+ * points, so this can drop to 0 again after it was positive — nothing is
+ * ever taken back, new bonuses just stop until resists catch up.
+ */
+export function cleanDayRoom(
+  resistPoints: number,
+  bonusPoints: number
+): number {
+  const cap = Math.floor(Math.max(0, resistPoints) * CLEAN_DAY_CAP_RATIO);
+  return Math.max(0, cap - Math.max(0, bonusPoints));
+}
+
+/** True when one more full clean-day bonus fits under the cap. */
+export function canAffordCleanDay(
+  resistPoints: number,
+  bonusPoints: number
+): boolean {
+  return cleanDayRoom(resistPoints, bonusPoints) >= CLEAN_DAY_POINTS;
+}
 
 /** Furthest back a finished day can still be claimed (offline grace). */
 export const CLEAN_DAY_CLAIM_WINDOW_HOURS = 72;

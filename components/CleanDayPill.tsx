@@ -108,7 +108,9 @@ export function CleanDayPill({
       toast.error(
         res.reason === 'had_sessions'
           ? t('clean_day.err_had_sessions')
-          : t('clean_day.err_generic')
+          : res.reason === 'cap_reached'
+            ? t('clean_day.err_cap')
+            : t('clean_day.err_generic')
       );
       return;
     }

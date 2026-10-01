@@ -583,7 +583,8 @@ Rate-limit/anti-spam denetiminde bulunan istismar yüzeyleri kapatıldı:
 | `MAX_SCORED_MINUTES`             | 90    | Tek ödülü ~650 puanla sınırlar (önce 240 dk/2.600'dü); 30 dk'dan sonrası yarım puan (`FULL_RATE_MINUTES`/`OVERTIME_RATE`) |
 | `MAX_DAILY_POINTS_PER_ADDICTION` | 5.000 | Günlük tavan                                                                                                              |
 | `RATE_LIMIT_MAX_PER_HOUR`        | 20    | Saatlik çağrı tavanı                                                                                                      |
-| `CLEAN_DAY_POINTS`               | 50    | "Dün temiz geçti" beyanı (`daily-checkin`, migration 018); bir istek kaydının ~%70'i, yalanın getirisi düşük              |
+| `CLEAN_DAY_POINTS`               | 50    | "Dün temiz geçti" beyanı (`daily-checkin`, migration 019); genel toplama gider, tek bağımlılığa değil                     |
+| `CLEAN_DAY_CAP_RATIO`            | 0.25  | Tüm temiz gün bonusları Resist puanlarının %25'ini geçemez; direnmeden bonus toplanamaz (oran tahmini)                    |
 | `MAX_SESSION_MINUTES`            | 1.440 | 24s üstü seans reddedilir                                                                                                 |
 | `FAILURE_PENALTY_MAX`            | 200   | Ceza skorun %5'i, 200'de kapanır                                                                                          |
 

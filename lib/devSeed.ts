@@ -167,6 +167,7 @@ export function seedUserStats(): {
   longestStreakDays: number;
   successRate: number;
   techniquesUsed: number;
+  cleanDays: number;
   loading: boolean;
 } {
   const rows = rawRows(Date.now());
@@ -184,6 +185,7 @@ export function seedUserStats(): {
     longestStreakDays: seedTotals().streak,
     successRate: total > 0 ? resisted / total : 0,
     techniquesUsed: 6,
+    cleanDays: 4,
     loading: false,
   };
 }

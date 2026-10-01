@@ -223,6 +223,7 @@ export default function ProfileScreen() {
           cravingsResisted={stats.cravingsResisted}
           longestStreakDays={stats.longestStreakDays}
           successRate={stats.successRate}
+          cleanDays={stats.cleanDays}
         />
 
         <StreakMapPanel />

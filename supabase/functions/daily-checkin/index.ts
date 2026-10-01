@@ -20,6 +20,9 @@
  *     logged resist already paid; a logged slip is not clean);
  *   - one claim per (user, day) — the daily_checkins primary key, so a
  *     retry can never pay twice;
+ *   - all clean-day bonuses together stay under CLEAN_DAY_CAP_RATIO of
+ *     the points earned by resisting, so "no cravings" tapped every day
+ *     with no real resists behind it pays nothing;
  *   - the hourly rate limit fails closed.
  *
  * Request (POST, JWT-auth):
@@ -36,6 +39,7 @@
 // @ts-expect-error — Deno resolves this from its runtime, not npm.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
+  canAffordCleanDay,
   CLEAN_DAY_CLAIM_WINDOW_HOURS,
   CLEAN_DAY_POINTS,
   isValidDayKey,
@@ -171,6 +175,30 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return jsonResponse({ error: 'probe_failed' }, 500);
   }
   if ((sessionCount ?? 0) > 0) return notEligible('had_sessions');
+
+  // ─── Bonus cap: clean days can never outgrow real resists ───
+  const [scoresRes, bonusRes] = await Promise.all([
+    svc.from('user_addiction_scores').select('score').eq('user_id', userId),
+    svc.from('daily_checkins').select('points').eq('user_id', userId),
+  ]);
+  if (scoresRes.error || bonusRes.error) {
+    console.error(
+      '[daily-checkin] cap probe failed',
+      scoresRes.error ?? bonusRes.error
+    );
+    return jsonResponse({ error: 'probe_failed' }, 500);
+  }
+  const resistPoints = (scoresRes.data ?? []).reduce(
+    (sum: number, r: { score: number }) => sum + (r.score ?? 0),
+    0
+  );
+  const bonusPoints = (bonusRes.data ?? []).reduce(
+    (sum: number, r: { points: number }) => sum + (r.points ?? 0),
+    0
+  );
+  if (!canAffordCleanDay(resistPoints, bonusPoints)) {
+    return notEligible('cap_reached');
+  }
 
   // ─── Hourly rate limit (fail closed, same as resolve-craving) ───
   const { data: rlCount, error: rlErr } = await svc.rpc('bump_rate_limit', {

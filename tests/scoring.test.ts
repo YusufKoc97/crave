@@ -12,6 +12,9 @@ import {
   isValidDayKey,
   localDayWindow,
   CLEAN_DAY_POINTS,
+  CLEAN_DAY_CAP_RATIO,
+  cleanDayRoom,
+  canAffordCleanDay,
   MAX_SESSION_MINUTES,
   nextMomentum,
   streakAfterGiveIn,
@@ -382,7 +385,42 @@ describe('clean-day check-in helpers', () => {
       sensitivity: 7,
     });
     expect(CLEAN_DAY_POINTS).toBeLessThan(ordinary);
-    // A year of claiming one addiction daily must not reach Expert (35,000).
-    expect(CLEAN_DAY_POINTS * 365).toBeLessThan(35_000);
+  });
+});
+
+describe('clean-day cap (bonus can never outgrow real resists)', () => {
+  it('pays nothing to someone who never resisted', () => {
+    expect(cleanDayRoom(0, 0)).toBe(0);
+    expect(canAffordCleanDay(0, 0)).toBe(false);
+    // A few points is still not enough for one full bonus.
+    expect(canAffordCleanDay(199, 0)).toBe(false);
+  });
+
+  it('pays exactly one day at 200 resist points', () => {
+    expect(cleanDayRoom(200, 0)).toBe(50);
+    expect(canAffordCleanDay(200, 0)).toBe(true);
+    expect(canAffordCleanDay(200, 50)).toBe(false);
+  });
+
+  it('scales with real work: 4,000 resist points -> 20 clean days', () => {
+    expect(Math.floor((4_000 * CLEAN_DAY_CAP_RATIO) / CLEAN_DAY_POINTS)).toBe(
+      20
+    );
+    expect(canAffordCleanDay(4_000, 950)).toBe(true);
+    expect(canAffordCleanDay(4_000, 1_000)).toBe(false);
+  });
+
+  it('never goes negative when penalties shrink resist points', () => {
+    // 300 bonus already paid, resist points fell to 400 -> cap 100.
+    expect(cleanDayRoom(400, 300)).toBe(0);
+    expect(cleanDayRoom(-10, 0)).toBe(0);
+  });
+
+  it('a daily claimer with no resists cannot farm a rank anymore', () => {
+    let bonus = 0;
+    for (let day = 0; day < 365; day++) {
+      if (canAffordCleanDay(0, bonus)) bonus += CLEAN_DAY_POINTS;
+    }
+    expect(bonus).toBe(0);
   });
 });

@@ -3,7 +3,11 @@ import { supabase } from './supabase';
 import { fetchUserAddictions } from './addictionsApi';
 import { useAuth } from '@/context/AuthContext';
 import { queryClient } from './queryClient';
-import { localDayKey, localDayWindow } from '@/shared/scoring';
+import {
+  canAffordCleanDay,
+  localDayKey,
+  localDayWindow,
+} from '@/shared/scoring';
 
 /**
  * Client half of the daily "craving-free day" bonus. The server
@@ -27,37 +31,64 @@ export function yesterdayKey(now: number = Date.now()): string {
 
 /**
  * Can the user honestly claim a clean yesterday? They must have been
- * tracking something by then, not have claimed already, and have logged
- * no craving at all that day (a logged resist already paid; a slip is not
- * clean).
+ * tracking something by then, not have claimed already, have logged no
+ * craving at all that day (a logged resist already paid; a slip is not
+ * clean), and still have room under the bonus cap — asking a question we
+ * would refuse to pay for is worse than not asking.
  */
 async function fetchEligible(userId: string, day: string): Promise<boolean> {
   const tz = new Date().getTimezoneOffset();
   const { startMs, endMs } = localDayWindow(day, tz);
 
-  const [tracked, claimed, sessions] = await Promise.all([
+  const [tracked, checkins, sessions, scores] = await Promise.all([
     fetchUserAddictions(userId),
-    supabase
-      .from('daily_checkins')
-      .select('day', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('day', day),
+    supabase.from('daily_checkins').select('day, points').eq('user_id', userId),
     supabase
       .from('craving_sessions')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
       .gte('ended_at', new Date(startMs).toISOString())
       .lt('ended_at', new Date(endMs).toISOString()),
+    supabase
+      .from('user_addiction_scores')
+      .select('score')
+      .eq('user_id', userId),
   ]);
-  if (claimed.error) throw claimed.error;
+  if (checkins.error) throw checkins.error;
   if (sessions.error) throw sessions.error;
+  if (scores.error) throw scores.error;
 
   const trackedByThen = tracked.some(
     (a) => a.isActive && Date.parse(a.addedAt) < endMs
   );
-  return (
-    trackedByThen && (claimed.count ?? 0) === 0 && (sessions.count ?? 0) === 0
+  const rows = checkins.data ?? [];
+  const claimed = rows.some((r) => r.day === day);
+  const bonusPoints = rows.reduce((sum, r) => sum + (r.points ?? 0), 0);
+  const resistPoints = (scores.data ?? []).reduce(
+    (sum, r) => sum + (r.score ?? 0),
+    0
   );
+  return (
+    trackedByThen &&
+    !claimed &&
+    (sessions.count ?? 0) === 0 &&
+    canAffordCleanDay(resistPoints, bonusPoints)
+  );
+}
+
+/** How many clean days the user has claimed, ever (profile counter). */
+export async function fetchCleanDayCount(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('daily_checkins')
+    .select('day', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Shares the 'clean-day' key prefix, so invalidateCleanDay refreshes it. */
+export function cleanDayCountKey(userId: string | null) {
+  return [KEY, 'count', userId] as const;
 }
 
 export function useCleanDayEligible(): { day: string; eligible: boolean } {
