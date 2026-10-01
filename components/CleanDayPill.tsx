@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/context/AuthContext';
 import { useSessions } from '@/context/SessionsContext';
 import { useToast } from '@/context/ToastContext';
-import { CleanDayScene } from '@/components/CleanDayScene';
+import { CleanDayScene, type CleanDayStage } from '@/components/CleanDayScene';
 import { dsColors } from '@/constants/designSystem';
 import { CLEAN_DAY_POINTS } from '@/shared/scoring';
 import {
@@ -38,6 +38,24 @@ export function CleanDayPill({
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [honest, setHonest] = useState(false);
+  // The day the user already answered "yes, I had cravings" for: that
+  // earns nothing, so there is nothing left to ask or to show a pill for.
+  const answeredKey = user ? `crave.clean_day.answered:${user.id}` : null;
+  const [answeredDay, setAnsweredDay] = useState<string | null>(null);
+  useEffect(() => {
+    if (!answeredKey) return;
+    let cancelled = false;
+    AsyncStorage.getItem(answeredKey)
+      .then((v) => {
+        if (!cancelled) setAnsweredDay(v);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [answeredKey]);
+  const askable = eligible && answeredDay !== day;
   // Set after a successful claim: switches the scene to its "saved" stage.
   const [result, setResult] = useState<{
     points: number;
@@ -50,7 +68,7 @@ export function CleanDayPill({
   const autoKey = user ? `crave.clean_day.auto_shown:${user.id}` : null;
   const autoChecked = useRef<string | null>(null);
   useEffect(() => {
-    if (!visible || !autoKey || !eligible) return;
+    if (!visible || !autoKey || !askable) return;
     if (autoChecked.current === `${autoKey}:${day}`) return;
     autoChecked.current = `${autoKey}:${day}`;
     let cancelled = false;
@@ -75,7 +93,7 @@ export function CleanDayPill({
     return () => {
       cancelled = true;
     };
-  }, [visible, autoKey, day, eligible]);
+  }, [visible, autoKey, day, askable]);
 
   const onClaim = useCallback(async () => {
     if (busy) return;
@@ -99,17 +117,30 @@ export function CleanDayPill({
     setResult({ points: res.pointsDelta, total: res.totalScore });
   }, [busy, day, refreshTotals, toast]);
 
+  // "Yes, I had cravings": no bonus. Remember the answer so the day is not
+  // asked about again, then say so kindly.
+  const onYes = useCallback(() => {
+    setHonest(true);
+    setAnsweredDay(day);
+    if (answeredKey) AsyncStorage.setItem(answeredKey, day).catch(() => {});
+  }, [answeredKey, day]);
+
   const onContinue = useCallback(() => {
     setOpen(false);
     // Drop the pill only once the scene is gone, so it does not vanish
     // from under the fade-out.
     invalidateCleanDay();
-    setTimeout(() => setResult(null), 400);
+    setTimeout(() => {
+      setResult(null);
+      setHonest(false);
+    }, 400);
   }, []);
+
+  const stage: CleanDayStage = result ? 'saved' : honest ? 'honest' : 'ask';
 
   return (
     <>
-      {visible && eligible ? (
+      {visible && askable ? (
         <Animated.View
           entering={FadeIn.duration(320)}
           exiting={FadeOut.duration(160)}
@@ -130,12 +161,13 @@ export function CleanDayPill({
 
       <CleanDayScene
         visible={open}
-        stage={result ? 'saved' : 'ask'}
+        stage={stage}
         points={CLEAN_DAY_POINTS}
         result={result}
         busy={busy}
-        onClaim={() => void onClaim()}
-        onLater={() => setOpen(false)}
+        onNo={() => void onClaim()}
+        onYes={onYes}
+        onDismiss={() => setOpen(false)}
         onContinue={onContinue}
       />
     </>

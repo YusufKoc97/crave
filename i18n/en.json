@@ -1038,13 +1038,12 @@
     "close": "Close"
   },
   "clean_day": {
-    "pill": "Yesterday, no cravings? +{{points}}",
+    "pill": "How was yesterday? +{{points}}",
     "eyebrow": "Yesterday",
-    "title": "No cravings?",
-    "body": "If it was a quiet day, take the bonus. Be honest with yourself.",
-    "bonus_label": "Bonus points",
-    "claim": "Claim +{{points}}",
-    "later": "Not now",
+    "title": "Did you have any cravings yesterday?",
+    "body": "Be honest with yourself. This is only for you.",
+    "no": "No cravings",
+    "yes": "Yes, I had some",
     "err_had_sessions": "You logged a craving that day, so it can't count as clean.",
     "err_generic": "Couldn't save that. Try again in a moment.",
     "saved_eyebrow": "Bonus",
@@ -1052,6 +1051,9 @@
     "total_line": "{{total}} points in total",
     "to_next": "{{points}} pts to {{rank}}",
     "top_rank": "Top rank reached",
-    "continue": "Continue"
+    "continue": "Continue",
+    "honest_title": "Thanks for being honest",
+    "honest_body": "Cravings come and go. When the next one hits, tap Resist. It earns more than a clean day.",
+    "got_it": "Got it"
   }
 }

@@ -32,41 +32,55 @@ import { hapticCelebrate } from '@/lib/haptics';
 import { t } from '@/lib/i18n';
 
 /**
- * The daily "craving-free day" bonus as a full-bleed scene, not a card.
+ * The daily "craving-free day" check-in as a small centred popup.
  *
- * Same vocabulary as the RESIST orb it sits next to — concentric rings
+ * It asks FIRST and pays second: "Did you have any cravings yesterday?"
+ * with two honest answers. "No cravings" claims the bonus, "Yes, I had
+ * some" earns nothing and says so kindly (and the day is then not asked
+ * again). There is deliberately no "not now" button — nobody declines
+ * free points, and a way to skip the question is a way to dodge it.
+ * Tapping outside still closes it without answering.
+ *
+ * Same vocabulary as the RESIST orb it sits over — concentric rings
  * breathing out from a lit centre — but in warm gold instead of the
- * app's blue/red, so a gift reads as different from a craving. Two
- * stages share one stage of rings:
- *   ask   → sunrise emblem, "No cravings?", the +points, Claim / Not now
- *   saved → the emblem bursts, the number counts up, and the overall
- *           rank bar shows how far the bonus moved you.
+ * app's blue/red, so a gift reads as different from a craving. The
+ * emblem straddles the panel's top edge like a medal; the rings swell
+ * out from behind the panel.
  *
- * Perf: three looping rings + one breathing emblem while asking, and a
- * one-shot burst of 14 dots on claim. Cheap on modern phones; worth a
- * check on a low-end Android before launch.
+ * Stages: ask → saved (burst, count-up, overall-rank bar)
+ *         ask → honest (the "yes" answer)
+ *
+ * Perf: three looping rings + one breathing emblem, and a one-shot burst
+ * of 14 dots on claim. Cheap on modern phones; worth a check on a
+ * low-end Android before launch.
  */
 
 const GOLD = '#FFC457';
-const STAGE_H = 300;
-const EMBLEM = 128;
-const RING = 150;
+const EMBLEM = 92;
+const RING = 104;
 const SPARKS = 14;
+const CARD_MAX_W = 336;
 
 const DISPLAY_FACE = Platform.select<TextStyle>({
   ios: { fontFamily: 'AvenirNext-DemiBold' },
   default: { fontWeight: '600' },
 });
 
+export type CleanDayStage = 'ask' | 'saved' | 'honest';
+
 type Props = {
   visible: boolean;
-  stage: 'ask' | 'saved';
+  stage: CleanDayStage;
   points: number;
   /** Set once claimed: what was paid and the new overall total. */
   result: { points: number; total: number } | null;
   busy: boolean;
-  onClaim: () => void;
-  onLater: () => void;
+  /** "No cravings" — claim the bonus. */
+  onNo: () => void;
+  /** "Yes, I had some" — no bonus. */
+  onYes: () => void;
+  /** Tap outside: close without answering. */
+  onDismiss: () => void;
   onContinue: () => void;
 };
 
@@ -76,11 +90,13 @@ export function CleanDayScene({
   points,
   result,
   busy,
-  onClaim,
-  onLater,
+  onNo,
+  onYes,
+  onDismiss,
   onContinue,
 }: Props) {
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
+  const cardW = Math.min(width - 48, CARD_MAX_W);
   const burst = useSharedValue(0);
   const pop = useSharedValue(1);
   const breathe = useSharedValue(0);
@@ -120,123 +136,147 @@ export function CleanDayScene({
     opacity: 0.55 + breathe.value * 0.3,
   }));
 
-  const centerY = 110 + STAGE_H / 2;
-
   return (
     <Modal
       visible={visible}
+      transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={onLater}
+      onRequestClose={onDismiss}
     >
-      <View style={styles.root}>
-        {/* Warm light behind the emblem, fading into the app's navy. */}
-        <Svg
-          width={width}
-          height={height}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        >
-          <Defs>
-            <RadialGradient
-              id="cd-glow"
-              cx={width / 2}
-              cy={centerY}
-              rx={width * 0.95}
-              ry={width * 0.95}
-              gradientUnits="userSpaceOnUse"
+      <Pressable style={styles.backdrop} onPress={onDismiss}>
+        {/* The inner Pressable swallows taps so only the dim area dismisses. */}
+        <Pressable style={{ width: cardW, alignItems: 'center' }}>
+          {/* Behind the panel: rings, sparks and the emblem's glow, all
+              centred on the emblem. The panel covers their lower half. */}
+          <View style={[styles.halo, { width: cardW }]} pointerEvents="none">
+            <PulseRing delay={0} />
+            <PulseRing delay={1200} />
+            <PulseRing delay={2400} />
+            {Array.from({ length: SPARKS }, (_, i) => (
+              <Spark key={i} index={i} burst={burst} />
+            ))}
+            <Animated.View style={[styles.emblemGlow, glowStyle]} />
+          </View>
+
+          <View style={[styles.card, { width: cardW }]}>
+            {/* Warm light pooling at the top of the panel. */}
+            <Svg
+              width={cardW}
+              height={260}
+              style={styles.cardLight}
+              pointerEvents="none"
             >
-              <Stop offset="0" stopColor={GOLD} stopOpacity={0.2} />
-              <Stop offset="0.38" stopColor="#2A6BB8" stopOpacity={0.09} />
-              <Stop offset="1" stopColor={dsColors.bgBase} stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-          <Rect
-            x={0}
-            y={0}
-            width={width}
-            height={height}
-            fill="url(#cd-glow)"
-          />
-        </Svg>
+              <Defs>
+                <RadialGradient
+                  id="cd-card-glow"
+                  cx={cardW / 2}
+                  cy={0}
+                  rx={cardW * 0.7}
+                  ry={230}
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <Stop offset="0" stopColor={GOLD} stopOpacity={0.2} />
+                  <Stop offset="1" stopColor={GOLD} stopOpacity={0} />
+                </RadialGradient>
+              </Defs>
+              <Rect
+                x={0}
+                y={0}
+                width={cardW}
+                height={260}
+                fill="url(#cd-card-glow)"
+              />
+            </Svg>
 
-        <View style={styles.stage} pointerEvents="none">
-          <PulseRing delay={0} />
-          <PulseRing delay={1200} />
-          <PulseRing delay={2400} />
-
-          {Array.from({ length: SPARKS }, (_, i) => (
-            <Spark key={i} index={i} burst={burst} />
-          ))}
-
-          <Animated.View style={[styles.emblemGlow, glowStyle]} />
-          <Animated.View style={[styles.emblem, emblemStyle]}>
-            <Sunrise size={56} color={GOLD} strokeWidth={1.6} />
-          </Animated.View>
-        </View>
-
-        {stage === 'ask' ? (
-          <Animated.View
-            key="ask"
-            entering={FadeIn.duration(360)}
-            style={styles.body}
-          >
-            <Text style={styles.eyebrow}>{t('clean_day.eyebrow')}</Text>
-            <Text style={styles.title}>{t('clean_day.title')}</Text>
-            <Text style={[styles.reward, DISPLAY_FACE]}>+{points}</Text>
-            <Text style={styles.rewardLabel}>{t('clean_day.bonus_label')}</Text>
-            <Text style={styles.copy}>{t('clean_day.body')}</Text>
-          </Animated.View>
-        ) : (
-          <Animated.View
-            key="saved"
-            entering={FadeInDown.duration(420)}
-            style={styles.body}
-          >
-            <Text style={styles.eyebrow}>{t('clean_day.saved_eyebrow')}</Text>
-            <Text style={styles.title}>{t('clean_day.saved_title')}</Text>
-            <CountUp
-              to={result?.points ?? points}
-              style={[styles.reward, DISPLAY_FACE]}
-            />
-            <Text style={styles.rewardLabel}>{t('active.points_earned')}</Text>
-            {result ? <RankStrip total={result.total} /> : null}
-          </Animated.View>
-        )}
-
-        <View style={styles.actions}>
-          {stage === 'ask' ? (
-            <>
-              <Pressable
-                style={[styles.cta, busy && styles.ctaBusy]}
-                onPress={onClaim}
-                disabled={busy}
-                accessibilityRole="button"
+            {stage === 'ask' ? (
+              <Animated.View
+                key="ask"
+                entering={FadeIn.duration(320)}
+                style={styles.content}
               >
-                <Text style={styles.ctaText}>
-                  {t('clean_day.claim', { points })}
+                <Text style={styles.eyebrow}>{t('clean_day.eyebrow')}</Text>
+                <Text style={styles.title}>{t('clean_day.title')}</Text>
+                <Text style={styles.copy}>{t('clean_day.body')}</Text>
+                <Pressable
+                  style={[styles.cta, busy && styles.ctaBusy]}
+                  onPress={onNo}
+                  disabled={busy}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.ctaText}>{t('clean_day.no')}</Text>
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>+{points}</Text>
+                  </View>
+                </Pressable>
+                <Pressable
+                  style={[styles.ghost, busy && styles.ctaBusy]}
+                  onPress={onYes}
+                  disabled={busy}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.ghostText}>{t('clean_day.yes')}</Text>
+                </Pressable>
+              </Animated.View>
+            ) : null}
+
+            {stage === 'saved' ? (
+              <Animated.View
+                key="saved"
+                entering={FadeInDown.duration(380)}
+                style={styles.content}
+              >
+                <Text style={styles.eyebrow}>
+                  {t('clean_day.saved_eyebrow')}
                 </Text>
-              </Pressable>
-              <Pressable
-                onPress={onLater}
-                hitSlop={10}
-                style={styles.later}
-                accessibilityRole="button"
+                <Text style={styles.title}>{t('clean_day.saved_title')}</Text>
+                <CountUp
+                  to={result?.points ?? points}
+                  style={[styles.reward, DISPLAY_FACE]}
+                />
+                <Text style={styles.rewardLabel}>
+                  {t('active.points_earned')}
+                </Text>
+                {result ? <RankStrip total={result.total} /> : null}
+                <Pressable
+                  style={styles.cta}
+                  onPress={onContinue}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.ctaText}>{t('clean_day.continue')}</Text>
+                </Pressable>
+              </Animated.View>
+            ) : null}
+
+            {stage === 'honest' ? (
+              <Animated.View
+                key="honest"
+                entering={FadeInDown.duration(380)}
+                style={styles.content}
               >
-                <Text style={styles.laterText}>{t('clean_day.later')}</Text>
-              </Pressable>
-            </>
-          ) : (
-            <Pressable
-              style={styles.cta}
-              onPress={onContinue}
-              accessibilityRole="button"
-            >
-              <Text style={styles.ctaText}>{t('clean_day.continue')}</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
+                <Text style={styles.eyebrow}>{t('clean_day.eyebrow')}</Text>
+                <Text style={styles.title}>{t('clean_day.honest_title')}</Text>
+                <Text style={styles.copy}>{t('clean_day.honest_body')}</Text>
+                <Pressable
+                  style={styles.cta}
+                  onPress={onContinue}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.ctaText}>{t('clean_day.got_it')}</Text>
+                </Pressable>
+              </Animated.View>
+            ) : null}
+          </View>
+
+          {/* The emblem sits on the panel's top edge, above it. */}
+          <Animated.View
+            style={[styles.emblem, emblemStyle]}
+            pointerEvents="none"
+          >
+            <Sunrise size={42} color={GOLD} strokeWidth={1.6} />
+          </Animated.View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
@@ -256,8 +296,8 @@ function PulseRing({ delay }: { delay: number }) {
     return () => cancelAnimation(p);
   }, [p, delay]);
   const style = useAnimatedStyle(() => ({
-    opacity: interpolate(p.value, [0, 0.15, 1], [0, 0.42, 0]),
-    transform: [{ scale: interpolate(p.value, [0, 1], [0.85, 2.2]) }],
+    opacity: interpolate(p.value, [0, 0.15, 1], [0, 0.5, 0]),
+    transform: [{ scale: interpolate(p.value, [0, 1], [0.9, 2.5]) }],
   }));
   return <Animated.View style={[styles.ring, style]} />;
 }
@@ -271,7 +311,7 @@ function Spark({
   burst: SharedValue<number>;
 }) {
   const angle = (index / SPARKS) * Math.PI * 2 + (index % 2) * 0.18;
-  const dist = 96 + (index % 3) * 34;
+  const dist = 78 + (index % 3) * 30;
   const size = 4 + (index % 3) * 2;
   const style = useAnimatedStyle(() => ({
     opacity: interpolate(burst.value, [0, 0.12, 1], [0, 1, 0]),
@@ -355,15 +395,17 @@ function RankStrip({ total }: { total: number }) {
 }
 
 const styles = StyleSheet.create({
-  root: {
+  backdrop: {
     flex: 1,
-    backgroundColor: dsColors.bgBase,
+    backgroundColor: 'rgba(2, 8, 16, 0.82)',
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
-  stage: {
-    marginTop: 110,
-    width: '100%',
-    height: STAGE_H,
+  halo: {
+    position: 'absolute',
+    top: 0,
+    height: EMBLEM,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -384,76 +426,138 @@ const styles = StyleSheet.create({
     width: EMBLEM,
     height: EMBLEM,
     borderRadius: EMBLEM / 2,
-    boxShadow: `0 0 70px 10px ${hexAlpha(GOLD, 0.42)}`,
+    boxShadow: `0 0 54px 8px ${hexAlpha(GOLD, 0.42)}`,
   },
   emblem: {
+    position: 'absolute',
+    top: 0,
     width: EMBLEM,
     height: EMBLEM,
     borderRadius: EMBLEM / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: hexAlpha(GOLD, 0.08),
+    backgroundColor: '#1A1D27',
     borderWidth: 1.5,
-    borderColor: hexAlpha(GOLD, 0.6),
-    boxShadow: `inset 0 0 26px ${hexAlpha(GOLD, 0.16)}`,
+    borderColor: hexAlpha(GOLD, 0.7),
+    boxShadow: `inset 0 0 20px ${hexAlpha(GOLD, 0.2)}`,
   },
-  body: {
-    width: '100%',
-    paddingHorizontal: 32,
+  card: {
+    marginTop: EMBLEM / 2,
+    backgroundColor: '#0A1628',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: hexAlpha(GOLD, 0.26),
+    overflow: 'hidden',
+    boxShadow: `0 24px 60px rgba(0, 0, 0, 0.6), 0 0 36px ${hexAlpha(GOLD, 0.1)}`,
+  },
+  cardLight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  content: {
+    paddingTop: EMBLEM / 2 + 14,
+    paddingBottom: 22,
+    paddingHorizontal: 22,
     alignItems: 'center',
   },
   eyebrow: {
-    color: hexAlpha(GOLD, 0.85),
-    fontSize: 11,
+    color: hexAlpha(GOLD, 0.9),
+    fontSize: 10.5,
     fontWeight: '700',
-    letterSpacing: 3.2,
+    letterSpacing: 3,
     textTransform: 'uppercase',
   },
   title: {
-    marginTop: 10,
+    marginTop: 8,
     color: '#F4F9FF',
-    fontSize: 30,
+    fontSize: 22,
     fontWeight: '600',
     letterSpacing: 0.2,
+    lineHeight: 28,
     textAlign: 'center',
   },
+  copy: {
+    marginTop: 8,
+    color: dsColors.textSecondary,
+    fontSize: 13.5,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
+  cta: {
+    marginTop: 20,
+    alignSelf: 'stretch',
+    height: 52,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: GOLD,
+    boxShadow: `0 6px 22px ${hexAlpha(GOLD, 0.3)}`,
+  },
+  ctaBusy: {
+    opacity: 0.55,
+  },
+  ctaText: {
+    color: '#0A1220',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: 'rgba(10, 18, 32, 0.16)',
+  },
+  badgeText: {
+    color: '#0A1220',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  ghost: {
+    marginTop: 10,
+    alignSelf: 'stretch',
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(143, 165, 204, 0.3)',
+  },
+  ghostText: {
+    color: dsColors.textSecondary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
   reward: {
-    marginTop: 18,
+    marginTop: 10,
     color: GOLD,
-    fontSize: 60,
-    lineHeight: 68,
+    fontSize: 52,
+    lineHeight: 60,
     fontVariant: ['tabular-nums'],
   },
   rewardLabel: {
-    marginTop: 0,
     color: dsColors.textTertiary,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
     letterSpacing: 2,
     textTransform: 'uppercase',
   },
-  copy: {
-    marginTop: 18,
-    maxWidth: 290,
-    color: dsColors.textSecondary,
-    fontSize: 14.5,
-    lineHeight: 21,
-    textAlign: 'center',
-  },
   strip: {
-    marginTop: 26,
+    marginTop: 18,
     width: '100%',
-    maxWidth: 300,
     alignItems: 'center',
   },
   stripTotal: {
     color: '#EAF3FF',
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '600',
     letterSpacing: 0.2,
   },
   track: {
-    marginTop: 12,
+    marginTop: 10,
     width: '100%',
     height: 6,
     borderRadius: 3,
@@ -466,42 +570,8 @@ const styles = StyleSheet.create({
     backgroundColor: GOLD,
   },
   stripNext: {
-    marginTop: 10,
+    marginTop: 8,
     color: dsColors.textSecondary,
-    fontSize: 13,
-  },
-  actions: {
-    position: 'absolute',
-    left: 24,
-    right: 24,
-    bottom: 54,
-    alignItems: 'center',
-  },
-  cta: {
-    alignSelf: 'stretch',
-    height: 56,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: GOLD,
-    boxShadow: `0 8px 28px ${hexAlpha(GOLD, 0.32)}`,
-  },
-  ctaBusy: {
-    opacity: 0.6,
-  },
-  ctaText: {
-    color: '#0A1220',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  later: {
-    marginTop: 16,
-    paddingVertical: 6,
-  },
-  laterText: {
-    color: dsColors.textTertiary,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12.5,
   },
 });

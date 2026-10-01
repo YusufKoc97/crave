@@ -1038,13 +1038,12 @@
     "close": "Kapat"
   },
   "clean_day": {
-    "pill": "Dün dürtü gelmedi mi? +{{points}}",
+    "pill": "Dün nasıl geçti? +{{points}}",
     "eyebrow": "Dün",
-    "title": "Hiç dürtü gelmedi mi?",
-    "body": "Sakin bir gündüyse bonusunu al. Kendine karşı dürüst ol.",
-    "bonus_label": "Bonus puan",
-    "claim": "+{{points}} Al",
-    "later": "Şimdi değil",
+    "title": "Dün hiç dürtü geldi mi?",
+    "body": "Kendine karşı dürüst ol. Bu sadece senin için.",
+    "no": "Dürtü gelmedi",
+    "yes": "Evet, geldi",
     "err_had_sessions": "O gün bir dürtü kaydettin, o yüzden temiz sayılamaz.",
     "err_generic": "Kaydedilemedi. Biraz sonra tekrar dene.",
     "saved_eyebrow": "Bonus",
@@ -1052,6 +1051,9 @@
     "total_line": "Toplam {{total}} puan",
     "to_next": "{{rank}} için {{points}} puan",
     "top_rank": "En üst rütbedesin",
-    "continue": "Devam"
+    "continue": "Devam",
+    "honest_title": "Dürüst olduğun için sağ ol",
+    "honest_body": "Dürtüler gelip geçer. Bir sonrakinde Diren'e bas, temiz günden daha çok puan kazandırır.",
+    "got_it": "Tamam"
   }
 }
